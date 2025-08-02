@@ -9,7 +9,7 @@ from typing import List, Optional, Tuple
 
 import pygame
 
-from settings import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, BG_COLOR, 
+from settings import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, BG_COLOR,
                       MAP_WIDTH_TILES, MAP_HEIGHT_TILES)
 from camera import Camera
 from map import Map
@@ -30,7 +30,7 @@ class Game:
 
         self.map = Map(MAP_WIDTH_TILES, MAP_HEIGHT_TILES)
         self.hovered_tile: Optional[Tuple[int, int]] = None
-        
+
         # Game object management
         self.units: List[Unit] = []
         self.selected_unit: Optional[Unit] = None
@@ -71,7 +71,7 @@ class Game:
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     self.running = False
-            
+
             self._handle_mouse_events(event)
 
     def _handle_mouse_events(self, event: pygame.event.Event) -> None:
