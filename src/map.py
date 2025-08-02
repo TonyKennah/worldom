@@ -7,7 +7,6 @@ import noise
 
 import heapq
 from typing import List, Tuple, Optional, Dict
-from __future__ import annotations
 from typing import TYPE_CHECKING
 from settings import (TILE_SIZE, TERRAIN_COLORS, GRID_LINE_COLOR, 
                       HIGHLIGHT_COLOR, MIN_TILE_PIXELS_FOR_GRID, 
