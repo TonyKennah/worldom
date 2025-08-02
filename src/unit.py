@@ -60,7 +60,7 @@ class Unit:
     def draw(self, surface: pygame.Surface, camera: Camera) -> None:
         """Draws the unit on the screen."""
         screen_pos = camera.world_to_screen(self.world_pos)
-        radius = int(UNIT_RADIUS * camera.zoom)
+        radius = int(UNIT_RADIUS * camera.zoom_state.current)
 
         # Draw selection circle first (underneath the unit)
         if self.selected:

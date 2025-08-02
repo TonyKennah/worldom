@@ -106,7 +106,7 @@ class Map:
                     pygame.draw.rect(surface, TERRAIN_COLORS[terrain], screen_rect)
 
         # --- 2. Draw Grid Lines (if zoomed in) ---
-        scaled_tile_size = self.tile_size * camera.zoom
+        scaled_tile_size = self.tile_size * camera.zoom_state.current
         if scaled_tile_size >= MIN_TILE_PIXELS_FOR_GRID:
             for col in range(start_col, end_col):
                 world_x = col * self.tile_size
