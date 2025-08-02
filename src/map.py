@@ -18,6 +18,14 @@ from settings import (TILE_SIZE, TERRAIN_COLORS, GRID_LINE_COLOR,
 if TYPE_CHECKING:
     from camera import Camera
 
+class AStarState:
+    """Helper class to hold the state of an A* pathfinding search."""
+    # pylint: disable=too-few-public-methods
+    def __init__(self, start_node: Tuple[int, int]):
+        self.priority_queue: List[Tuple[float, Tuple[int, int]]] = [(0, start_node)]
+        self.came_from: Dict[Tuple[int, int], Optional[Tuple[int, int]]] = {start_node: None}
+        self.g_cost: Dict[Tuple[int, int], float] = {start_node: 0}
+
 # --- Map Generation Constants ---
 # These can be tweaked to change the world's appearance
 ELEVATION_SCALE = 60.0
@@ -166,6 +174,26 @@ class Map:
             current = came_from[current]
         return path[::-1]
 
+    def _process_path_neighbor(
+        self,
+        current_node: Tuple[int, int],
+        next_node: Tuple[int, int],
+        end_node: Tuple[int, int],
+        state: AStarState
+    ) -> None:
+        """Processes a single neighbor in the A* search."""
+        if not self.is_walkable(next_node):
+            return
+
+        # Add a small random cost to each step to make the path less straight.
+        move_cost = 1.0 + random.uniform(0.0, 0.5)
+        new_g_cost = state.g_cost[current_node] + move_cost
+        if next_node not in state.g_cost or new_g_cost < state.g_cost[next_node]:
+            state.g_cost[next_node] = new_g_cost
+            f_cost = new_g_cost + Map._heuristic(next_node, end_node)
+            heapq.heappush(state.priority_queue, (f_cost, next_node))
+            state.came_from[next_node] = current_node
+
     def find_path(
         self,
         start_tile: pygame.math.Vector2,
@@ -178,31 +206,18 @@ class Map:
         if start_node == end_node:
             return []
 
-        # The priority queue will store (f_cost, node)
-        priority_queue: List[Tuple[float, Tuple[int, int]]] = [(0, start_node)]
-        # came_from stores the node we came from to reach the key node
-        came_from: Dict[Tuple[int, int], Optional[Tuple[int, int]]] = {start_node: None}
-        # g_cost stores the cost of the cheapest path from start to the key node
-        g_cost: Dict[Tuple[int, int], float] = {start_node: 0}
+        state = AStarState(start_node)
 
-        while priority_queue:
+        while state.priority_queue:
             # Get the node with the lowest f_cost
-            _, current_node = heapq.heappop(priority_queue)
+            _, current_node = heapq.heappop(state.priority_queue)
 
             if current_node == end_node:
-                return self._reconstruct_path(came_from, current_node)
+                return self._reconstruct_path(state.came_from, current_node)
 
             (x, y) = current_node
             for next_node in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]:
-                if not self.is_walkable(next_node):
-                    continue
-
-                # Add a small random cost to each step to make the path less straight.
-                move_cost = 1.0 + random.uniform(0.0, 0.5)
-                new_g_cost = g_cost[current_node] + move_cost
-                if next_node not in g_cost or new_g_cost < g_cost[next_node]:
-                    g_cost[next_node] = new_g_cost
-                    f_cost = new_g_cost + Map._heuristic(next_node, end_node)
-                    heapq.heappush(priority_queue, (f_cost, next_node))
-                    came_from[next_node] = current_node
+                self._process_path_neighbor(
+                    current_node, next_node, end_node, state
+                )
         return None # No path found
