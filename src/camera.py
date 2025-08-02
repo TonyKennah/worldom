@@ -2,7 +2,7 @@
 """
 Defines the Camera class for managing the game's viewport.
 """
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import pygame
 
@@ -10,6 +10,7 @@ from settings import CAMERA_SPEED
 
 class ZoomState:
     """Encapsulates the state and logic for camera zooming."""
+    # pylint: disable=too-few-public-methods
     def __init__(self) -> None:
         self.levels = [0.125, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0]
         self.index = self.levels.index(1.0)
@@ -17,12 +18,14 @@ class ZoomState:
 
 class PanningState:
     """Encapsulates the state for mouse panning."""
+    # pylint: disable=too-few-public-methods
     def __init__(self) -> None:
         self.dragging = False
         self.drag_pos: Optional[pygame.math.Vector2] = None
 
 class Camera:
     """Manages the game's viewport, handling zoom and panning."""
+
     def __init__(self, width: int, height: int) -> None:
         """Initializes the camera."""
         self.width = width
@@ -35,11 +38,13 @@ class Camera:
 
     def screen_to_world(self, screen_pos: Tuple[int, int]) -> pygame.math.Vector2:
         """Converts screen coordinates to world coordinates."""
-        return (pygame.math.Vector2(screen_pos) - self.screen_center) / self.zoom_state.current + self.position
+        world_offset = (pygame.math.Vector2(screen_pos) - self.screen_center) / self.zoom_state.current
+        return world_offset + self.position
 
     def world_to_screen(self, world_pos: pygame.math.Vector2) -> pygame.math.Vector2:
         """Converts world coordinates to screen coordinates."""
-        return (pygame.math.Vector2(world_pos) - self.position) * self.zoom_state.current + self.screen_center
+        screen_offset = (pygame.math.Vector2(world_pos) - self.position) * self.zoom_state.current
+        return screen_offset + self.screen_center
 
     def apply(self, rect: pygame.Rect) -> pygame.Rect:
         """Applies camera transformation to a pygame.Rect."""
