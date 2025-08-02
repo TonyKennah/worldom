@@ -19,7 +19,7 @@ class Camera:
         self.zoom_levels = [0.125, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0]
         self.zoom_index = self.zoom_levels.index(1.0)
         self.zoom = self.zoom_levels[self.zoom_index]
-        
+
         # Mouse panning state
         self.dragging = False
         self.drag_pos = None
@@ -42,9 +42,12 @@ class Camera:
 
     def update(self, dt: float, events: List[pygame.event.Event]) -> None:
         """Updates camera position based on user input."""
-        keys = pygame.key.get_pressed()
+        self._handle_keyboard_movement(dt)
+        self._handle_mouse_input(events)
 
-        # --- WASD Movement ---
+    def _handle_keyboard_movement(self, dt: float) -> None:
+        """Moves the camera based on WASD key presses."""
+        keys = pygame.key.get_pressed()
         move_vec = pygame.math.Vector2(0, 0)
         if keys[pygame.K_w]:
             move_vec.y -= 1
@@ -60,33 +63,32 @@ class Camera:
             # Scale movement by zoom level to feel consistent
             self.position += move_vec * CAMERA_SPEED / self.zoom * dt
 
-        # --- Mouse Panning and Zooming ---
+    def _handle_mouse_input(self, events: List[pygame.event.Event]) -> None:
+        """Handles mouse zooming and panning."""
         for event in events:
-            # Zooming (centered on mouse)
             if event.type == pygame.MOUSEWHEEL:
-                mouse_pos_before_zoom = self.screen_to_world(pygame.mouse.get_pos())
-
-                # Increment/decrement the zoom index
-                if event.y > 0: # Zoom in
-                    self.zoom_index = min(len(self.zoom_levels) - 1, self.zoom_index + 1)
-                elif event.y < 0: # Zoom out
-                    self.zoom_index = max(0, self.zoom_index - 1)
-                
-                self.zoom = self.zoom_levels[self.zoom_index]
-                
-                mouse_pos_after_zoom = self.screen_to_world(pygame.mouse.get_pos())
-                self.position += mouse_pos_before_zoom - mouse_pos_after_zoom
-
-            # Panning (drag with left mouse button)
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                self._handle_zoom(event)
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 self.dragging = True
                 self.drag_pos = pygame.math.Vector2(event.pos)
-
-            if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 self.dragging = False
                 self.drag_pos = None
-
-            if event.type == pygame.MOUSEMOTION and self.dragging:
+            elif event.type == pygame.MOUSEMOTION and self.dragging:
                 drag_vec = pygame.math.Vector2(event.pos) - self.drag_pos
                 self.position -= drag_vec / self.zoom
                 self.drag_pos = pygame.math.Vector2(event.pos)
+
+    def _handle_zoom(self, event: pygame.event.Event) -> None:
+        """Adjusts camera zoom based on mouse wheel events."""
+        mouse_pos_before_zoom = self.screen_to_world(pygame.mouse.get_pos())
+
+        if event.y > 0:  # Zoom in
+            self.zoom_index = min(len(self.zoom_levels) - 1, self.zoom_index + 1)
+        elif event.y < 0:  # Zoom out
+            self.zoom_index = max(0, self.zoom_index - 1)
+
+        self.zoom = self.zoom_levels[self.zoom_index]
+
+        mouse_pos_after_zoom = self.screen_to_world(pygame.mouse.get_pos())
+        self.position += mouse_pos_before_zoom - mouse_pos_after_zoom

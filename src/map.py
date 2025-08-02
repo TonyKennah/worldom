@@ -124,11 +124,19 @@ class Map:
             pygame.draw.rect(surface, HIGHLIGHT_COLOR, screen_rect, 3)
 
     @staticmethod
-    def _heuristic(a: Tuple[int, int], b: Tuple[int, int]) -> float:
+    def _heuristic(pos_a: Tuple[int, int], pos_b: Tuple[int, int]) -> float:
         """Calculates the Manhattan distance between two points for the A* heuristic."""
-        (x1, y1) = a
-        (x2, y2) = b
-        return abs(x1 - x2) + abs(y1 - y2)
+        (x1, y1) = pos_a
+        (x2, y2) = pos_b
+        return float(abs(x1 - x2) + abs(y1 - y2))
+
+    def _reconstruct_path(self, came_from: Dict, current: Tuple[int, int]) -> List[Tuple[int, int]]:
+        """Reconstructs a path from the came_from dictionary."""
+        path = []
+        while current in came_from:
+            path.append(current)
+            current = came_from[current]
+        return path[::-1]
 
     def find_path(self, start_tile: pygame.math.Vector2, end_tile: pygame.math.Vector2) -> Optional[List[Tuple[int, int]]]:
         """Finds a path between two tiles using the A* algorithm."""
@@ -147,15 +155,10 @@ class Map:
 
         while priority_queue:
             # Get the node with the lowest f_cost
-            _, current_node = heapq.heappop(priority_queue)
+            _current_cost, current_node = heapq.heappop(priority_queue)
 
             if current_node == end_node:
-                # Reconstruct path by backtracking
-                path = []
-                while current_node is not None:
-                    path.append(current_node)
-                    current_node = came_from[current_node]
-                return path[::-1][1:]
+                return self._reconstruct_path(came_from, current_node)
 
             (x, y) = current_node
             for next_node in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]:
@@ -168,7 +171,7 @@ class Map:
                 new_g_cost = g_cost[current_node] + move_cost
                 if next_node not in g_cost or new_g_cost < g_cost[next_node]:
                     g_cost[next_node] = new_g_cost
-                    f_cost = new_g_cost + self._heuristic(next_node, end_node)
+                    f_cost = new_g_cost + Map._heuristic(next_node, end_node)
                     heapq.heappush(priority_queue, (f_cost, next_node))
                     came_from[next_node] = current_node
         return None # No path found

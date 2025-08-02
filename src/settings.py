@@ -1,4 +1,7 @@
 # c:/game/worldom/settings.py
+"""
+Centralized settings and constants for the game.
+"""
 
 # --- General Settings ---
 SCREEN_WIDTH = 800
