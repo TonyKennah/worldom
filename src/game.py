@@ -99,7 +99,8 @@ class Game:
     def _handle_right_click_command(self) -> None:
         """Issues a move command to the selected unit."""
         if self.world_state.selected_unit and self.world_state.hovered_tile:
-            terrain = self.map.data[self.world_state.hovered_tile[1]][self.world_state.hovered_tile[0]]
+            tile_x, tile_y = self.world_state.hovered_tile
+            terrain = self.map.data[tile_y][tile_x]
             if terrain != 'water':  # Allow interrupting the current path
                 start_pos = self.world_state.selected_unit.tile_pos
                 end_pos = self.world_state.hovered_tile
