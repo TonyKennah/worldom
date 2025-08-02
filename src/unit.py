@@ -1,16 +1,14 @@
 # c:/game/worldom/unit.py
-import pygame
 from __future__ import annotations
-from typing import List, Tuple, TYPE_CHECKING
+import pygame
+
+from typing import List, Tuple
 from settings import (TILE_SIZE, UNIT_RADIUS, UNIT_MOVES_PER_SECOND, 
                       UNIT_COLOR, UNIT_SELECTED_COLOR)
 
-if TYPE_CHECKING:
-    from camera import Camera
-
 class Unit:
     """Represents a single unit in the game."""
-    def __init__(self, tile_pos: Tuple[int, int]) -> None:
+    def __init__(self, tile_pos: Tuple[int, int]):
         """
         Initializes a unit.
         Args:
@@ -20,9 +18,9 @@ class Unit:
         self.tile_pos = pygame.math.Vector2(tile_pos)
         # Pixel position in the world for smooth movement
         self.world_pos = (self.tile_pos * TILE_SIZE) + pygame.math.Vector2(TILE_SIZE / 2)
-        self.selected: bool = False
-        self.path: List[Tuple[int, int]] = []
-        self.move_timer: float = 0.0
+        self.selected = False
+        self.path = []
+        self.move_timer = 0.0
 
     def get_world_rect(self):
         """Gets the unit's bounding box in world coordinates for selection."""
@@ -49,9 +47,9 @@ class Unit:
             self.tile_pos = pygame.math.Vector2(next_tile)
             self.world_pos = (self.tile_pos * TILE_SIZE) + pygame.math.Vector2(TILE_SIZE / 2)
 
-    def draw(self, surface: pygame.Surface, camera: Camera) -> None:
+    def draw(self, surface, camera):
         """Draws the unit on the screen."""
-        screen_pos: pygame.math.Vector2 = camera.world_to_screen(self.world_pos)
+        screen_pos = camera.world_to_screen(self.world_pos)
         radius = int(UNIT_RADIUS * camera.zoom)
         
         # Draw selection circle first (underneath the unit)

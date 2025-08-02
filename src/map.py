@@ -1,8 +1,10 @@
 # c:/game/worldom/map.py
+from __future__ import annotations
 import pygame
 import random
 import math
 import noise
+
 import heapq
 from typing import List, Tuple, Optional, Dict
 from __future__ import annotations
