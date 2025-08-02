@@ -2,7 +2,6 @@
 """
 Defines the main Game class that orchestrates all game components.
 """
-import math
 import random
 import sys
 from typing import List, Optional, Tuple
@@ -90,7 +89,9 @@ class Game:
             if self.world_state.left_mouse_down_pos:
                 start_pos = self.world_state.left_mouse_down_pos
                 end_pos = event.pos
-                dist = pygame.math.Vector2(start_pos).distance_to(end_pos)
+                vec_start = pygame.math.Vector2(start_pos)
+                vec_end = pygame.math.Vector2(end_pos)
+                dist = vec_start.distance_to(vec_end)
                 if dist < 5:  # Threshold for a click
                     self._handle_left_click_selection(event.pos)
             self.world_state.left_mouse_down_pos = None  # Reset after use
