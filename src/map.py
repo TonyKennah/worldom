@@ -133,9 +133,7 @@ class Map:
     @staticmethod
     def _heuristic(pos_a: Tuple[int, int], pos_b: Tuple[int, int]) -> float:
         """Calculates the Manhattan distance between two points for the A* heuristic."""
-        (x1, y1) = pos_a
-        (x2, y2) = pos_b
-        return float(abs(x1 - x2) + abs(y1 - y2))
+        return float(abs(pos_a[0] - pos_b[0]) + abs(pos_a[1] - pos_b[1]))
 
     def _reconstruct_path(self, came_from: Dict, current: Tuple[int, int]) -> List[Tuple[int, int]]:
         """Reconstructs a path from the came_from dictionary."""
@@ -162,7 +160,7 @@ class Map:
 
         while priority_queue:
             # Get the node with the lowest f_cost
-            _current_cost, current_node = heapq.heappop(priority_queue)
+            _, current_node = heapq.heappop(priority_queue)
 
             if current_node == end_node:
                 return self._reconstruct_path(came_from, current_node)

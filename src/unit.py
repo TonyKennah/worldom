@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, List, Tuple
 
 import pygame
 
-from settings import (TILE_SIZE, UNIT_RADIUS, UNIT_MOVES_PER_SECOND, 
-                      UNIT_COLOR, UNIT_SELECTED_COLOR)
+from settings import (TILE_SIZE, UNIT_RADIUS, UNIT_MOVES_PER_SECOND,
+                      UNIT_COLOR, UNIT_SELECTED_COLOR, UNIT_INNER_CIRCLE_RATIO)
 
 if TYPE_CHECKING:
     from camera import Camera
@@ -31,7 +31,10 @@ class Unit:
 
     def get_world_rect(self) -> pygame.Rect:
         """Gets the unit's bounding box in world coordinates for selection."""
-        return pygame.Rect(self.world_pos.x - UNIT_RADIUS, self.world_pos.y - UNIT_RADIUS, UNIT_RADIUS * 2, UNIT_RADIUS * 2)
+        size = UNIT_RADIUS * 2
+        top_left_x = self.world_pos.x - UNIT_RADIUS
+        top_left_y = self.world_pos.y - UNIT_RADIUS
+        return pygame.Rect(top_left_x, top_left_y, size, size)
 
     def set_path(self, path: List[Tuple[int, int]]) -> None:
         """Sets a new path for the unit to follow."""
@@ -56,12 +59,13 @@ class Unit:
 
     def draw(self, surface: pygame.Surface, camera: Camera) -> None:
         """Draws the unit on the screen."""
-        screen_pos: pygame.math.Vector2 = camera.world_to_screen(self.world_pos)
+        screen_pos = camera.world_to_screen(self.world_pos)
         radius = int(UNIT_RADIUS * camera.zoom)
-        
+
         # Draw selection circle first (underneath the unit)
         if self.selected:
             pygame.draw.circle(surface, UNIT_SELECTED_COLOR, screen_pos, radius)
-            pygame.draw.circle(surface, UNIT_COLOR, screen_pos, int(radius * 0.8)) # Inner circle
+            inner_radius = int(radius * UNIT_INNER_CIRCLE_RATIO)
+            pygame.draw.circle(surface, UNIT_COLOR, screen_pos, inner_radius)
         else:
             pygame.draw.circle(surface, UNIT_COLOR, screen_pos, radius)
