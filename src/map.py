@@ -84,7 +84,12 @@ class Map:
                         world[y][x] = "grass"  # Grassland
         return world
 
-    def draw(self, surface: pygame.Surface, camera: Camera, hovered_tile: Optional[Tuple[int, int]] = None) -> None:
+    def draw(
+        self,
+        surface: pygame.Surface,
+        camera: Camera,
+        hovered_tile: Optional[Tuple[int, int]] = None
+    ) -> None:
         """Renders only the visible portion of the map."""
         # Determine the visible tile range based on camera view
         top_left_world = camera.screen_to_world((0, 0))
