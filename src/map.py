@@ -126,23 +126,33 @@ class Map:
                     screen_rect = camera.apply(world_rect)
                     pygame.draw.rect(surface, TERRAIN_COLORS[terrain], screen_rect)
 
+    def _draw_vertical_grid_lines(self, surface: pygame.Surface, camera: Camera,
+                                  start_col: int, end_col: int) -> None:
+        """Draws the vertical grid lines."""
+        for col in range(start_col, end_col):
+            world_x = col * self.tile_size
+            screen_x = round(camera.world_to_screen(pygame.math.Vector2(world_x, 0)).x)
+            start_pos = (screen_x, 0)
+            end_pos = (screen_x, SCREEN_HEIGHT)
+            pygame.draw.line(surface, GRID_LINE_COLOR, start_pos, end_pos, 1)
+
+    def _draw_horizontal_grid_lines(self, surface: pygame.Surface, camera: Camera,
+                                    start_row: int, end_row: int) -> None:
+        """Draws the horizontal grid lines."""
+        for row in range(start_row, end_row):
+            world_y = row * self.tile_size
+            screen_y = round(camera.world_to_screen(pygame.math.Vector2(0, world_y)).y)
+            start_pos = (0, screen_y)
+            end_pos = (SCREEN_WIDTH, screen_y)
+            pygame.draw.line(surface, GRID_LINE_COLOR, start_pos, end_pos, 1)
+
     def _draw_grid_lines(self, surface: pygame.Surface, camera: Camera,
                          start_row: int, end_row: int, start_col: int, end_col: int) -> None:
         """Draws the grid lines over the terrain."""
         scaled_tile_size = self.tile_size * camera.zoom_state.current
         if scaled_tile_size >= MIN_TILE_PIXELS_FOR_GRID:
-            for col in range(start_col, end_col):
-                world_x = col * self.tile_size
-                screen_x = round(camera.world_to_screen(pygame.math.Vector2(world_x, 0)).x)
-                start_pos = (screen_x, 0)
-                end_pos = (screen_x, SCREEN_HEIGHT)
-                pygame.draw.line(surface, GRID_LINE_COLOR, start_pos, end_pos, 1)
-            for row in range(start_row, end_row):
-                world_y = row * self.tile_size
-                screen_y = round(camera.world_to_screen(pygame.math.Vector2(0, world_y)).y)
-                start_pos = (0, screen_y)
-                end_pos = (SCREEN_WIDTH, screen_y)
-                pygame.draw.line(surface, GRID_LINE_COLOR, start_pos, end_pos, 1)
+            self._draw_vertical_grid_lines(surface, camera, start_col, end_col)
+            self._draw_horizontal_grid_lines(surface, camera, start_row, end_row)
 
     def _draw_hover_highlight(self, surface: pygame.Surface, camera: Camera,
                               hovered_tile: Optional[Tuple[int, int]]) -> None:
