@@ -3,6 +3,7 @@ import pygame
 import sys
 import random
 import math
+from typing import List, Optional, Tuple
 
 from settings import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, BG_COLOR, 
                       MAP_WIDTH_TILES, MAP_HEIGHT_TILES)
@@ -13,30 +14,30 @@ from unit import Unit
 # --- Game Class ---
 class Game:
     """The main game class, orchestrating all game components."""
-    def __init__(self):
+    def __init__(self) -> None:
         pygame.init()
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("Strategy Game with Camera")
         self.clock = pygame.time.Clock()
-        self.running = True
-        self.events = []
+        self.running: bool = True
+        self.events: List[pygame.event.Event] = []
 
         self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
 
         self.map = Map(MAP_WIDTH_TILES, MAP_HEIGHT_TILES)
-        self.hovered_tile = None
+        self.hovered_tile: Optional[Tuple[int, int]] = None
         
         # Game object management
-        self.units = []
-        self.selected_unit = None
-        self.left_mouse_down_pos = None # For detecting clicks vs. drags
+        self.units: List[Unit] = []
+        self.selected_unit: Optional[Unit] = None
+        self.left_mouse_down_pos: Optional[Tuple[int, int]] = None # For detecting clicks vs. drags
         initial_unit = self._spawn_initial_units()
 
         # Center camera on the initial unit
         if initial_unit:
             self.camera.position = initial_unit.world_pos
 
-    def run(self):
+    def run(self) -> None:
         """The main game loop."""
         while self.running:
             dt = self.clock.tick(FPS) / 1000.0  # Delta time in seconds
@@ -47,7 +48,7 @@ class Game:
         pygame.quit()
         sys.exit()
 
-    def _spawn_initial_units(self):
+    def _spawn_initial_units(self) -> Unit:
         """Creates the starting units for the game and returns the first one."""
         # Find a valid starting position on a grass tile
         while True:
@@ -57,7 +58,7 @@ class Game:
                 self.units.append(new_unit)
                 return new_unit
 
-    def handle_events(self):
+    def handle_events(self) -> None:
         """Processes all user input and events."""
         self.events = pygame.event.get()
         for event in self.events:
@@ -104,7 +105,7 @@ class Game:
                 self.left_mouse_down_pos = None # Reset after use
 
 
-    def update(self, dt):
+    def update(self, dt: float) -> None:
         self.camera.update(dt, self.events)
 
         # Update all units
@@ -122,7 +123,7 @@ class Game:
         else:
             self.hovered_tile = None
 
-    def draw(self):
+    def draw(self) -> None:
         self.screen.fill(BG_COLOR)
         self.map.draw(self.screen, self.camera, self.hovered_tile)
 

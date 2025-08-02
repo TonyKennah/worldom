@@ -4,9 +4,15 @@ import random
 import math
 import noise
 import heapq
+from typing import List, Tuple, Optional, Dict
+from __future__ import annotations
+from typing import TYPE_CHECKING
 from settings import (TILE_SIZE, TERRAIN_COLORS, GRID_LINE_COLOR, 
                       HIGHLIGHT_COLOR, MIN_TILE_PIXELS_FOR_GRID, 
                       SCREEN_WIDTH, SCREEN_HEIGHT)
+
+if TYPE_CHECKING:
+    from camera import Camera
 
 class Map:
     """
@@ -14,15 +20,15 @@ class Map:
 
     Handles map generation and rendering, ensuring only visible tiles are drawn.
     """
-    def __init__(self, width, height):
+    def __init__(self, width: int, height: int) -> None:
         """Initializes the map."""
         self.width = width
         self.height = height
         self.tile_size = TILE_SIZE
         self.terrain_types = list(TERRAIN_COLORS.keys())
-        self.data = self._generate_map()
+        self.data: List[List[str]] = self._generate_map()
 
-    def _generate_map(self):
+    def _generate_map(self) -> List[List[str]]:
         """Creates a natural-looking map using two layers of Perlin noise."""
         # --- Elevation Noise (for continents and mountains) ---
         e_scale = 60.0
@@ -43,7 +49,7 @@ class Map:
         rock_threshold = 0.2    # Lowered again to make rocks even more common, increasing their coverage.
         lake_threshold = -0.35  # Raised to make inland lakes more common.
 
-        world = [[None for _ in range(self.width)] for _ in range(self.height)]
+        world: List[List[str]] = [["" for _ in range(self.width)] for _ in range(self.height)]
         
         for y in range(self.height):
             for x in range(self.width):
@@ -69,7 +75,7 @@ class Map:
                         world[y][x] = "grass"  # Grassland
         return world
 
-    def draw(self, surface, camera, hovered_tile=None):
+    def draw(self, surface: pygame.Surface, camera: Camera, hovered_tile: Optional[Tuple[int, int]] = None) -> None:
         """Renders only the visible portion of the map."""
         # Determine the visible tile range based on camera view
         top_left_world = camera.screen_to_world((0, 0))
@@ -108,13 +114,13 @@ class Map:
             screen_rect = camera.apply(world_rect)
             pygame.draw.rect(surface, HIGHLIGHT_COLOR, screen_rect, 3)
 
-    def _heuristic(self, a, b):
+    def _heuristic(self, a: Tuple[int, int], b: Tuple[int, int]) -> int:
         """Calculates the Manhattan distance between two points for the A* heuristic."""
         (x1, y1) = a
         (x2, y2) = b
         return abs(x1 - x2) + abs(y1 - y2)
 
-    def find_path(self, start_tile, end_tile):
+    def find_path(self, start_tile: pygame.math.Vector2, end_tile: pygame.math.Vector2) -> Optional[List[Tuple[int, int]]]:
         """Finds a path between two tiles using the A* algorithm."""
         start_node = tuple(map(int, start_tile))
         end_node = tuple(map(int, end_tile))
@@ -123,11 +129,11 @@ class Map:
             return []
 
         # The priority queue will store (f_cost, node)
-        priority_queue = [(0, start_node)]
+        priority_queue: List[Tuple[float, Tuple[int, int]]] = [(0, start_node)]
         # came_from stores the node we came from to reach the key node
-        came_from = {start_node: None}
+        came_from: Dict[Tuple[int, int], Optional[Tuple[int, int]]] = {start_node: None}
         # g_cost stores the cost of the cheapest path from start to the key node
-        g_cost = {start_node: 0}
+        g_cost: Dict[Tuple[int, int], float] = {start_node: 0}
 
         while priority_queue:
             # Get the node with the lowest f_cost

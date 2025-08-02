@@ -1,10 +1,11 @@
 # c:/game/worldom/camera.py
 import pygame
+from typing import List, Tuple
 from settings import CAMERA_SPEED
 
 class Camera:
     """Manages the game's viewport, handling zoom and panning."""
-    def __init__(self, width, height):
+    def __init__(self, width: int, height: int) -> None:
         """Initializes the camera."""
         self.width = width
         self.height = height
@@ -20,15 +21,15 @@ class Camera:
         self.dragging = False
         self.drag_pos = None
 
-    def screen_to_world(self, screen_pos):
+    def screen_to_world(self, screen_pos: Tuple[int, int]) -> pygame.math.Vector2:
         """Converts screen coordinates to world coordinates."""
         return (pygame.math.Vector2(screen_pos) - self.screen_center) / self.zoom + self.position
 
-    def world_to_screen(self, world_pos):
+    def world_to_screen(self, world_pos: pygame.math.Vector2) -> pygame.math.Vector2:
         """Converts world coordinates to screen coordinates."""
         return (pygame.math.Vector2(world_pos) - self.position) * self.zoom + self.screen_center
 
-    def apply(self, rect):
+    def apply(self, rect: pygame.Rect) -> pygame.Rect:
         """Applies camera transformation to a pygame.Rect."""
         top_left = self.world_to_screen(rect.topleft)
         w = rect.width * self.zoom
@@ -36,7 +37,7 @@ class Camera:
         # Rounding all values to prevent gaps/jitter from float truncation.
         return pygame.Rect(round(top_left.x), round(top_left.y), round(w), round(h))
 
-    def update(self, dt, events):
+    def update(self, dt: float, events: List[pygame.event.Event]) -> None:
         """Updates camera position based on user input."""
         keys = pygame.key.get_pressed()
 
