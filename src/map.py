@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 import noise
 import pygame
 
-from settings import (TILE_SIZE, TERRAIN_COLORS, GRID_LINE_COLOR, 
-                      HIGHLIGHT_COLOR, MIN_TILE_PIXELS_FOR_GRID, 
+from settings import (TILE_SIZE, TERRAIN_COLORS, GRID_LINE_COLOR,
+                      HIGHLIGHT_COLOR, MIN_TILE_PIXELS_FOR_GRID,
                       SCREEN_WIDTH, SCREEN_HEIGHT)
 
 if TYPE_CHECKING:
@@ -52,7 +52,7 @@ class Map:
     def _generate_map(self) -> List[List[str]]:
         """Creates a natural-looking map using two layers of Perlin noise."""
         e_seed = random.randint(0, 100)
-        l_seed = random.randint(0, 100) # Different seed for a different pattern
+        l_seed = random.randint(0, 100)  # Different seed for a different pattern
 
         world: List[List[str]] = [["" for _ in range(self.width)] for _ in range(self.height)]
         
@@ -73,10 +73,10 @@ class Map:
                     world[y][x] = "rock"   # Mountains
                 else: # Potential land tile
                     nx_l, ny_l = x / LAKE_SCALE, y / LAKE_SCALE
-                    lake_value = noise.pnoise2(nx_l, ny_l, 
-                                               octaves=LAKE_OCTAVES, 
-                                               persistence=LAKE_PERSISTENCE, 
-                                               lacunarity=LAKE_LACUNARITY, 
+                    lake_value = noise.pnoise2(nx_l, ny_l,
+                                               octaves=LAKE_OCTAVES,
+                                               persistence=LAKE_PERSISTENCE,
+                                               lacunarity=LAKE_LACUNARITY,
                                                base=l_seed)
                     if lake_value < LAKE_THRESHOLD:
                         world[y][x] = "water" # Lake
