@@ -83,18 +83,21 @@ class Game:
                 self._handle_right_click_command()
 
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-            if self.left_mouse_down_pos:
-                dist = pygame.math.Vector2(self.left_mouse_down_pos).distance_to(event.pos)
+            if self.world_state.left_mouse_down_pos:
+                mouse_down_vec = pygame.math.Vector2(self.world_state.left_mouse_down_pos)
+                dist = mouse_down_vec.distance_to(event.pos)
                 if dist < 5:  # Threshold for a click
                     self._handle_left_click_selection(event.pos)
-            self.left_mouse_down_pos = None  # Reset after use
+            self.world_state.left_mouse_down_pos = None  # Reset after use
 
     def _handle_right_click_command(self) -> None:
         """Issues a move command to the selected unit."""
         if self.world_state.selected_unit and self.world_state.hovered_tile:
             terrain = self.map.data[self.world_state.hovered_tile[1]][self.world_state.hovered_tile[0]]
             if terrain != 'water':  # Allow interrupting the current path
-                path = self.map.find_path(self.world_state.selected_unit.tile_pos, self.world_state.hovered_tile)
+                start_pos = self.world_state.selected_unit.tile_pos
+                end_pos = self.world_state.hovered_tile
+                path = self.map.find_path(start_pos, end_pos)
                 if path is not None:
                     self.world_state.selected_unit.set_path(path)
             else:
@@ -155,7 +158,8 @@ class Game:
     def _update_caption(self) -> None:
         """Updates the window caption with helpful information."""
         world_pos = self.camera.screen_to_world(pygame.mouse.get_pos())
-        caption = f"Strategy Game | World: ({int(world_pos.x)}, {int(world_pos.y)})"
+        world_coords = f"({int(world_pos.x)}, {int(world_pos.y)})"
+        caption = f"Strategy Game | World: {world_coords}"
         if self.world_state.hovered_tile:
             terrain = self.map.data[self.world_state.hovered_tile[1]][self.world_state.hovered_tile[0]]
             caption += f" | Tile: {self.world_state.hovered_tile} ({terrain.capitalize()})"
