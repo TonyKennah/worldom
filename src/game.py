@@ -15,6 +15,15 @@ from camera import Camera
 from map import Map
 from unit import Unit
 
+class WorldState:
+    """Encapsulates the state of all game objects and player interaction."""
+    # pylint: disable=too-few-public-methods
+    def __init__(self) -> None:
+        self.units: List[Unit] = []
+        self.selected_unit: Optional[Unit] = None
+        self.hovered_tile: Optional[Tuple[int, int]] = None
+        self.left_mouse_down_pos: Optional[Tuple[int, int]] = None
+
 # --- Game Class ---
 class Game:
     """The main game class, orchestrating all game components."""
@@ -29,12 +38,7 @@ class Game:
         self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
 
         self.map = Map(MAP_WIDTH_TILES, MAP_HEIGHT_TILES)
-        self.hovered_tile: Optional[Tuple[int, int]] = None
-
-        # Game object management
-        self.units: List[Unit] = []
-        self.selected_unit: Optional[Unit] = None
-        self.left_mouse_down_pos: Optional[Tuple[int, int]] = None # For detecting clicks vs. drags
+        self.world_state = WorldState()
         initial_unit = self._spawn_initial_units()
 
         # Center camera on the initial unit
@@ -59,7 +63,7 @@ class Game:
             x, y = random.randint(0, self.map.width - 1), random.randint(0, self.map.height - 1)
             if self.map.data[y][x] == 'grass':
                 new_unit = Unit((x, y))
-                self.units.append(new_unit)
+                self.world_state.units.append(new_unit)
                 return new_unit
 
     def handle_events(self) -> None:
@@ -78,14 +82,15 @@ class Game:
         """Handles all mouse-related events."""
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
-                self.left_mouse_down_pos = event.pos
+                self.world_state.left_mouse_down_pos = event.pos
             elif event.button == 3:  # Right-click for commands
                 self._handle_right_click_command()
 
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             if self.world_state.left_mouse_down_pos:
-                mouse_down_vec = pygame.math.Vector2(self.world_state.left_mouse_down_pos)
-                dist = mouse_down_vec.distance_to(event.pos)
+                start_pos = self.world_state.left_mouse_down_pos
+                end_pos = event.pos
+                dist = pygame.math.Vector2(start_pos).distance_to(end_pos)
                 if dist < 5:  # Threshold for a click
                     self._handle_left_click_selection(event.pos)
             self.world_state.left_mouse_down_pos = None  # Reset after use
@@ -161,6 +166,8 @@ class Game:
         world_coords = f"({int(world_pos.x)}, {int(world_pos.y)})"
         caption = f"Strategy Game | World: {world_coords}"
         if self.world_state.hovered_tile:
-            terrain = self.map.data[self.world_state.hovered_tile[1]][self.world_state.hovered_tile[0]]
-            caption += f" | Tile: {self.world_state.hovered_tile} ({terrain.capitalize()})"
+            tile_x, tile_y = self.world_state.hovered_tile
+            terrain = self.map.data[tile_y][tile_x]
+            tile_info = f"({tile_x}, {tile_y}) ({terrain.capitalize()})"
+            caption += f" | Tile: {tile_info}"
         pygame.display.set_caption(caption)
