@@ -1,4 +1,7 @@
 # c:/game/worldom/camera.py
+"""
+Defines the Camera class for managing the game's viewport.
+"""
 import pygame
 from typing import List, Tuple
 from settings import CAMERA_SPEED

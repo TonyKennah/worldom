@@ -1,4 +1,7 @@
 # c:/game/worldom/game.py
+"""
+Defines the main Game class that orchestrates all game components.
+"""
 import pygame
 import sys
 import random
@@ -64,45 +67,54 @@ class Game:
         for event in self.events:
             if event.type == pygame.QUIT:
                 self.running = False
-            if event.type == pygame.KEYDOWN:
+            elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     self.running = False
             
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1:
-                    self.left_mouse_down_pos = event.pos
-                elif event.button == 3: # Right-click for commands
-                    if self.selected_unit and self.hovered_tile:
-                        terrain = self.map.data[self.hovered_tile[1]][self.hovered_tile[0]]
-                        if terrain != 'water': # Allow interrupting the current path
-                            path = self.map.find_path(self.selected_unit.tile_pos, self.hovered_tile)
-                            if path is not None:
-                                self.selected_unit.set_path(path)
-                        else:
-                            print("Unit cannot move into water.") # Added feedback
+            self._handle_mouse_events(event)
 
-            if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-                if self.left_mouse_down_pos:
-                    # Check if it was a click or a drag
-                    dist = pygame.math.Vector2(self.left_mouse_down_pos).distance_to(event.pos)
-                    if dist < 5: # Threshold for a click
-                        # --- This is a click, handle selection ---
-                        world_pos = self.camera.screen_to_world(event.pos)
-                        
-                        clicked_on_unit = False
-                        for unit in self.units:
-                            if unit.get_world_rect().collidepoint(world_pos):
-                                if self.selected_unit:
-                                    self.selected_unit.selected = False
-                                self.selected_unit = unit
-                                unit.selected = True
-                                clicked_on_unit = True
-                                break
-                        
-                        # If we didn't click a unit, deselect any active one
-                        if not clicked_on_unit and self.selected_unit:
-                            self.selected_unit.selected = False
-                self.left_mouse_down_pos = None # Reset after use
+    def _handle_mouse_events(self, event: pygame.event.Event) -> None:
+        """Handles all mouse-related events."""
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                self.left_mouse_down_pos = event.pos
+            elif event.button == 3:  # Right-click for commands
+                self._handle_right_click_command()
+
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            if self.left_mouse_down_pos:
+                dist = pygame.math.Vector2(self.left_mouse_down_pos).distance_to(event.pos)
+                if dist < 5:  # Threshold for a click
+                    self._handle_left_click_selection(event.pos)
+            self.left_mouse_down_pos = None  # Reset after use
+
+    def _handle_right_click_command(self) -> None:
+        """Issues a move command to the selected unit."""
+        if self.selected_unit and self.hovered_tile:
+            terrain = self.map.data[self.hovered_tile[1]][self.hovered_tile[0]]
+            if terrain != 'water':  # Allow interrupting the current path
+                path = self.map.find_path(self.selected_unit.tile_pos, self.hovered_tile)
+                if path is not None:
+                    self.selected_unit.set_path(path)
+            else:
+                print("Unit cannot move into water.")
+
+    def _handle_left_click_selection(self, mouse_pos: Tuple[int, int]) -> None:
+        """Handles unit selection logic for a left click."""
+        world_pos = self.camera.screen_to_world(mouse_pos)
+
+        clicked_on_unit = False
+        for unit in self.units:
+            if unit.get_world_rect().collidepoint(world_pos):
+                if self.selected_unit:
+                    self.selected_unit.selected = False
+                self.selected_unit = unit
+                unit.selected = True
+                clicked_on_unit = True
+                break
+
+        if not clicked_on_unit and self.selected_unit:
+            self.selected_unit.selected = False
 
 
     def update(self, dt: float) -> None:

@@ -1,4 +1,7 @@
 # c:/game/worldom/unit.py
+"""
+Defines the Unit class for the game.
+"""
 from __future__ import annotations
 import pygame
 
@@ -47,7 +50,7 @@ class Unit:
             self.tile_pos = pygame.math.Vector2(next_tile)
             self.world_pos = (self.tile_pos * TILE_SIZE) + pygame.math.Vector2(TILE_SIZE / 2)
 
-    def draw(self, surface, camera):
+    def draw(self, surface: pygame.Surface, camera: Camera) -> None:
         """Draws the unit on the screen."""
         screen_pos = camera.world_to_screen(self.world_pos)
         radius = int(UNIT_RADIUS * camera.zoom)

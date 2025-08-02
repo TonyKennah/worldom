@@ -1,4 +1,7 @@
 # c:/game/worldom/map.py
+"""
+Defines the Map class for world generation, rendering, and pathfinding.
+"""
 from __future__ import annotations
 import pygame
 import random
@@ -14,6 +17,23 @@ from settings import (TILE_SIZE, TERRAIN_COLORS, GRID_LINE_COLOR,
 
 if TYPE_CHECKING:
     from camera import Camera
+
+# --- Map Generation Constants ---
+# These can be tweaked to change the world's appearance
+ELEVATION_SCALE = 60.0
+ELEVATION_OCTAVES = 5
+ELEVATION_PERSISTENCE = 0.6
+ELEVATION_LACUNARITY = 2.0
+
+LAKE_SCALE = 35.0
+LAKE_OCTAVES = 4
+LAKE_PERSISTENCE = 0.5
+LAKE_LACUNARITY = 2.0
+
+# Thresholds for terrain types.
+WATER_THRESHOLD = -0.15
+ROCK_THRESHOLD = 0.2
+LAKE_THRESHOLD = -0.35
 
 class Map:
     """
@@ -31,46 +51,34 @@ class Map:
 
     def _generate_map(self) -> List[List[str]]:
         """Creates a natural-looking map using two layers of Perlin noise."""
-        # --- Elevation Noise (for continents and mountains) ---
-        e_scale = 60.0
-        e_octaves = 5
-        e_persistence = 0.6
-        e_lacunarity = 2.0
         e_seed = random.randint(0, 100)
-
-        # --- Lake Noise (for inland water bodies) ---
-        l_scale = 35.0  # Smaller scale for more, smaller lakes
-        l_octaves = 4
-        l_persistence = 0.5
-        l_lacunarity = 2.0
         l_seed = random.randint(0, 100) # Different seed for a different pattern
-
-        # Thresholds for terrain types.
-        water_threshold = -0.15 # Raised to increase ocean size slightly.
-        rock_threshold = 0.2    # Lowered again to make rocks even more common, increasing their coverage.
-        lake_threshold = -0.35  # Raised to make inland lakes more common.
 
         world: List[List[str]] = [["" for _ in range(self.width)] for _ in range(self.height)]
         
         for y in range(self.height):
             for x in range(self.width):
                 # Generate elevation value
-                nx_e, ny_e = x / e_scale, y / e_scale
+                nx_e, ny_e = x / ELEVATION_SCALE, y / ELEVATION_SCALE
                 elevation = noise.pnoise2(nx_e, ny_e,
-                                          octaves=e_octaves,
-                                          persistence=e_persistence,
-                                          lacunarity=e_lacunarity,
+                                          octaves=ELEVATION_OCTAVES,
+                                          persistence=ELEVATION_PERSISTENCE,
+                                          lacunarity=ELEVATION_LACUNARITY,
                                           base=e_seed)
 
                 # Assign terrain based on the elevation and lake values
-                if elevation < water_threshold:
+                if elevation < WATER_THRESHOLD:
                     world[y][x] = "water"  # Ocean
-                elif elevation > rock_threshold:
+                elif elevation > ROCK_THRESHOLD:
                     world[y][x] = "rock"   # Mountains
                 else: # Potential land tile
-                    nx_l, ny_l = x / l_scale, y / l_scale
-                    lake_value = noise.pnoise2(nx_l, ny_l, octaves=l_octaves, persistence=l_persistence, lacunarity=l_lacunarity, base=l_seed)
-                    if lake_value < lake_threshold:
+                    nx_l, ny_l = x / LAKE_SCALE, y / LAKE_SCALE
+                    lake_value = noise.pnoise2(nx_l, ny_l, 
+                                               octaves=LAKE_OCTAVES, 
+                                               persistence=LAKE_PERSISTENCE, 
+                                               lacunarity=LAKE_LACUNARITY, 
+                                               base=l_seed)
+                    if lake_value < LAKE_THRESHOLD:
                         world[y][x] = "water" # Lake
                     else:
                         world[y][x] = "grass"  # Grassland
@@ -115,7 +123,8 @@ class Map:
             screen_rect = camera.apply(world_rect)
             pygame.draw.rect(surface, HIGHLIGHT_COLOR, screen_rect, 3)
 
-    def _heuristic(self, a: Tuple[int, int], b: Tuple[int, int]) -> int:
+    @staticmethod
+    def _heuristic(a: Tuple[int, int], b: Tuple[int, int]) -> float:
         """Calculates the Manhattan distance between two points for the A* heuristic."""
         (x1, y1) = a
         (x2, y2) = b

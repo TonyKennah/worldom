@@ -1,4 +1,7 @@
 # c:/game/worldom/main.py
+"""
+Main entry point for the Worldom game.
+"""
 import sys
 import os
 
