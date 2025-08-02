@@ -2,11 +2,12 @@
 """
 Defines the main Game class that orchestrates all game components.
 """
-import pygame
-import sys
-import random
 import math
+import random
+import sys
 from typing import List, Optional, Tuple
+
+import pygame
 
 from settings import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, BG_COLOR, 
                       MAP_WIDTH_TILES, MAP_HEIGHT_TILES)

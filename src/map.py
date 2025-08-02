@@ -3,14 +3,14 @@
 Defines the Map class for world generation, rendering, and pathfinding.
 """
 from __future__ import annotations
-import pygame
-import random
-import math
-import noise
-
 import heapq
-from typing import List, Tuple, Optional, Dict
-from typing import TYPE_CHECKING
+import math
+import random
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+
+import noise
+import pygame
+
 from settings import (TILE_SIZE, TERRAIN_COLORS, GRID_LINE_COLOR, 
                       HIGHLIGHT_COLOR, MIN_TILE_PIXELS_FOR_GRID, 
                       SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -123,6 +123,13 @@ class Map:
             screen_rect = camera.apply(world_rect)
             pygame.draw.rect(surface, HIGHLIGHT_COLOR, screen_rect, 3)
 
+    def is_walkable(self, tile_pos: Tuple[int, int]) -> bool:
+        """Checks if a given tile is within bounds and not water."""
+        x, y = tile_pos
+        if not (0 <= x < self.width and 0 <= y < self.height):
+            return False
+        return self.data[y][x] != 'water'
+
     @staticmethod
     def _heuristic(pos_a: Tuple[int, int], pos_b: Tuple[int, int]) -> float:
         """Calculates the Manhattan distance between two points for the A* heuristic."""
@@ -162,8 +169,7 @@ class Map:
 
             (x, y) = current_node
             for next_node in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]:
-                nx, ny = next_node
-                if not (0 <= nx < self.width and 0 <= ny < self.height and self.data[ny][nx] != 'water'):
+                if not self.is_walkable(next_node):
                     continue
 
                 # Add a small random cost to each step to make the path less straight.

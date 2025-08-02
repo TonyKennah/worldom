@@ -2,8 +2,10 @@
 """
 Defines the Camera class for managing the game's viewport.
 """
-import pygame
 from typing import List, Tuple
+
+import pygame
+
 from settings import CAMERA_SPEED
 
 class Camera:

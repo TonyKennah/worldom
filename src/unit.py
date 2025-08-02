@@ -3,9 +3,10 @@
 Defines the Unit class for the game.
 """
 from __future__ import annotations
+from typing import TYPE_CHECKING, List, Tuple
+
 import pygame
 
-from typing import List, Tuple, TYPE_CHECKING
 from settings import (TILE_SIZE, UNIT_RADIUS, UNIT_MOVES_PER_SECOND, 
                       UNIT_COLOR, UNIT_SELECTED_COLOR)
 
