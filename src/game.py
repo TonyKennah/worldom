@@ -9,11 +9,20 @@ from typing import List, Optional, Tuple
 
 import pygame
 
-from settings import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, BG_COLOR, 
+from settings import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, BG_COLOR,
                       MAP_WIDTH_TILES, MAP_HEIGHT_TILES)
 from camera import Camera
 from map import Map
 from unit import Unit
+
+class WorldState:
+    """Encapsulates the state of all game objects and player interaction."""
+    # pylint: disable=too-few-public-methods
+    def __init__(self) -> None:
+        self.units: List[Unit] = []
+        self.selected_unit: Optional[Unit] = None
+        self.hovered_tile: Optional[Tuple[int, int]] = None
+        self.left_mouse_down_pos: Optional[Tuple[int, int]] = None
 
 # --- Game Class ---
 class Game:
@@ -29,12 +38,7 @@ class Game:
         self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
 
         self.map = Map(MAP_WIDTH_TILES, MAP_HEIGHT_TILES)
-        self.hovered_tile: Optional[Tuple[int, int]] = None
-        
-        # Game object management
-        self.units: List[Unit] = []
-        self.selected_unit: Optional[Unit] = None
-        self.left_mouse_down_pos: Optional[Tuple[int, int]] = None # For detecting clicks vs. drags
+        self.world_state = WorldState()
         initial_unit = self._spawn_initial_units()
 
         # Center camera on the initial unit
@@ -59,7 +63,7 @@ class Game:
             x, y = random.randint(0, self.map.width - 1), random.randint(0, self.map.height - 1)
             if self.map.data[y][x] == 'grass':
                 new_unit = Unit((x, y))
-                self.units.append(new_unit)
+                self.world_state.units.append(new_unit)
                 return new_unit
 
     def handle_events(self) -> None:
@@ -71,7 +75,7 @@ class Game:
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     self.running = False
-            
+
             self._handle_mouse_events(event)
 
     def _handle_mouse_events(self, event: pygame.event.Event) -> None:

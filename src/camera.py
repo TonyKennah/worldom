@@ -43,7 +43,8 @@ class Camera:
 
     def world_to_screen(self, world_pos: pygame.math.Vector2) -> pygame.math.Vector2:
         """Converts world coordinates to screen coordinates."""
-        screen_offset = (pygame.math.Vector2(world_pos) - self.position) * self.zoom_state.current
+        screen_offset = pygame.math.Vector2(world_pos) - self.position
+        screen_offset *= self.zoom_state.current
         return screen_offset + self.screen_center
 
     def apply(self, rect: pygame.Rect) -> pygame.Rect:
