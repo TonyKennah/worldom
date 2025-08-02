@@ -52,4 +52,5 @@ worldom/
 │   ├── settings.py
 │   └── unit.py
 └── main.py
+└── requirements.txt
 ```
