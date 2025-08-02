@@ -118,12 +118,16 @@ class Map:
         if scaled_tile_size >= MIN_TILE_PIXELS_FOR_GRID:
             for col in range(start_col, end_col):
                 world_x = col * self.tile_size
-                screen_x = round(camera.world_to_screen((world_x, 0)).x)
-                pygame.draw.line(surface, GRID_LINE_COLOR, (screen_x, 0), (screen_x, SCREEN_HEIGHT), 1)
+                screen_x = round(camera.world_to_screen(pygame.math.Vector2(world_x, 0)).x)
+                start_pos = (screen_x, 0)
+                end_pos = (screen_x, SCREEN_HEIGHT)
+                pygame.draw.line(surface, GRID_LINE_COLOR, start_pos, end_pos, 1)
             for row in range(start_row, end_row):
                 world_y = row * self.tile_size
-                screen_y = round(camera.world_to_screen((0, world_y)).y)
-                pygame.draw.line(surface, GRID_LINE_COLOR, (0, screen_y), (SCREEN_WIDTH, screen_y), 1)
+                screen_y = round(camera.world_to_screen(pygame.math.Vector2(0, world_y)).y)
+                start_pos = (0, screen_y)
+                end_pos = (SCREEN_WIDTH, screen_y)
+                pygame.draw.line(surface, GRID_LINE_COLOR, start_pos, end_pos, 1)
 
         # --- 3. Draw Hovered Tile Highlight (on top of grid) ---
         if hovered_tile:
