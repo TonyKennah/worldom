@@ -4,6 +4,8 @@ import sys
 import random
 import math
 import noise
+import heapq
+from collections import deque
 
 # --- Constants ---
 SCREEN_WIDTH = 800
@@ -33,6 +35,7 @@ UNIT_COLOR = (255, 0, 0)  # Red
 UNIT_SELECTED_COLOR = (255, 255, 255) # White
 UNIT_RADIUS = TILE_SIZE // 3
 MIN_TILE_PIXELS_FOR_GRID = 4 # Lowered to ensure grid is visible at max zoom-out.
+UNIT_MOVES_PER_SECOND = 3.0 # How many tiles the unit moves in one second.
 
 # --- Camera Class ---
 class Camera:
@@ -235,26 +238,43 @@ class Unit:
             tile_pos (tuple): The (col, row) starting tile position.
             tile_size (int): The size of a tile in pixels.
         """
+        # Logical position on the grid
         self.tile_pos = pygame.math.Vector2(tile_pos)
+        # Pixel position in the world for smooth movement
+        self.world_pos = (self.tile_pos * tile_size) + pygame.math.Vector2(tile_size / 2)
         self.tile_size = tile_size
         self.selected = False
-
-    def get_world_pos(self):
-        """Calculates the unit's center position in world coordinates."""
-        return (self.tile_pos * self.tile_size) + pygame.math.Vector2(self.tile_size / 2, self.tile_size / 2)
+        self.path = []
+        self.move_timer = 0.0
 
     def get_world_rect(self):
         """Gets the unit's bounding box in world coordinates for selection."""
-        world_pos = self.get_world_pos()
-        return pygame.Rect(world_pos.x - UNIT_RADIUS, world_pos.y - UNIT_RADIUS, UNIT_RADIUS * 2, UNIT_RADIUS * 2)
+        return pygame.Rect(self.world_pos.x - UNIT_RADIUS, self.world_pos.y - UNIT_RADIUS, UNIT_RADIUS * 2, UNIT_RADIUS * 2)
 
-    def move_to_tile(self, tile_pos):
-        """Sets the unit's new target tile position."""
-        self.tile_pos = pygame.math.Vector2(tile_pos)
+    def set_path(self, path):
+        """Sets a new path for the unit to follow."""
+        self.path = path
+
+    def update(self, dt):
+        """Moves the unit along its path one tile at a time based on a timer."""
+        if not self.path:
+            return
+
+        self.move_timer += dt
+        move_delay = 1.0 / UNIT_MOVES_PER_SECOND
+
+        # If enough time has passed, move to the next tile
+        if self.move_timer >= move_delay:
+            self.move_timer -= move_delay
+
+            # Instantly move to the next tile in the path
+            next_tile = self.path.pop(0)
+            self.tile_pos = pygame.math.Vector2(next_tile)
+            self.world_pos = (self.tile_pos * self.tile_size) + pygame.math.Vector2(self.tile_size / 2)
 
     def draw(self, surface, camera):
         """Draws the unit on the screen."""
-        screen_pos = camera.world_to_screen(self.get_world_pos())
+        screen_pos = camera.world_to_screen(self.world_pos)
         radius = int(UNIT_RADIUS * camera.zoom)
         
         # Draw selection circle first (underneath the unit)
@@ -288,7 +308,7 @@ class Game:
 
         # Center camera on the initial unit
         if initial_unit:
-            self.camera.position = initial_unit.get_world_pos()
+            self.camera.position = initial_unit.world_pos
 
     def run(self):
         """The main game loop."""
@@ -311,6 +331,55 @@ class Game:
                 self.units.append(new_unit)
                 return new_unit
 
+    def _heuristic(self, a, b):
+        """Calculates the Manhattan distance between two points for the A* heuristic."""
+        (x1, y1) = a
+        (x2, y2) = b
+        return abs(x1 - x2) + abs(y1 - y2)
+
+    def _find_path(self, start_tile, end_tile):
+        """Finds a path between two tiles using the A* algorithm."""
+        start_node = tuple(map(int, start_tile))
+        end_node = tuple(map(int, end_tile))
+
+        if start_node == end_node:
+            return []
+
+        # The priority queue will store (f_cost, node)
+        priority_queue = [(0, start_node)]
+        # came_from stores the node we came from to reach the key node
+        came_from = {start_node: None}
+        # g_cost stores the cost of the cheapest path from start to the key node
+        g_cost = {start_node: 0}
+
+        while priority_queue:
+            # Get the node with the lowest f_cost
+            _, current_node = heapq.heappop(priority_queue)
+
+            if current_node == end_node:
+                # Reconstruct path by backtracking
+                path = []
+                while current_node is not None:
+                    path.append(current_node)
+                    current_node = came_from[current_node]
+                return path[::-1][1:]
+
+            (x, y) = current_node
+            for next_node in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]:
+                nx, ny = next_node
+                if not (0 <= nx < self.map.width and 0 <= ny < self.map.height and self.map.data[ny][nx] != 'water'):
+                    continue
+
+                # Add a small random cost to each step to make the path less straight.
+                move_cost = 1.0 + random.uniform(0.0, 0.5)
+                new_g_cost = g_cost[current_node] + move_cost
+                if next_node not in g_cost or new_g_cost < g_cost[next_node]:
+                    g_cost[next_node] = new_g_cost
+                    f_cost = new_g_cost + self._heuristic(next_node, end_node)
+                    heapq.heappush(priority_queue, (f_cost, next_node))
+                    came_from[next_node] = current_node
+        return None # No path found
+
     def handle_events(self):
         """Processes all user input and events."""
         self.events = pygame.event.get()
@@ -327,8 +396,10 @@ class Game:
                 elif event.button == 3: # Right-click for commands
                     if self.selected_unit and self.hovered_tile:
                         terrain = self.map.data[self.hovered_tile[1]][self.hovered_tile[0]]
-                        if terrain != "water":
-                            self.selected_unit.move_to_tile(self.hovered_tile)
+                        if terrain != 'water': # Allow interrupting the current path
+                            path = self._find_path(self.selected_unit.tile_pos, self.hovered_tile)
+                            if path is not None:
+                                self.selected_unit.set_path(path)
                         else:
                             print("Unit cannot move into water.") # Added feedback
 
@@ -357,6 +428,10 @@ class Game:
 
     def update(self, dt):
         self.camera.update(dt, self.events)
+
+        # Update all units
+        for unit in self.units:
+            unit.update(dt)
 
         # Determine which tile is under the mouse for highlighting
         mouse_pos = pygame.mouse.get_pos()
