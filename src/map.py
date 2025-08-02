@@ -55,7 +55,7 @@ class Map:
         l_seed = random.randint(0, 100)  # Different seed for a different pattern
 
         world: List[List[str]] = [["" for _ in range(self.width)] for _ in range(self.height)]
-        
+
         for y in range(self.height):
             for x in range(self.width):
                 # Generate elevation value
@@ -88,7 +88,8 @@ class Map:
         """Renders only the visible portion of the map."""
         # Determine the visible tile range based on camera view
         top_left_world = camera.screen_to_world((0, 0))
-        bottom_right_world = camera.screen_to_world((SCREEN_WIDTH, SCREEN_HEIGHT))
+        bottom_right_screen_pos = (SCREEN_WIDTH, SCREEN_HEIGHT)
+        bottom_right_world = camera.screen_to_world(bottom_right_screen_pos)
 
         # Use the more precise calculation for the visible tile range
         start_col = math.floor(top_left_world.x / self.tile_size)
@@ -119,7 +120,9 @@ class Map:
 
         # --- 3. Draw Hovered Tile Highlight (on top of grid) ---
         if hovered_tile:
-            world_rect = pygame.Rect(hovered_tile[0] * self.tile_size, hovered_tile[1] * self.tile_size, self.tile_size, self.tile_size)
+            tile_x, tile_y = hovered_tile
+            world_x, world_y = tile_x * self.tile_size, tile_y * self.tile_size
+            world_rect = pygame.Rect(world_x, world_y, self.tile_size, self.tile_size)
             screen_rect = camera.apply(world_rect)
             pygame.draw.rect(surface, HIGHLIGHT_COLOR, screen_rect, 3)
 
