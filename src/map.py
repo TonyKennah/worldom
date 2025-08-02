@@ -107,7 +107,9 @@ class Map:
             for x in range(start_col, end_col):
                 if 0 <= x < self.width and 0 <= y < self.height: # Check bounds
                     terrain = self.data[y][x]
-                    world_rect = pygame.Rect(x * self.tile_size, y * self.tile_size, self.tile_size, self.tile_size)
+                    world_x = x * self.tile_size
+                    world_y = y * self.tile_size
+                    world_rect = pygame.Rect(world_x, world_y, self.tile_size, self.tile_size)
                     screen_rect = camera.apply(world_rect)
                     pygame.draw.rect(surface, TERRAIN_COLORS[terrain], screen_rect)
 
@@ -151,7 +153,11 @@ class Map:
             current = came_from[current]
         return path[::-1]
 
-    def find_path(self, start_tile: pygame.math.Vector2, end_tile: pygame.math.Vector2) -> Optional[List[Tuple[int, int]]]:
+    def find_path(
+        self,
+        start_tile: pygame.math.Vector2,
+        end_tile: pygame.math.Vector2
+    ) -> Optional[List[Tuple[int, int]]]:
         """Finds a path between two tiles using the A* algorithm."""
         start_node = tuple(map(int, start_tile))
         end_node = tuple(map(int, end_tile))
