@@ -96,13 +96,18 @@ class Map:
         bottom_right_screen_pos = (SCREEN_WIDTH, SCREEN_HEIGHT)
         bottom_right_world = camera.screen_to_world(bottom_right_screen_pos)
 
-        # Use the more precise calculation for the visible tile range
         start_col = math.floor(top_left_world.x / self.tile_size)
         end_col = math.ceil(bottom_right_world.x / self.tile_size)
         start_row = math.floor(top_left_world.y / self.tile_size)
         end_row = math.ceil(bottom_right_world.y / self.tile_size)
 
-        # --- 1. Draw Terrain Tiles ---
+        self._draw_terrain(surface, camera, start_row, end_row, start_col, end_col)
+        self._draw_grid_lines(surface, camera, start_row, end_row, start_col, end_col)
+        self._draw_hover_highlight(surface, camera, hovered_tile)
+
+    def _draw_terrain(self, surface: pygame.Surface, camera: Camera,
+                      start_row: int, end_row: int, start_col: int, end_col: int) -> None:
+        """Draws the terrain tiles."""
         for y in range(start_row, end_row):
             for x in range(start_col, end_col):
                 if 0 <= x < self.width and 0 <= y < self.height: # Check bounds
@@ -113,7 +118,9 @@ class Map:
                     screen_rect = camera.apply(world_rect)
                     pygame.draw.rect(surface, TERRAIN_COLORS[terrain], screen_rect)
 
-        # --- 2. Draw Grid Lines (if zoomed in) ---
+    def _draw_grid_lines(self, surface: pygame.Surface, camera: Camera,
+                         start_row: int, end_row: int, start_col: int, end_col: int) -> None:
+        """Draws the grid lines over the terrain."""
         scaled_tile_size = self.tile_size * camera.zoom_state.current
         if scaled_tile_size >= MIN_TILE_PIXELS_FOR_GRID:
             for col in range(start_col, end_col):
@@ -129,7 +136,9 @@ class Map:
                 end_pos = (SCREEN_WIDTH, screen_y)
                 pygame.draw.line(surface, GRID_LINE_COLOR, start_pos, end_pos, 1)
 
-        # --- 3. Draw Hovered Tile Highlight (on top of grid) ---
+    def _draw_hover_highlight(self, surface: pygame.Surface, camera: Camera,
+                              hovered_tile: Optional[Tuple[int, int]]) -> None:
+        """Draws the highlight for the currently hovered tile."""
         if hovered_tile:
             tile_x, tile_y = hovered_tile
             world_x, world_y = tile_x * self.tile_size, tile_y * self.tile_size
