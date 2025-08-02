@@ -3,6 +3,7 @@ import pygame
 import random
 import math
 import noise
+import heapq
 from settings import (TILE_SIZE, TERRAIN_COLORS, GRID_LINE_COLOR, 
                       HIGHLIGHT_COLOR, MIN_TILE_PIXELS_FOR_GRID, 
                       SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -106,3 +107,52 @@ class Map:
             world_rect = pygame.Rect(hovered_tile[0] * self.tile_size, hovered_tile[1] * self.tile_size, self.tile_size, self.tile_size)
             screen_rect = camera.apply(world_rect)
             pygame.draw.rect(surface, HIGHLIGHT_COLOR, screen_rect, 3)
+
+    def _heuristic(self, a, b):
+        """Calculates the Manhattan distance between two points for the A* heuristic."""
+        (x1, y1) = a
+        (x2, y2) = b
+        return abs(x1 - x2) + abs(y1 - y2)
+
+    def find_path(self, start_tile, end_tile):
+        """Finds a path between two tiles using the A* algorithm."""
+        start_node = tuple(map(int, start_tile))
+        end_node = tuple(map(int, end_tile))
+
+        if start_node == end_node:
+            return []
+
+        # The priority queue will store (f_cost, node)
+        priority_queue = [(0, start_node)]
+        # came_from stores the node we came from to reach the key node
+        came_from = {start_node: None}
+        # g_cost stores the cost of the cheapest path from start to the key node
+        g_cost = {start_node: 0}
+
+        while priority_queue:
+            # Get the node with the lowest f_cost
+            _, current_node = heapq.heappop(priority_queue)
+
+            if current_node == end_node:
+                # Reconstruct path by backtracking
+                path = []
+                while current_node is not None:
+                    path.append(current_node)
+                    current_node = came_from[current_node]
+                return path[::-1][1:]
+
+            (x, y) = current_node
+            for next_node in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]:
+                nx, ny = next_node
+                if not (0 <= nx < self.width and 0 <= ny < self.height and self.data[ny][nx] != 'water'):
+                    continue
+
+                # Add a small random cost to each step to make the path less straight.
+                move_cost = 1.0 + random.uniform(0.0, 0.5)
+                new_g_cost = g_cost[current_node] + move_cost
+                if next_node not in g_cost or new_g_cost < g_cost[next_node]:
+                    g_cost[next_node] = new_g_cost
+                    f_cost = new_g_cost + self._heuristic(next_node, end_node)
+                    heapq.heappush(priority_queue, (f_cost, next_node))
+                    came_from[next_node] = current_node
+        return None # No path found
