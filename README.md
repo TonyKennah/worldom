@@ -1,6 +1,6 @@
 # Worldom
 
-[![Pylint Status](https://github.com/YOUR_USERNAME/YOUR_REPOSITORY/actions/workflows/pylint.yml/badge.svg)](https://github.com/YOUR_USERNAME/YOUR_REPOSITORY/actions/workflows/pylint.yml)
+[![Pylint Status](https://github.com/TonyKennah/worldom/actions/workflows/pylint.yml/badge.svg)](https://github.com/TonyKennah/worldom/actions/workflows/pylint.yml)
 
 A 2D strategy game prototype created with Python and Pygame, featuring procedural world generation and tile-based unit movement.
 
