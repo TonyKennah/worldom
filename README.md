@@ -30,7 +30,7 @@ Make sure you have Python 3 installed on your system.
 2.  **Install the required libraries:**
     Navigate to the project's root directory (`c:\game\worldom\`) in your terminal and run:
     ```bash
-    pip install pygame noise
+    pip install -r requirements.txt
     ```
 
 3.  **Run the game:**
