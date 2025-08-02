@@ -9,20 +9,11 @@ from typing import List, Optional, Tuple
 
 import pygame
 
-from settings import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, BG_COLOR,
+from settings import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, BG_COLOR, 
                       MAP_WIDTH_TILES, MAP_HEIGHT_TILES)
 from camera import Camera
 from map import Map
 from unit import Unit
-
-class WorldState:
-    """Encapsulates the state of all game objects and player interaction."""
-    # pylint: disable=too-few-public-methods
-    def __init__(self) -> None:
-        self.units: List[Unit] = []
-        self.selected_unit: Optional[Unit] = None
-        self.hovered_tile: Optional[Tuple[int, int]] = None
-        self.left_mouse_down_pos: Optional[Tuple[int, int]] = None
 
 # --- Game Class ---
 class Game:
@@ -38,7 +29,12 @@ class Game:
         self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
 
         self.map = Map(MAP_WIDTH_TILES, MAP_HEIGHT_TILES)
-        self.world_state = WorldState()
+        self.hovered_tile: Optional[Tuple[int, int]] = None
+        
+        # Game object management
+        self.units: List[Unit] = []
+        self.selected_unit: Optional[Unit] = None
+        self.left_mouse_down_pos: Optional[Tuple[int, int]] = None # For detecting clicks vs. drags
         initial_unit = self._spawn_initial_units()
 
         # Center camera on the initial unit
@@ -63,7 +59,7 @@ class Game:
             x, y = random.randint(0, self.map.width - 1), random.randint(0, self.map.height - 1)
             if self.map.data[y][x] == 'grass':
                 new_unit = Unit((x, y))
-                self.world_state.units.append(new_unit)
+                self.units.append(new_unit)
                 return new_unit
 
     def handle_events(self) -> None:
@@ -75,7 +71,7 @@ class Game:
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     self.running = False
-
+            
             self._handle_mouse_events(event)
 
     def _handle_mouse_events(self, event: pygame.event.Event) -> None:
@@ -95,12 +91,12 @@ class Game:
 
     def _handle_right_click_command(self) -> None:
         """Issues a move command to the selected unit."""
-        if self.selected_unit and self.hovered_tile:
-            terrain = self.map.data[self.hovered_tile[1]][self.hovered_tile[0]]
+        if self.world_state.selected_unit and self.world_state.hovered_tile:
+            terrain = self.map.data[self.world_state.hovered_tile[1]][self.world_state.hovered_tile[0]]
             if terrain != 'water':  # Allow interrupting the current path
-                path = self.map.find_path(self.selected_unit.tile_pos, self.hovered_tile)
+                path = self.map.find_path(self.world_state.selected_unit.tile_pos, self.world_state.hovered_tile)
                 if path is not None:
-                    self.selected_unit.set_path(path)
+                    self.world_state.selected_unit.set_path(path)
             else:
                 print("Unit cannot move into water.")
 
@@ -109,50 +105,58 @@ class Game:
         world_pos = self.camera.screen_to_world(mouse_pos)
 
         clicked_on_unit = False
-        for unit in self.units:
+        for unit in self.world_state.units:
             if unit.get_world_rect().collidepoint(world_pos):
-                if self.selected_unit:
-                    self.selected_unit.selected = False
-                self.selected_unit = unit
+                if self.world_state.selected_unit:
+                    self.world_state.selected_unit.selected = False
+                self.world_state.selected_unit = unit
                 unit.selected = True
                 clicked_on_unit = True
                 break
 
-        if not clicked_on_unit and self.selected_unit:
-            self.selected_unit.selected = False
+        if not clicked_on_unit and self.world_state.selected_unit:
+            self.world_state.selected_unit.selected = False
 
 
     def update(self, dt: float) -> None:
+        """Updates the state of all game objects."""
         self.camera.update(dt, self.events)
 
         # Update all units
-        for unit in self.units:
+        for unit in self.world_state.units:
             unit.update(dt)
 
-        # Determine which tile is under the mouse for highlighting
+        self._update_hovered_tile()
+
+    def _update_hovered_tile(self) -> None:
+        """Calculates which map tile is currently under the mouse cursor."""
         mouse_pos = pygame.mouse.get_pos()
         world_pos = self.camera.screen_to_world(mouse_pos)
         tile_col = int(world_pos.x // self.map.tile_size)
         tile_row = int(world_pos.y // self.map.tile_size)
 
         if 0 <= tile_col < self.map.width and 0 <= tile_row < self.map.height:
-            self.hovered_tile = (tile_col, tile_row)
+            self.world_state.hovered_tile = (tile_col, tile_row)
         else:
-            self.hovered_tile = None
+            self.world_state.hovered_tile = None
 
     def draw(self) -> None:
+        """Renders all game objects to the screen."""
         self.screen.fill(BG_COLOR)
-        self.map.draw(self.screen, self.camera, self.hovered_tile)
+        self.map.draw(self.screen, self.camera, self.world_state.hovered_tile)
 
         # Draw all units
-        for unit in self.units:
+        for unit in self.world_state.units:
             unit.draw(self.screen, self.camera)
 
-        # Update window title with helpful info
+        self._update_caption()
+        pygame.display.flip()
+
+    def _update_caption(self) -> None:
+        """Updates the window caption with helpful information."""
         world_pos = self.camera.screen_to_world(pygame.mouse.get_pos())
         caption = f"Strategy Game | World: ({int(world_pos.x)}, {int(world_pos.y)})"
-        if self.hovered_tile:
-            terrain = self.map.data[self.hovered_tile[1]][self.hovered_tile[0]]
-            caption += f" | Tile: {self.hovered_tile} ({terrain.capitalize()})"
+        if self.world_state.hovered_tile:
+            terrain = self.map.data[self.world_state.hovered_tile[1]][self.world_state.hovered_tile[0]]
+            caption += f" | Tile: {self.world_state.hovered_tile} ({terrain.capitalize()})"
         pygame.display.set_caption(caption)
-        pygame.display.flip()
