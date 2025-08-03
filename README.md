@@ -24,13 +24,15 @@ A 2D strategy game prototype created with Python and Pygame, featuring procedura
 
 Make sure you have Python 3 installed on your system.
 
+**Note for Windows Users:** One of the dependencies (`noise`) may need to be compiled from source. If you see an error message like `Microsoft Visual C++ 14.0 or greater is required`, you must install the Microsoft C++ Build Tools.
+
 ### Installation & Running
 
 1.  **Set up the project:**
     If you have cloned this via git, you can skip this step. Otherwise, ensure all files are in the `worldom` directory as structured below.
 
 2.  **Install the required libraries:**
-    Navigate to the project's root directory (`c:\game\worldom\`) in your terminal and run:
+    Navigate to the project's root directory in your terminal and run:
     ```bash
     pip install -r requirements.txt
     ```
