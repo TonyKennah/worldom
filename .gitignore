@@ -3,8 +3,6 @@ __pycache__/
 *.py[codz]
 *$py.class
 
-# serena
-.serena/
 
 # C extensions
 *.so

@@ -1,0 +1,1 @@
+The project is a 2D strategy game prototype named "Worldom," built with Python and Pygame. It features procedural world generation using Perlin noise, a dynamic camera with zoom and pan, a tile-based map, A* pathfinding for unit movement, and basic unit selection and control.

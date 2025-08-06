@@ -1,0 +1,1 @@
+After completing a task, you should run the linter to ensure the code quality is maintained. There are no automated tests set up for this project.

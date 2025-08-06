@@ -1,0 +1,3 @@
+- **Language:** Python 3
+- **Core Library:** Pygame
+- **Map Generation:** `noise` library for Perlin noise
