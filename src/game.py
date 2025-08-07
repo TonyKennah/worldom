@@ -19,9 +19,11 @@ class WorldState:
     # pylint: disable=too-few-public-methods
     def __init__(self) -> None:
         self.units: List[Unit] = []
-        self.selected_unit: Optional[Unit] = None
+        self.selected_units: List[Unit] = []
         self.hovered_tile: Optional[Tuple[int, int]] = None
         self.left_mouse_down_pos: Optional[Tuple[int, int]] = None
+        self.right_mouse_down_pos: Optional[Tuple[int, int]] = None
+        self.selection_box: Optional[pygame.Rect] = None
 
 # --- Game Class ---
 class Game:
@@ -83,55 +85,101 @@ class Game:
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
                 self.world_state.left_mouse_down_pos = event.pos
-            elif event.button == 3:  # Right-click for commands
-                self._handle_right_click_command()
+            elif event.button == 3:  # Right-click for commands or selection
+                self.world_state.right_mouse_down_pos = event.pos
 
-        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-            if self.world_state.left_mouse_down_pos:
-                start_pos = self.world_state.left_mouse_down_pos
-                end_pos = event.pos
-                vec_start = pygame.math.Vector2(start_pos)
-                vec_end = pygame.math.Vector2(end_pos)
-                dist = vec_start.distance_to(vec_end)
-                if dist < 5:  # Threshold for a click
-                    self._handle_left_click_selection(event.pos)
-            self.world_state.left_mouse_down_pos = None  # Reset after use
+        elif event.type == pygame.MOUSEBUTTONUP:
+            if event.button == 1:
+                if self.world_state.left_mouse_down_pos:
+                    start_pos = self.world_state.left_mouse_down_pos
+                    end_pos = event.pos
+                    vec_start = pygame.math.Vector2(start_pos)
+                    vec_end = pygame.math.Vector2(end_pos)
+                    dist = vec_start.distance_to(vec_end)
+                    if dist < 5:  # Threshold for a click
+                        self._handle_left_click_selection(event.pos)
+                self.world_state.left_mouse_down_pos = None  # Reset after use
+            elif event.button == 3:
+                if self.world_state.right_mouse_down_pos:
+                    start_pos = self.world_state.right_mouse_down_pos
+                    end_pos = event.pos
+                    vec_start = pygame.math.Vector2(start_pos)
+                    vec_end = pygame.math.Vector2(end_pos)
+                    dist = vec_start.distance_to(vec_end)
+
+                    if dist < 5:  # It's a click
+                        self._handle_right_click_command()
+                    elif self.world_state.selection_box:  # It's a drag
+                        self._handle_drag_selection(self.world_state.selection_box)
+
+                self.world_state.right_mouse_down_pos = None
+                self.world_state.selection_box = None
+
+        elif event.type == pygame.MOUSEMOTION:
+            if self.world_state.right_mouse_down_pos:
+                start_pos = self.world_state.right_mouse_down_pos
+                current_pos = event.pos
+                x = min(start_pos[0], current_pos[0])
+                y = min(start_pos[1], current_pos[1])
+                width = abs(start_pos[0] - current_pos[0])
+                height = abs(start_pos[1] - current_pos[1])
+                self.world_state.selection_box = pygame.Rect(x, y, width, height)
 
     def _handle_right_click_command(self) -> None:
-        """Issues a move command to the selected unit."""
-        # A unit must exist in the world state and also be marked as selected
-        # to receive a move command.
-        if (self.world_state.selected_unit and
-                self.world_state.selected_unit.selected and
-                self.world_state.hovered_tile):
-            tile_x, tile_y = self.world_state.hovered_tile
-            terrain = self.map.data[tile_y][tile_x]
-            if terrain != 'water':  # Allow interrupting the current path
-                start_pos = self.world_state.selected_unit.tile_pos
-                end_pos = self.world_state.hovered_tile
-                path = self.map.find_path(start_pos, end_pos)
-                if path is not None:
-                    self.world_state.selected_unit.set_path(path)
-            else:
-                print("Unit cannot move into water.")
+        """Issues a move command to selected units."""
+        if not self.world_state.selected_units or not self.world_state.hovered_tile:
+            return
+
+        tile_x, tile_y = self.world_state.hovered_tile
+        terrain = self.map.data[tile_y][tile_x]
+
+        if terrain == 'water':
+            print("Units cannot move into water.")
+            return
+
+        for unit in self.world_state.selected_units:
+            start_pos = unit.tile_pos
+            end_pos = self.world_state.hovered_tile
+            path = self.map.find_path(start_pos, end_pos)
+            if path is not None:
+                unit.set_path(path)
 
     def _handle_left_click_selection(self, mouse_pos: Tuple[int, int]) -> None:
         """Handles unit selection logic for a left click."""
         world_pos = self.camera.screen_to_world(mouse_pos)
 
-        clicked_on_unit = False
+        # Deselect all units first
+        for unit in self.world_state.selected_units:
+            unit.selected = False
+        self.world_state.selected_units.clear()
+
+        # Find and select the clicked unit
         for unit in self.world_state.units:
             if unit.get_world_rect().collidepoint(world_pos):
-                if self.world_state.selected_unit:
-                    self.world_state.selected_unit.selected = False
-                self.world_state.selected_unit = unit
                 unit.selected = True
-                clicked_on_unit = True
-                break
+                self.world_state.selected_units.append(unit)
+                break  # Stop after selecting one unit
 
-        if not clicked_on_unit and self.world_state.selected_unit:
-            self.world_state.selected_unit.selected = False
-            self.world_state.selected_unit = None
+    def _handle_drag_selection(self, selection_rect_screen: pygame.Rect) -> None:
+        """Selects units within a given rectangle in screen coordinates."""
+        # Deselect all units first, unless holding shift (extension for later)
+        for unit in self.world_state.selected_units:
+            unit.selected = False
+        self.world_state.selected_units.clear()
+
+        # Convert screen rect to world rect to check for collisions with units
+        world_topleft = self.camera.screen_to_world(selection_rect_screen.topleft)
+        world_bottomright = self.camera.screen_to_world(selection_rect_screen.bottomright)
+        selection_rect_world = pygame.Rect(
+            world_topleft,
+            (world_bottomright.x - world_topleft.x, world_bottomright.y - world_topleft.y)
+        )
+        selection_rect_world.normalize()
+
+        for unit in self.world_state.units:
+            if selection_rect_world.colliderect(unit.get_world_rect()):
+                unit.selected = True
+                self.world_state.selected_units.append(unit)
 
 
     def update(self, dt: float) -> None:
@@ -164,6 +212,10 @@ class Game:
         # Draw all units
         for unit in self.world_state.units:
             unit.draw(self.screen, self.camera)
+
+        # Draw selection box
+        if self.world_state.selection_box:
+            pygame.draw.rect(self.screen, (255, 255, 255), self.world_state.selection_box, 1)
 
         self._update_caption()
         pygame.display.flip()
