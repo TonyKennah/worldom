@@ -68,11 +68,8 @@ class DebugPanel:
                 return True  # Signal to exit
         return False
 
-    def draw(self, game: Game) -> None:
-        """Renders the debug information panel at the top of the screen."""
-        panel_rect = pygame.Rect(0, 0, settings.SCREEN_WIDTH, settings.DEBUG_PANEL_HEIGHT)
-        pygame.draw.rect(game.screen, settings.DEBUG_PANEL_BG_COLOR, panel_rect)
-
+    def _draw_main_info(self, game: Game) -> None:
+        """Draws the main informational text (FPS, zoom, etc.)."""
         world_pos = game.camera.screen_to_world(pygame.mouse.get_pos())
         world_coords = f"({int(world_pos.x)}, {int(world_pos.y)})"
         zoom_percentage = game.camera.zoom_state.current * 100
@@ -88,16 +85,23 @@ class DebugPanel:
             info_string += f" | Tile: {tile_info}"
 
         text_surface = self.font.render(info_string, True, settings.DEBUG_PANEL_FONT_COLOR)
-        # Vertically center the text in the panel
         text_y = (settings.DEBUG_PANEL_HEIGHT - text_surface.get_height()) // 2
         game.screen.blit(text_surface, (10, text_y))
 
-        # Draw the "Exit" link on the right
+    def _draw_exit_link(self, game: Game) -> None:
+        """Draws the clickable 'Exit' link."""
         exit_text_surface = self.font.render("Exit", True, settings.DEBUG_PANEL_FONT_COLOR)
         exit_text_x = settings.SCREEN_WIDTH - exit_text_surface.get_width() - 10
         exit_text_y = (settings.DEBUG_PANEL_HEIGHT - exit_text_surface.get_height()) // 2
-        # Store the rect so we can check for clicks on it
         self.exit_link_rect = game.screen.blit(exit_text_surface, (exit_text_x, exit_text_y))
+
+    def draw(self, game: Game) -> None:
+        """Renders the complete debug panel by calling its helper methods."""
+        panel_rect = pygame.Rect(0, 0, settings.SCREEN_WIDTH, settings.DEBUG_PANEL_HEIGHT)
+        pygame.draw.rect(game.screen, settings.DEBUG_PANEL_BG_COLOR, panel_rect)
+
+        self._draw_main_info(game)
+        self._draw_exit_link(game)
 
 # --- Game Class ---
 class Game:

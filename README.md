@@ -71,7 +71,9 @@ worldom/
     *   **`DebugPanel` class**: Handles rendering and interaction for the top debug panel.
         *   `__init__()`: Initializes the panel's font and state.
         *   `handle_event(event)`: Processes user input for the panel, like clicking the Exit link.
-        *   `draw(game)`: Renders all debug information to the screen, pulling state from the main `Game` object.
+        *   `_draw_main_info(game)`: Renders the main informational text (FPS, zoom, etc.).
+        *   `_draw_exit_link(game)`: Renders the clickable 'Exit' link.
+        *   `draw(game)`: Renders the complete debug panel by calling its helper methods.
     *   **`SubMenuState` class**: Encapsulates the state of a context sub-menu.
     *   **`ContextMenuState` class**: Encapsulates all state related to the right-click context menu, including an instance of `SubMenuState`.
     *   **`WorldState` class**: A data class to hold the current state of all game entities, such as units, player selections, and an instance of `ContextMenuState`.
