@@ -1,4 +1,4 @@
-# WorldDom (ination)
+# WorldDom 👽 (ination) 🔫
 
 [![Pylint Status](https://github.com/TonyKennah/worldom/actions/workflows/pylint.yml/badge.svg)](https://github.com/TonyKennah/worldom/actions/workflows/pylint.yml)
 
