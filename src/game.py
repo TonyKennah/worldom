@@ -166,7 +166,7 @@ class Game:
         """Updates the window caption with helpful information."""
         world_pos = self.camera.screen_to_world(pygame.mouse.get_pos())
         world_coords = f"({int(world_pos.x)}, {int(world_pos.y)})"
-        caption = f"Strategy Game | World: {world_coords}"
+        caption = f"Strategy Game | FPS: {self.clock.get_fps():.1f} | World: {world_coords}"
         if self.world_state.hovered_tile:
             tile_x, tile_y = self.world_state.hovered_tile
             terrain = self.map.data[tile_y][tile_x]
