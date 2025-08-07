@@ -8,8 +8,9 @@ from typing import List, Optional, Tuple
 
 import pygame
 
-from settings import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, BG_COLOR,
-                      MAP_WIDTH_TILES, MAP_HEIGHT_TILES)
+from settings import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, BG_COLOR, MAP_WIDTH_TILES,
+                      MAP_HEIGHT_TILES, SELECTION_BOX_COLOR,
+                      SELECTION_BOX_BORDER_WIDTH)
 from camera import Camera
 from map import Map
 from unit import Unit
@@ -139,7 +140,7 @@ class Game:
 
         for unit in self.world_state.selected_units:
             start_pos = unit.tile_pos
-            end_pos = self.world_state.hovered_tile
+            end_pos = pygame.math.Vector2(self.world_state.hovered_tile)
             path = self.map.find_path(start_pos, end_pos)
             if path is not None:
                 unit.set_path(path)
@@ -215,7 +216,8 @@ class Game:
 
         # Draw selection box
         if self.world_state.selection_box:
-            pygame.draw.rect(self.screen, (255, 255, 255), self.world_state.selection_box, 1)
+            pygame.draw.rect(self.screen, SELECTION_BOX_COLOR,
+                             self.world_state.selection_box, SELECTION_BOX_BORDER_WIDTH)
 
         self._update_caption()
         pygame.display.flip()

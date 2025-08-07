@@ -35,3 +35,7 @@ UNIT_SELECTED_COLOR = (255, 255, 255) # White
 UNIT_RADIUS = TILE_SIZE // 3
 UNIT_MOVES_PER_SECOND = 3.0 # How many tiles the unit moves in one second.
 UNIT_INNER_CIRCLE_RATIO = 0.8 # For drawing the selected unit
+
+# --- UI Settings ---
+SELECTION_BOX_COLOR = (255, 255, 255)  # White
+SELECTION_BOX_BORDER_WIDTH = 1
