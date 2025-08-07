@@ -126,9 +126,7 @@ class Map:
 
         self._draw_terrain(surface, camera, visible_area, offset)
         self._draw_grid_lines(surface, camera, visible_area, offset)
-        # Only draw the hover highlight on the main map instance
-        if offset.x == 0 and offset.y == 0:
-            self._draw_hover_highlight(surface, camera, hovered_tile)
+        self._draw_hover_highlight(surface, camera, hovered_tile, offset)
 
     def _calculate_visible_area(self, camera: Camera, offset: pygame.math.Vector2) -> VisibleArea:
         """Calculates the visible tile range based on the camera's view and an offset."""
@@ -184,11 +182,14 @@ class Map:
             self._draw_horizontal_grid_lines(surface, camera, area, offset)
 
     def _draw_hover_highlight(self, surface: pygame.Surface, camera: Camera,
-                              hovered_tile: Optional[Tuple[int, int]]) -> None:
-        """Draws the highlight for the currently hovered tile."""
+                              hovered_tile: Optional[Tuple[int, int]],
+                              offset: pygame.math.Vector2) -> None:
+        """Draws the highlight for the currently hovered tile for a given map instance."""
         if hovered_tile:
             tile_x, tile_y = hovered_tile
-            world_x, world_y = tile_x * self.tile_size, tile_y * self.tile_size
+            # Apply the instance offset to the base tile position
+            world_x = tile_x * self.tile_size + offset.x
+            world_y = tile_y * self.tile_size + offset.y
             world_rect = pygame.Rect(world_x, world_y, self.tile_size, self.tile_size)
             screen_rect = camera.apply(world_rect)
             pygame.draw.rect(surface, settings.HIGHLIGHT_COLOR, screen_rect, 3)

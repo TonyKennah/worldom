@@ -14,7 +14,7 @@ BG_COLOR = (0, 0, 0)  # Black, for the void outside the map
 # --- Camera Settings ---
 CAMERA_SPEED = 500  # pixels per second for keyboard panning
 EDGE_SCROLL_SPEED = 350 # pixels per second for edge scrolling
-EDGE_SCROLL_BOUNDARY = 40 # pixels from the edge to start scrolling
+EDGE_SCROLL_BOUNDARY = 60 # pixels from the edge to start scrolling
 
 # --- Map Settings ---
 TILE_SIZE = 32
