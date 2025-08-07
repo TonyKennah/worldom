@@ -27,9 +27,13 @@ class TestUnit(unittest.TestCase):
         self.assertEqual(unit.tile_pos, pygame.math.Vector2(10, 20))
 
         # Check that the world position is calculated correctly (center of the tile)
-        expected_world_pos = (pygame.math.Vector2(tile_pos) * TILE_SIZE) + pygame.math.Vector2(TILE_SIZE / 2)
+        expected_world_pos = (
+            (pygame.math.Vector2(tile_pos) * TILE_SIZE)
+            + pygame.math.Vector2(TILE_SIZE / 2)
+        )
         self.assertEqual(unit.world_pos, expected_world_pos)
 
         # Check initial state
         self.assertFalse(unit.selected)
         self.assertEqual(unit.path, [])
+        
