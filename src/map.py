@@ -195,10 +195,9 @@ class Map:
             pygame.draw.rect(surface, settings.HIGHLIGHT_COLOR, screen_rect, 3)
 
     def is_walkable(self, tile_pos: Tuple[int, int]) -> bool:
-        """Checks if a given tile is within bounds and not an obstacle."""
+        """Checks if a given tile is walkable based on its terrain type."""
         x, y = tile_pos
-        if not (0 <= x < self.width and 0 <= y < self.height):
-            return False
+        # Since the map is toroidal, we only need to check the terrain type.
         return self.data[y][x] not in ["ocean", "lake"]
 
     def _heuristic(self, pos_a: Tuple[int, int], pos_b: Tuple[int, int]) -> float:
