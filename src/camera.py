@@ -49,11 +49,24 @@ class Camera:
         # Rounding all values to prevent gaps/jitter from float truncation.
         return pygame.Rect(round(top_left.x), round(top_left.y), round(w), round(h))
 
-    def update(self, dt: float, events: List[pygame.event.Event]) -> None:
+    def update(self, dt: float, events: List[pygame.event.Event], map_width_pixels: int, map_height_pixels: int) -> None:
         """Updates camera position based on user input."""
         self._handle_keyboard_movement(dt)
         self._handle_mouse_input(events)
         self._handle_edge_scrolling(dt)
+        self._wrap_camera_position(map_width_pixels, map_height_pixels)
+
+    def _wrap_camera_position(self, map_width_pixels: int, map_height_pixels: int) -> None:
+        """Wraps the camera's position to create a toroidal (looping) map effect."""
+        if self.position.x < 0:
+            self.position.x += map_width_pixels
+        elif self.position.x >= map_width_pixels:
+            self.position.x -= map_width_pixels
+
+        if self.position.y < 0:
+            self.position.y += map_height_pixels
+        elif self.position.y >= map_height_pixels:
+            self.position.y -= map_height_pixels
 
     def _handle_keyboard_movement(self, dt: float) -> None:
         """Moves the camera based on WASD key presses."""

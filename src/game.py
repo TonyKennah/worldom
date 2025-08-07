@@ -398,11 +398,9 @@ class Game:
         if not self.world_state.selected_units or not target_tile:
             return
 
-        tile_x, tile_y = target_tile
-        terrain = self.map.data[tile_y][tile_x]
-
-        if terrain in ["ocean", "lake"]:
-            print("Units cannot move into water.")
+        # Check if the target tile is walkable before finding a path
+        if not self.map.is_walkable(target_tile):
+            print("Units cannot move there.")
             return
 
         for unit in self.world_state.selected_units:
@@ -452,11 +450,13 @@ class Game:
 
     def update(self, dt: float, events: List[pygame.event.Event]) -> None:
         """Updates the state of all game objects."""
-        self.camera.update(dt, events)
+        map_width_pixels = self.map.width * settings.TILE_SIZE
+        map_height_pixels = self.map.height * settings.TILE_SIZE
+        self.camera.update(dt, events, map_width_pixels, map_height_pixels)
 
         # Update all units
         for unit in self.world_state.units:
-            unit.update(dt)
+            unit.update(dt, self.map.width, self.map.height)
 
         if self.world_state.context_menu.active:
             self._handle_context_menu_hover(pygame.mouse.get_pos())
@@ -467,13 +467,18 @@ class Game:
         """Calculates which map tile is currently under the mouse cursor."""
         mouse_pos = pygame.mouse.get_pos()
         world_pos = self.camera.screen_to_world(mouse_pos)
-        tile_col = int(world_pos.x // self.map.tile_size)
-        tile_row = int(world_pos.y // self.map.tile_size)
 
-        if 0 <= tile_col < self.map.width and 0 <= tile_row < self.map.height:
-            self.world_state.hovered_tile = (tile_col, tile_row)
-        else:
-            self.world_state.hovered_tile = None
+        map_width_pixels = self.map.width * self.map.tile_size
+        map_height_pixels = self.map.height * self.map.tile_size
+
+        # Wrap the world position to the map's dimensions
+        wrapped_x = world_pos.x % map_width_pixels
+        wrapped_y = world_pos.y % map_height_pixels
+
+        tile_col = int(wrapped_x // self.map.tile_size)
+        tile_row = int(wrapped_y // self.map.tile_size)
+
+        self.world_state.hovered_tile = (tile_col, tile_row)
 
     def draw(self) -> None:
         """Renders all game objects to the screen."""
@@ -481,8 +486,10 @@ class Game:
         self.map.draw(self.screen, self.camera, self.world_state.hovered_tile)
 
         # Draw all units
+        map_width_pixels = self.map.width * settings.TILE_SIZE
+        map_height_pixels = self.map.height * settings.TILE_SIZE
         for unit in self.world_state.units:
-            unit.draw(self.screen, self.camera)
+            unit.draw(self.screen, self.camera, map_width_pixels, map_height_pixels)
 
         # Draw selection box
         if self.world_state.selection_box:

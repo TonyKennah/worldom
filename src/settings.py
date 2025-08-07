@@ -9,7 +9,7 @@ Centralized settings and constants for the game.
 SCREEN_WIDTH = 0
 SCREEN_HEIGHT = 0
 FPS = 60
-BG_COLOR = (25, 25, 112)  # Midnight Blue
+BG_COLOR = (0, 0, 0)  # Black, for the void outside the map
 
 # --- Camera Settings ---
 CAMERA_SPEED = 500  # pixels per second for keyboard panning

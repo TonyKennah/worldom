@@ -8,7 +8,7 @@ A 2D strategy game prototype created with Python and Pygame, featuring procedura
 
 ## Features
 
-*   **Procedural World Generation:** Creates unique, natural-looking maps using two-layer Perlin noise for continents, mountain ranges, and inland lakes.
+*   **Procedural World Generation:** Creates unique worlds with multiple islands and continents using Perlin noise. The entire world is contained within a finite tile map.
 *   **Dynamic Camera:** A fully featured camera with stepped zooming (centered on the cursor) and smooth panning (using WASD keys and edge scrolling).
 *   **Interactive Tile Map:** An efficient, tile-based map that only renders visible tiles and displays a grid at appropriate zoom levels.
 *   **A\* Pathfinding:** Intelligent, natural-looking unit movement that navigates around obstacles. The pathfinding has been tuned to feel less "robotic" by introducing a small random cost to each step.
@@ -128,7 +128,7 @@ worldom/
     *   **`Map` class**:
         *   `__init__(width, height)`: Generates the procedural world map using Perlin noise, creating different terrain types like grass, rock, oceans, and inland lakes.
         *   `draw(screen, camera, hovered_tile)`: Renders the visible portion of the map to the screen. It efficiently culls off-screen tiles and highlights the tile under the cursor.
-        *   `is_walkable(tile_pos)`: Checks if a given tile is within bounds and not an obstacle (e.g., ocean or lake).
+        *   `is_walkable(tile_pos)`: Checks if a given tile is within bounds and not an obstacle (e.g., ocean, lake, or rock).
         *   `find_path(start_tile, end_tile)`: Uses the A* algorithm to calculate the shortest valid path between two tiles, avoiding obstacles.
 
 *   **`src/unit.py`**: Defines the behavior and appearance of controllable units in the game.
