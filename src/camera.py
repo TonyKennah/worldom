@@ -13,7 +13,7 @@ class ZoomState:
     """Encapsulates the state and logic for camera zooming."""
     # pylint: disable=too-few-public-methods
     def __init__(self) -> None:
-        self.levels = [0.125, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0]
+        self.levels = [0.5, 0.75, 1.0, 1.5, 2.0]
         self.index = self.levels.index(2.0)
         self.current = self.levels[self.index]
 
