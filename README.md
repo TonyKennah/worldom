@@ -43,6 +43,15 @@ Make sure you have Python 3 installed on your system.
     python main.py
     ```
 
+## Running Tests
+
+The project includes a basic test suite using Python's built-in `unittest` module. To run the tests, navigate to the project's root directory and run:
+
+```bash
+python -m unittest discover tests
+```
+
+
 ## Project Structure
 
 The project uses a standard `src` layout to keep the source code organized and separated from other assets.
