@@ -7,10 +7,11 @@ import sys
 from typing import List, Optional, Tuple
 
 import pygame
+import settings
 
-from settings import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, BG_COLOR, MAP_WIDTH_TILES, MAP_HEIGHT_TILES,
-                      SELECTION_BOX_COLOR, SELECTION_BOX_BORDER_WIDTH, CONTEXT_MENU_BG_COLOR,
-                      CONTEXT_MENU_BORDER_COLOR, CONTEXT_MENU_TEXT_COLOR, CONTEXT_MENU_FONT_SIZE,
+from settings import (FPS, BG_COLOR, MAP_WIDTH_TILES, MAP_HEIGHT_TILES, SELECTION_BOX_COLOR,
+                      SELECTION_BOX_BORDER_WIDTH, CONTEXT_MENU_BG_COLOR, CONTEXT_MENU_BORDER_COLOR,
+                      CONTEXT_MENU_TEXT_COLOR, CONTEXT_MENU_FONT_SIZE,
                       CONTEXT_MENU_PADDING)
 from camera import Camera
 from map import Map
@@ -44,12 +45,25 @@ class Game:
     """The main game class, orchestrating all game components."""
     def __init__(self) -> None:
         pygame.init()
-        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+
+        # Get the primary display's size to create a large window
+        # that leaves space for the title bar and OS taskbar.
+        display_info = pygame.display.Info()
+        initial_width = int(display_info.current_w * 0.9)
+        initial_height = int(display_info.current_h * 0.9)
+        self.screen = pygame.display.set_mode((initial_width, initial_height), pygame.RESIZABLE)
+
+        # Update the settings module with the actual screen size.
+        # This makes the true dimensions available globally to other modules
+        # that import the settings, like the camera and map.
+        settings.SCREEN_WIDTH = self.screen.get_width()
+        settings.SCREEN_HEIGHT = self.screen.get_height()
+
         pygame.display.set_caption("Strategy Game with Camera")
         self.clock = pygame.time.Clock()
         self.running: bool = True
         self.events: List[pygame.event.Event] = []
-        self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
+        self.camera = Camera(settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT)
 
         self.map = Map(MAP_WIDTH_TILES, MAP_HEIGHT_TILES)
         self.world_state = WorldState()
@@ -90,6 +104,14 @@ class Game:
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     self.running = False
+            elif event.type == pygame.VIDEORESIZE:
+                current_flags = self.screen.get_flags()
+                self.screen = pygame.display.set_mode((event.w, event.h), current_flags)
+                settings.SCREEN_WIDTH = event.w
+                settings.SCREEN_HEIGHT = event.h
+                self.camera.width = settings.SCREEN_WIDTH
+                self.camera.height = settings.SCREEN_HEIGHT
+                self.camera.screen_center = pygame.math.Vector2(settings.SCREEN_WIDTH / 2, settings.SCREEN_HEIGHT / 2)
 
             self._handle_mouse_events(event)
 
@@ -325,7 +347,8 @@ class Game:
         """Updates the window caption with helpful information."""
         world_pos = self.camera.screen_to_world(pygame.mouse.get_pos())
         world_coords = f"({int(world_pos.x)}, {int(world_pos.y)})"
-        caption = f"Strategy Game | FPS: {self.clock.get_fps():.1f} | World: {world_coords}"
+        zoom_percentage = self.camera.zoom_state.current * 100
+        caption = f"Strategy Game | FPS: {self.clock.get_fps():.1f} | Zoom: {zoom_percentage:.0f}% | World: {world_coords}"
         if self.world_state.hovered_tile:
             tile_x, tile_y = self.world_state.hovered_tile
             terrain = self.map.data[tile_y][tile_x]

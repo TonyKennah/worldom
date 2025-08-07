@@ -4,8 +4,10 @@ Centralized settings and constants for the game.
 """
 
 # --- General Settings ---
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
+# These are placeholders. The actual values are set at runtime in game.py
+# when the fullscreen display is initialized.
+SCREEN_WIDTH = 0
+SCREEN_HEIGHT = 0
 FPS = 60
 BG_COLOR = (25, 25, 112)  # Midnight Blue
 

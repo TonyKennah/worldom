@@ -11,10 +11,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import noise
 import pygame
-
-from settings import (TILE_SIZE, TERRAIN_COLORS, GRID_LINE_COLOR,
-                      HIGHLIGHT_COLOR, MIN_TILE_PIXELS_FOR_GRID,
-                      SCREEN_WIDTH, SCREEN_HEIGHT)
+import settings
 
 if TYPE_CHECKING:
     from camera import Camera
@@ -62,8 +59,8 @@ class Map:
         """Initializes the map."""
         self.width = width
         self.height = height
-        self.tile_size = TILE_SIZE
-        self.terrain_types = list(TERRAIN_COLORS.keys())
+        self.tile_size = settings.TILE_SIZE
+        self.terrain_types = list(settings.TERRAIN_COLORS.keys())
         self.data: List[List[str]] = self._generate_map()
 
     def _generate_map(self) -> List[List[str]]:
@@ -117,7 +114,7 @@ class Map:
     def _calculate_visible_area(self, camera: Camera) -> VisibleArea:
         """Calculates the visible tile range based on the camera's view."""
         top_left_world = camera.screen_to_world((0, 0))
-        bottom_right_screen_pos = (SCREEN_WIDTH, SCREEN_HEIGHT)
+        bottom_right_screen_pos = (settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT)
         bottom_right_world = camera.screen_to_world(bottom_right_screen_pos)
 
         start_col = math.floor(top_left_world.x / self.tile_size)
@@ -137,7 +134,7 @@ class Map:
                     world_y = y * self.tile_size
                     world_rect = pygame.Rect(world_x, world_y, self.tile_size, self.tile_size)
                     screen_rect = camera.apply(world_rect)
-                    pygame.draw.rect(surface, TERRAIN_COLORS[terrain], screen_rect)
+                    pygame.draw.rect(surface, settings.TERRAIN_COLORS[terrain], screen_rect)
 
     def _draw_vertical_grid_lines(self, surface: pygame.Surface, camera: Camera,
                                   area: VisibleArea) -> None:
@@ -146,8 +143,8 @@ class Map:
             world_x = col * self.tile_size
             screen_x = round(camera.world_to_screen(pygame.math.Vector2(world_x, 0)).x)
             start_pos = (screen_x, 0)
-            end_pos = (screen_x, SCREEN_HEIGHT)
-            pygame.draw.line(surface, GRID_LINE_COLOR, start_pos, end_pos, 1)
+            end_pos = (screen_x, settings.SCREEN_HEIGHT)
+            pygame.draw.line(surface, settings.GRID_LINE_COLOR, start_pos, end_pos, 1)
 
     def _draw_horizontal_grid_lines(self, surface: pygame.Surface, camera: Camera,
                                     area: VisibleArea) -> None:
@@ -156,14 +153,14 @@ class Map:
             world_y = row * self.tile_size
             screen_y = round(camera.world_to_screen(pygame.math.Vector2(0, world_y)).y)
             start_pos = (0, screen_y)
-            end_pos = (SCREEN_WIDTH, screen_y)
-            pygame.draw.line(surface, GRID_LINE_COLOR, start_pos, end_pos, 1)
+            end_pos = (settings.SCREEN_WIDTH, screen_y)
+            pygame.draw.line(surface, settings.GRID_LINE_COLOR, start_pos, end_pos, 1)
 
     def _draw_grid_lines(self, surface: pygame.Surface, camera: Camera,
                          area: VisibleArea) -> None:
         """Draws the grid lines over the terrain."""
-        scaled_tile_size = self.tile_size * camera.zoom_state.current
-        if scaled_tile_size >= MIN_TILE_PIXELS_FOR_GRID:
+        scaled_tile_size = settings.TILE_SIZE * camera.zoom_state.current
+        if scaled_tile_size >= settings.MIN_TILE_PIXELS_FOR_GRID:
             self._draw_vertical_grid_lines(surface, camera, area)
             self._draw_horizontal_grid_lines(surface, camera, area)
 
@@ -175,7 +172,7 @@ class Map:
             world_x, world_y = tile_x * self.tile_size, tile_y * self.tile_size
             world_rect = pygame.Rect(world_x, world_y, self.tile_size, self.tile_size)
             screen_rect = camera.apply(world_rect)
-            pygame.draw.rect(surface, HIGHLIGHT_COLOR, screen_rect, 3)
+            pygame.draw.rect(surface, settings.HIGHLIGHT_COLOR, screen_rect, 3)
 
     def is_walkable(self, tile_pos: Tuple[int, int]) -> bool:
         """Checks if a given tile is within bounds and not water."""

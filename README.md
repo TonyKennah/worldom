@@ -2,10 +2,6 @@
 
 [![Pylint Status](https://github.com/TonyKennah/worldom/actions/workflows/pylint.yml/badge.svg)](https://github.com/TonyKennah/worldom/actions/workflows/pylint.yml)
 
-[![Package with Aconda Status](https://github.com/TonyKennah/worldom/actions/workflows/python-package-conda.yml/badge.svg)](https://github.com/TonyKennah/worldom/actions/workflows/python-package-conda.yml)
-
-
-
 A 2D strategy game prototype created with Python and Pygame, featuring procedural world generation and tile-based unit movement.
 
 ## Features
@@ -46,15 +42,6 @@ Make sure you have Python 3 installed on your system.
     ```bash
     python main.py
     ```
-
-## Running Tests
-
-The project includes a basic test suite using Python's built-in `unittest` module. To run the tests, navigate to the project's root directory and run:
-
-```bash
-python -m unittest discover tests
-```
-
 
 ## Project Structure
 
@@ -104,7 +91,7 @@ worldom/
         *   `_update_hovered_tile()`: Calculates which map tile is currently under the mouse cursor.
         *   `draw()`: Renders the map, units, selection box, and context menu to the screen.
         *   `_draw_context_menu()`: Renders the context menu on the screen.
-        *   `_update_caption()`: Updates the window title with helpful debug info like FPS and cursor coordinates.
+        *   `_update_caption()`: Updates the window title with helpful debug info like FPS, zoom level, and cursor coordinates.
 
 *   **`src/camera.py`**: Implements the game camera for panning and zooming.
     *   **`ZoomState` class**: Encapsulates the state and logic for camera zooming, including discrete zoom levels.
