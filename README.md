@@ -128,7 +128,7 @@ worldom/
     *   **`Map` class**:
         *   `__init__(width, height)`: Generates the procedural world map using Perlin noise, creating different terrain types like grass, rock, oceans, and inland lakes.
         *   `draw(screen, camera, hovered_tile)`: Renders the visible portion of the map to the screen. It efficiently culls off-screen tiles and highlights the tile under the cursor.
-        *   `is_walkable(tile_pos)`: Checks if a given tile is within bounds and not an obstacle (e.g., ocean, lake, or rock).
+        *   `is_walkable(tile_pos)`: Checks if a given tile is not an obstacle (e.g., ocean or lake).
         *   `find_path(start_tile, end_tile)`: Uses the A* algorithm to calculate the shortest valid path between two tiles, avoiding obstacles.
 
 *   **`src/unit.py`**: Defines the behavior and appearance of controllable units in the game.
