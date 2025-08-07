@@ -58,3 +58,54 @@ worldom/
 └── main.py
 └── requirements.txt
 ```
+
+
+### Source Code Breakdown
+
+*   **`main.py`**: The main entry point of the application. It initializes the `Game` object and runs the main game loop.
+
+*   **`src/settings.py`**: Contains global constants and configuration settings for the game, such as screen dimensions, colors, tile sizes, and game speed. This file does not contain any classes.
+
+*   **`src/game.py`**: The core game class that manages the main game loop, event handling, and game state.
+    *   **`WorldState` class**: A simple data class to hold the current state of all game entities, such as units and player selections.
+    *   **`Game` class**:
+        *   `__init__()`: Initializes Pygame, the screen, clock, and creates instances of the map, camera, and the initial unit. Centers the camera on the unit.
+        *   `run()`: Contains the main game loop that processes events, updates game state, and draws to the screen.
+        *   `_spawn_initial_units()`: Creates the first unit and places it on a valid starting tile.
+        *   `handle_events()`: The top-level event handler, called each frame to process the event queue (quit, key presses, etc.).
+        *   `_handle_mouse_events(event)`: Specifically handles mouse button down/up events for selection and to differentiate clicks from camera drags.
+        *   `_handle_right_click_command()`: Issues a move command to the selected unit by finding a path to the hovered tile.
+        *   `_handle_left_click_selection(mouse_pos)`: Selects a unit if the click was on it, or deselects the current unit if the click was on empty terrain.
+        *   `update(dt)`: Updates all game objects (units, camera) for the current frame and determines the hovered tile.
+        *   `draw()`: Renders the map and all game objects to the screen, adjusted by the camera.
+        *   `_update_caption()`: Updates the window title with helpful debug info like FPS and cursor coordinates.
+
+*   **`src/camera.py`**: Implements the game camera for panning and zooming.
+    *   **`ZoomState` class**: Encapsulates the state and logic for camera zooming, including discrete zoom levels.
+    *   **`PanningState` class**: Encapsulates the state for mouse-based camera panning (dragging).
+    *   **`Camera` class**:
+        *   `__init__(width, height)`: Initializes the camera's viewable area, position, and zoom/pan states.
+        *   `screen_to_world(screen_pos)`: Converts screen pixel coordinates to in-game world coordinates, accounting for camera pan and zoom.
+        *   `world_to_screen(world_pos)`: Converts in-game world coordinates to screen pixel coordinates.
+        *   `apply(rect)`: Adjusts a `pygame.Rect`'s position and size based on the camera's offset and zoom. Used for rendering.
+        *   `update(dt, events)`: The main update method for the camera, called once per frame. It calls helper methods to process input.
+        *   `_handle_keyboard_movement(dt)`: Moves (pans) the camera smoothly based on WASD key presses.
+        *   `_handle_mouse_input(events)`: Manages mouse-based camera controls, including drag-to-pan and calling the zoom handler.
+        *   `_handle_zoom(event)`: Processes mouse wheel events to zoom in or out, keeping the point under the cursor stationary.
+
+*   **`src/map.py`**: Handles the procedural generation, pathfinding logic, and rendering of the game world.
+    *   **`VisibleArea` class**: A dataclass to represent the visible area of the map in tile coordinates for efficient rendering.
+    *   **`AStarState` class**: A helper class to hold the state of an A* pathfinding search (priority queue, costs, etc.).
+    *   **`Map` class**:
+        *   `__init__(width, height)`: Generates the procedural world map using Perlin noise, creating different terrain types like grass, water, and rock.
+        *   `draw(screen, camera, hovered_tile)`: Renders the visible portion of the map to the screen. It efficiently culls off-screen tiles and highlights the tile under the cursor.
+        *   `is_walkable(tile_pos)`: Checks if a given tile is within bounds and not an obstacle (e.g., water).
+        *   `find_path(start_tile, end_tile)`: Uses the A* algorithm to calculate the shortest valid path between two tiles, avoiding obstacles.
+
+*   **`src/unit.py`**: Defines the behavior and appearance of controllable units in the game.
+    *   **`Unit` class**:
+        *   `__init__(tile_pos)`: Creates a new unit at a given starting tile position.
+        *   `set_path(path)`: Assigns a new sequence of tiles (a path) for the unit to follow. This can interrupt any existing movement.
+        *   `update(dt)`: Moves the unit along its path. The unit moves to the next tile in its path at a fixed rate defined by `UNIT_MOVES_PER_SECOND`.
+        *   `draw(screen, camera)`: Renders the unit on the screen, changing its appearance if it is selected.
+        *   `get_world_rect()`: Returns the unit's bounding box in world coordinates, used for click detection and selection.
