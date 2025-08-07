@@ -23,9 +23,10 @@ MAP_HEIGHT_TILES = 100
 
 # Terrain Colors
 TERRAIN_COLORS = {
-    "grass": (50, 150, 50),
-    "water": (60, 120, 180),
-    "rock": (130, 130, 130),
+    "grass": (50, 150, 50),      # Lush green for grasslands
+    "ocean": (60, 120, 180),     # Deep blue for oceans
+    "lake": (80, 140, 200),      # Lighter blue for inland lakes
+    "rock": (130, 130, 130),     # Gray for mountains
 }
 GRID_LINE_COLOR = (40, 40, 40)
 HIGHLIGHT_COLOR = (255, 255, 0)  # Yellow

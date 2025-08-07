@@ -68,16 +68,18 @@ worldom/
 *   **`src/settings.py`**: Contains global constants and configuration settings for the game, such as screen dimensions, colors, tile sizes, and game speed. This file does not contain any classes.
 
 *   **`src/game.py`**: The core game class that manages the main game loop, event handling, and game state.
-    *   **`ContextMenuState` class**: Encapsulates all state related to the right-click context menu, such as its position, options, and visibility.
+    *   **`DebugPanel` class**: Handles rendering and interaction for the top debug panel, including the Exit link.
+    *   **`SubMenuState` class**: Encapsulates the state of a context sub-menu.
+    *   **`ContextMenuState` class**: Encapsulates all state related to the right-click context menu, including an instance of `SubMenuState`.
     *   **`WorldState` class**: A data class to hold the current state of all game entities, such as units, player selections, and an instance of `ContextMenuState`.
     *   **`Game` class**:
         *   `__init__()`: Initializes Pygame and creates a maximized window. It also creates instances of the map, camera, and the initial unit.
         *   `run()`: Contains the main game loop that processes events, updates game state, and draws to the screen.
         *   `_spawn_initial_units()`: Creates the first unit and places it on a valid starting tile.
-        *   `handle_events()`: The top-level event handler, called each frame to process the event queue (quit, key presses, etc.).
+        *   `handle_events(events)`: The top-level event handler, called each frame to process the event queue (quit, key presses, etc.).
         *   `_is_click(start_pos, end_pos)`: Helper to determine if a mouse action is a click or a drag.
         *   `_handle_mouse_events(event)`: Dispatches mouse events to more specific handler methods.
-        *   `_handle_mouse_button_down(event)`: Handles `MOUSEBUTTONDOWN` events, including UI clicks like the Exit link.
+        *   `_handle_mouse_button_down(event)`: Handles `MOUSEBUTTONDOWN` events for game world interactions.
         *   `_handle_mouse_button_up(event)`: Handles `MOUSEBUTTONUP` events for both buttons.
         *   `_handle_left_mouse_up(event)`: Differentiates between a left-click (for selection) and a left-drag (for creating a selection box).
         *   `_handle_right_mouse_up(event)`: Handles a right-click to open the context menu for selected units.
@@ -91,12 +93,11 @@ worldom/
         *   `_issue_move_command_to_target()`: Issues a move command to all selected units by finding a path to the stored target tile.
         *   `_handle_left_click_selection(mouse_pos)`: Selects a single unit under the cursor, deselecting any other units.
         *   `_handle_drag_selection(selection_rect_screen)`: Selects all units within the dragged selection box.
-        *   `update(dt)`: Updates all game objects. It also handles context menu hovering and updates the hovered tile.
+        *   `update(dt, events)`: Updates all game objects. It also handles context menu hovering and updates the hovered tile.
         *   `_update_hovered_tile()`: Calculates which map tile is currently under the mouse cursor.
         *   `draw()`: Renders the map, units, selection box, context menu, and debug panel to the screen.
         *   `_draw_context_menu()`: Renders the context menu on the screen.
         *   `_draw_sub_menu()`: Renders the sub-menu on the screen.
-        *   `_draw_debug_panel()`: Renders the debug information panel at the top of the screen, including a clickable Exit link.
 
 *   **`src/camera.py`**: Implements the game camera for panning and zooming.
     *   **`ZoomState` class**: Encapsulates the state and logic for camera zooming, including discrete zoom levels.
@@ -115,9 +116,9 @@ worldom/
     *   **`VisibleArea` class**: A dataclass to represent the visible area of the map in tile coordinates for efficient rendering.
     *   **`AStarState` class**: A helper class to hold the state of an A* pathfinding search (priority queue, costs, etc.).
     *   **`Map` class**:
-        *   `__init__(width, height)`: Generates the procedural world map using Perlin noise, creating different terrain types like grass, water, and rock.
+        *   `__init__(width, height)`: Generates the procedural world map using Perlin noise, creating different terrain types like grass, rock, oceans, and inland lakes.
         *   `draw(screen, camera, hovered_tile)`: Renders the visible portion of the map to the screen. It efficiently culls off-screen tiles and highlights the tile under the cursor.
-        *   `is_walkable(tile_pos)`: Checks if a given tile is within bounds and not an obstacle (e.g., water).
+        *   `is_walkable(tile_pos)`: Checks if a given tile is within bounds and not an obstacle (e.g., ocean or lake).
         *   `find_path(start_tile, end_tile)`: Uses the A* algorithm to calculate the shortest valid path between two tiles, avoiding obstacles.
 
 *   **`src/unit.py`**: Defines the behavior and appearance of controllable units in the game.

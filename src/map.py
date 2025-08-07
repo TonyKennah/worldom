@@ -82,9 +82,9 @@ class Map:
 
                 # Assign terrain based on the elevation and lake values
                 if elevation < WATER_THRESHOLD:
-                    world[y][x] = "water"  # Ocean
+                    world[y][x] = "ocean"
                 elif elevation > ROCK_THRESHOLD:
-                    world[y][x] = "rock"   # Mountains
+                    world[y][x] = "rock"
                 else: # Potential land tile
                     nx_l, ny_l = x / LAKE_SCALE, y / LAKE_SCALE
                     lake_value = noise.pnoise2(nx_l, ny_l,
@@ -93,9 +93,9 @@ class Map:
                                                lacunarity=LAKE_LACUNARITY,
                                                base=l_seed)
                     if lake_value < LAKE_THRESHOLD:
-                        world[y][x] = "water" # Lake
+                        world[y][x] = "lake"
                     else:
-                        world[y][x] = "grass"  # Grassland
+                        world[y][x] = "grass"
         return world
 
     def draw(
@@ -175,11 +175,11 @@ class Map:
             pygame.draw.rect(surface, settings.HIGHLIGHT_COLOR, screen_rect, 3)
 
     def is_walkable(self, tile_pos: Tuple[int, int]) -> bool:
-        """Checks if a given tile is within bounds and not water."""
+        """Checks if a given tile is within bounds and not an obstacle."""
         x, y = tile_pos
         if not (0 <= x < self.width and 0 <= y < self.height):
             return False
-        return self.data[y][x] != 'water'
+        return self.data[y][x] not in ["ocean", "lake"]
 
     @staticmethod
     def _heuristic(pos_a: Tuple[int, int], pos_b: Tuple[int, int]) -> float:
