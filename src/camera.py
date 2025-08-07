@@ -6,7 +6,8 @@ from typing import List, Optional, Tuple
 
 import pygame
 
-from settings import CAMERA_SPEED, EDGE_SCROLL_SPEED, EDGE_SCROLL_BOUNDARY
+from settings import (CAMERA_SPEED, EDGE_SCROLL_SPEED, EDGE_SCROLL_BOUNDARY,
+                      DEBUG_PANEL_HEIGHT)
 
 class ZoomState:
     """Encapsulates the state and logic for camera zooming."""
@@ -15,13 +16,6 @@ class ZoomState:
         self.levels = [0.125, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0]
         self.index = self.levels.index(2.0)
         self.current = self.levels[self.index]
-
-class PanningState:
-    """Encapsulates the state for mouse panning."""
-    # pylint: disable=too-few-public-methods
-    def __init__(self) -> None:
-        self.dragging = False
-        self.drag_pos: Optional[pygame.math.Vector2] = None
 
 class Camera:
     """Manages the game's viewport, handling zoom and panning."""
@@ -34,7 +28,6 @@ class Camera:
         self.screen_center = pygame.math.Vector2(width / 2, height / 2)
 
         self.zoom_state = ZoomState()
-        self.panning_state = PanningState()
 
     def screen_to_world(self, screen_pos: Tuple[int, int]) -> pygame.math.Vector2:
         """Converts screen coordinates to world coordinates."""
@@ -81,20 +74,10 @@ class Camera:
             self.position += move_vec * CAMERA_SPEED / self.zoom_state.current * dt
 
     def _handle_mouse_input(self, events: List[pygame.event.Event]) -> None:
-        """Handles mouse zooming and panning."""
+        """Handles mouse zooming."""
         for event in events:
             if event.type == pygame.MOUSEWHEEL:
                 self._handle_zoom(event)
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                self.panning_state.dragging = True
-                self.panning_state.drag_pos = pygame.math.Vector2(event.pos)
-            elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-                self.panning_state.dragging = False
-                self.panning_state.drag_pos = None
-            elif event.type == pygame.MOUSEMOTION and self.panning_state.dragging:
-                drag_vec = pygame.math.Vector2(event.pos) - self.panning_state.drag_pos
-                self.position -= drag_vec / self.zoom_state.current
-                self.panning_state.drag_pos = pygame.math.Vector2(event.pos)
 
     def _handle_zoom(self, event: pygame.event.Event) -> None:
         """Adjusts camera zoom based on mouse wheel events."""
@@ -119,12 +102,15 @@ class Camera:
         mouse_pos = pygame.mouse.get_pos()
         move_vec = pygame.math.Vector2(0, 0)
 
-        if mouse_pos[0] < EDGE_SCROLL_BOUNDARY:
-            move_vec.x -= 1
-        elif mouse_pos[0] > self.width - EDGE_SCROLL_BOUNDARY:
-            move_vec.x += 1
+        # Only check for horizontal scrolling if the mouse is outside the debug panel.
+        if mouse_pos[1] >= DEBUG_PANEL_HEIGHT:
+            if mouse_pos[0] < EDGE_SCROLL_BOUNDARY:
+                move_vec.x -= 1
+            elif mouse_pos[0] > self.width - EDGE_SCROLL_BOUNDARY:
+                move_vec.x += 1
 
-        if mouse_pos[1] < EDGE_SCROLL_BOUNDARY:
+        # The scrollable area at the top starts just below the debug panel.
+        if DEBUG_PANEL_HEIGHT <= mouse_pos[1] < DEBUG_PANEL_HEIGHT + EDGE_SCROLL_BOUNDARY:
             move_vec.y -= 1
         elif mouse_pos[1] > self.height - EDGE_SCROLL_BOUNDARY:
             move_vec.y += 1
