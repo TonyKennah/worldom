@@ -73,7 +73,13 @@ worldom/
         *   `run()`: Contains the main game loop that processes events, updates game state, and draws to the screen.
         *   `_spawn_initial_units()`: Creates the first unit and places it on a valid starting tile.
         *   `handle_events()`: The top-level event handler, called each frame to process the event queue (quit, key presses, etc.).
-        *   `_handle_mouse_events(event)`: Specifically handles mouse button down/up events for selection, camera drags, and opening the context menu.
+        *   `_is_click(start_pos, end_pos)`: Helper to determine if a mouse action is a click or a drag.
+        *   `_handle_mouse_events(event)`: Dispatches mouse events to more specific handler methods.
+        *   `_handle_mouse_button_down(event)`: Handles `MOUSEBUTTONDOWN` events for both buttons.
+        *   `_handle_mouse_button_up(event)`: Handles `MOUSEBUTTONUP` events for both buttons.
+        *   `_handle_left_mouse_up(event)`: Differentiates between a left-click (for selection) and a left-drag (for camera).
+        *   `_handle_right_mouse_up(event)`: Differentiates between a right-click (for context menu) and a right-drag (for selection box).
+        *   `_handle_mouse_motion(event)`: Updates the selection box rectangle during a right-drag.
         *   `_open_context_menu(screen_pos)`: Displays the right-click command menu and stores the target tile.
         *   `_close_context_menu()`: Hides the right-click command menu.
         *   `_handle_context_menu_click(mouse_pos)`: Processes a click on or outside the context menu.
