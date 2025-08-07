@@ -2,7 +2,8 @@
 
 [![Pylint Status](https://github.com/TonyKennah/worldom/actions/workflows/pylint.yml/badge.svg)](https://github.com/TonyKennah/worldom/actions/workflows/pylint.yml)
 
-[![Package with Aconda Status](https://github.com/workflows/python-package-conda.yml/badge.svg)](https://github,com/workflows/python-package-conda.yml)
+[![Package with Aconda Status](https://github.com/TonyKennah/worldom/actions/workflows/python-package-conda.yml/badge.svg)](https://github.com/TonyKennah/worldom/actions/workflows/python-package-conda.yml)
+
 
 
 A 2D strategy game prototype created with Python and Pygame, featuring procedural world generation and tile-based unit movement.
