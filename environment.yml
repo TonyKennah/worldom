@@ -1,0 +1,11 @@
+name: environment-name
+channels:
+  - anaconda
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9.*
+  - pip
+  - pip:
+    - pygame==2.6.*
+    - noise==1.2.*
