@@ -6,7 +6,7 @@ from typing import List, Optional, Tuple
 
 import pygame
 
-from settings import CAMERA_SPEED
+from settings import CAMERA_SPEED, EDGE_SCROLL_SPEED, EDGE_SCROLL_BOUNDARY
 
 class ZoomState:
     """Encapsulates the state and logic for camera zooming."""
@@ -60,6 +60,7 @@ class Camera:
         """Updates camera position based on user input."""
         self._handle_keyboard_movement(dt)
         self._handle_mouse_input(events)
+        self._handle_edge_scrolling(dt)
 
     def _handle_keyboard_movement(self, dt: float) -> None:
         """Moves the camera based on WASD key presses."""
@@ -108,3 +109,27 @@ class Camera:
 
         mouse_pos_after_zoom = self.screen_to_world(pygame.mouse.get_pos())
         self.position += mouse_pos_before_zoom - mouse_pos_after_zoom
+
+    def _handle_edge_scrolling(self, dt: float) -> None:
+        """Moves the camera if the mouse is near the screen edges."""
+        # Only scroll if the mouse is inside the game window.
+        if not pygame.mouse.get_focused():
+            return
+
+        mouse_pos = pygame.mouse.get_pos()
+        move_vec = pygame.math.Vector2(0, 0)
+
+        if mouse_pos[0] < EDGE_SCROLL_BOUNDARY:
+            move_vec.x -= 1
+        elif mouse_pos[0] > self.width - EDGE_SCROLL_BOUNDARY:
+            move_vec.x += 1
+
+        if mouse_pos[1] < EDGE_SCROLL_BOUNDARY:
+            move_vec.y -= 1
+        elif mouse_pos[1] > self.height - EDGE_SCROLL_BOUNDARY:
+            move_vec.y += 1
+
+        if move_vec.length_squared() > 0:
+            move_vec.normalize_ip()
+            # Scale movement by zoom level to feel consistent
+            self.position += move_vec * EDGE_SCROLL_SPEED / self.zoom_state.current * dt

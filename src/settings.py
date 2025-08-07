@@ -10,7 +10,9 @@ FPS = 60
 BG_COLOR = (25, 25, 112)  # Midnight Blue
 
 # --- Camera Settings ---
-CAMERA_SPEED = 500  # pixels per second
+CAMERA_SPEED = 500  # pixels per second for keyboard panning
+EDGE_SCROLL_SPEED = 350 # pixels per second for edge scrolling
+EDGE_SCROLL_BOUNDARY = 40 # pixels from the edge to start scrolling
 
 # --- Map Settings ---
 TILE_SIZE = 32

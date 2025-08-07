@@ -89,9 +89,10 @@ worldom/
         *   `world_to_screen(world_pos)`: Converts in-game world coordinates to screen pixel coordinates.
         *   `apply(rect)`: Adjusts a `pygame.Rect`'s position and size based on the camera's offset and zoom. Used for rendering.
         *   `update(dt, events)`: The main update method for the camera, called once per frame. It calls helper methods to process input.
-        *   `_handle_keyboard_movement(dt)`: Moves (pans) the camera smoothly based on WASD key presses.
+        *   `_handle_keyboard_movement(dt)`: Pans the camera smoothly based on WASD key presses.
         *   `_handle_mouse_input(events)`: Manages mouse-based camera controls, including drag-to-pan and calling the zoom handler.
         *   `_handle_zoom(event)`: Processes mouse wheel events to zoom in or out, keeping the point under the cursor stationary.
+        *   `_handle_edge_scrolling(dt)`: Pans the camera when the mouse cursor is near the edges of the screen.
 
 *   **`src/map.py`**: Handles the procedural generation, pathfinding logic, and rendering of the game world.
     *   **`VisibleArea` class**: A dataclass to represent the visible area of the map in tile coordinates for efficient rendering.

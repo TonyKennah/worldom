@@ -42,7 +42,8 @@ class Game:
 
         # Center camera on the initial unit
         if initial_unit:
-            self.camera.position = initial_unit.world_pos
+            # Use .copy() to prevent the camera and unit from sharing the same Vector2 object
+            self.camera.position = initial_unit.world_pos.copy()
 
     def run(self) -> None:
         """The main game loop."""
@@ -98,7 +99,11 @@ class Game:
 
     def _handle_right_click_command(self) -> None:
         """Issues a move command to the selected unit."""
-        if self.world_state.selected_unit and self.world_state.hovered_tile:
+        # A unit must exist in the world state and also be marked as selected
+        # to receive a move command.
+        if (self.world_state.selected_unit and
+                self.world_state.selected_unit.selected and
+                self.world_state.hovered_tile):
             tile_x, tile_y = self.world_state.hovered_tile
             terrain = self.map.data[tile_y][tile_x]
             if terrain != 'water':  # Allow interrupting the current path
@@ -126,6 +131,7 @@ class Game:
 
         if not clicked_on_unit and self.world_state.selected_unit:
             self.world_state.selected_unit.selected = False
+            self.world_state.selected_unit = None
 
 
     def update(self, dt: float) -> None:
