@@ -164,7 +164,9 @@ class Game:
                     grass_tiles.append((x, y))
         return grass_tiles
 
-    def _is_ocean_visible_from(self, center_x: int, center_y: int, radius_x: int, radius_y: int) -> bool:
+    def _is_ocean_visible_from(
+        self, center_x: int, center_y: int, radius_x: int, radius_y: int
+    ) -> bool:
         """Checks if any ocean tiles are visible from a central point."""
         for j in range(center_y - radius_y, center_y + radius_y + 1):
             for i in range(center_x - radius_x, center_x + radius_x + 1):
@@ -201,8 +203,11 @@ class Game:
         and no ocean is visible on screen at the start. Returns the first unit.
         """
         initial_zoom = self.camera.zoom_state.current
-        tiles_to_edge_x = (settings.SCREEN_WIDTH / 2 / initial_zoom) / settings.TILE_SIZE
-        tiles_to_edge_y = (settings.SCREEN_HEIGHT / 2 / initial_zoom) / settings.TILE_SIZE
+        # Calculate how many tiles are visible from the center to the edge of the screen
+        screen_radius_x_pixels = settings.SCREEN_WIDTH / 2 / initial_zoom
+        tiles_to_edge_x = screen_radius_x_pixels / settings.TILE_SIZE
+        screen_radius_y_pixels = settings.SCREEN_HEIGHT / 2 / initial_zoom
+        tiles_to_edge_y = screen_radius_y_pixels / settings.TILE_SIZE
         radius_x = math.ceil(tiles_to_edge_x) + 1
         radius_y = math.ceil(tiles_to_edge_y) + 1
 
@@ -524,7 +529,9 @@ class Game:
             pygame.draw.rect(self.screen, settings.CONTEXT_MENU_BG_COLOR, rect)
             pygame.draw.rect(self.screen, settings.CONTEXT_MENU_BORDER_COLOR, rect, 1)
 
-            text_surface = context_menu.font.render(option_text, True, settings.CONTEXT_MENU_TEXT_COLOR)
+            text_surface = context_menu.font.render(
+                option_text, True, settings.CONTEXT_MENU_TEXT_COLOR
+            )
             text_x = rect.x + settings.CONTEXT_MENU_PADDING
             text_y = rect.y + (settings.CONTEXT_MENU_PADDING / 2)
             self.screen.blit(text_surface, (text_x, text_y))
@@ -540,7 +547,8 @@ class Game:
                 option_data = context_menu.options[i]
                 if "sub_options" in option_data:
                     # Open sub-menu if not already open for this item
-                    if not context_menu.sub_menu.active or context_menu.sub_menu.parent_rect != rect:
+                    if (not context_menu.sub_menu.active
+                            or context_menu.sub_menu.parent_rect != rect):
                         self._open_sub_menu(option_data["sub_options"], rect)
                 else:
                     # This item has no sub-menu, so close any active one
