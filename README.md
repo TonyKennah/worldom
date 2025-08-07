@@ -120,6 +120,6 @@ worldom/
     *   **`Unit` class**:
         *   `__init__(tile_pos)`: Creates a new unit at a given starting tile position.
         *   `set_path(path)`: Assigns a new sequence of tiles (a path) for the unit to follow. This can interrupt any existing movement.
-        *   `update(dt)`: Moves the unit along its path. The unit moves to the next tile in its path at a fixed rate defined by `UNIT_MOVES_PER_SECOND`.
+        *   `update(dt)`: Smoothly moves the unit along its assigned path from one tile to the next, interpolating its position each frame.
         *   `draw(screen, camera)`: Renders the unit on the screen, changing its appearance if it is selected.
         *   `get_world_rect()`: Returns the unit's bounding box in world coordinates, used for click detection and selection.

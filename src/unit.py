@@ -25,9 +25,9 @@ class Unit:
         self.tile_pos = pygame.math.Vector2(tile_pos)
         # Pixel position in the world for smooth movement
         self.world_pos = (self.tile_pos * TILE_SIZE) + pygame.math.Vector2(TILE_SIZE / 2)
+        self.target_world_pos = self.world_pos.copy()
         self.selected: bool = False
         self.path: List[Tuple[int, int]] = []
-        self.move_timer: float = 0.0
 
     def get_world_rect(self) -> pygame.Rect:
         """Gets the unit's bounding box in world coordinates for selection."""
@@ -41,21 +41,32 @@ class Unit:
         self.path = path
 
     def update(self, dt: float) -> None:
-        """Moves the unit along its path one tile at a time based on a timer."""
-        if not self.path:
+        """Moves the unit smoothly along its path by interpolating its position."""
+        # If we don't have a path and we are at our destination, do nothing.
+        if not self.path and self.world_pos == self.target_world_pos:
             return
 
-        self.move_timer += dt
-        move_delay = 1.0 / UNIT_MOVES_PER_SECOND
-
-        # If enough time has passed, move to the next tile
-        if self.move_timer >= move_delay:
-            self.move_timer -= move_delay
-
-            # Instantly move to the next tile in the path
+        # If we are at our destination, get the next destination from the path.
+        if self.world_pos == self.target_world_pos and self.path:
             next_tile = self.path.pop(0)
             self.tile_pos = pygame.math.Vector2(next_tile)
-            self.world_pos = (self.tile_pos * TILE_SIZE) + pygame.math.Vector2(TILE_SIZE / 2)
+            self.target_world_pos = (self.tile_pos * TILE_SIZE) + pygame.math.Vector2(TILE_SIZE / 2)
+
+        # Move towards the target position.
+        move_vec = self.target_world_pos - self.world_pos
+        dist_to_target = move_vec.length()
+
+        if dist_to_target > 0:
+            speed = UNIT_MOVES_PER_SECOND * TILE_SIZE
+            distance_to_move = speed * dt
+
+            if distance_to_move >= dist_to_target:
+                # We can reach or overshoot the target this frame, so just snap to it.
+                self.world_pos = self.target_world_pos.copy()
+            else:
+                # Move towards the target.
+                move_vec.normalize_ip()
+                self.world_pos += move_vec * distance_to_move
 
     def draw(self, surface: pygame.Surface, camera: Camera) -> None:
         """Draws the unit on the screen."""
