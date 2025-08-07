@@ -67,7 +67,8 @@ worldom/
 *   **`src/settings.py`**: Contains global constants and configuration settings for the game, such as screen dimensions, colors, tile sizes, and game speed. This file does not contain any classes.
 
 *   **`src/game.py`**: The core game class that manages the main game loop, event handling, and game state.
-    *   **`WorldState` class**: A simple data class to hold the current state of all game entities, such as units and player selections.
+    *   **`ContextMenuState` class**: Encapsulates all state related to the right-click context menu, such as its position, options, and visibility.
+    *   **`WorldState` class**: A data class to hold the current state of all game entities, such as units, player selections, and an instance of `ContextMenuState`.
     *   **`Game` class**:
         *   `__init__()`: Initializes Pygame, the screen, clock, and creates instances of the map, camera, and the initial unit.
         *   `run()`: Contains the main game loop that processes events, updates game state, and draws to the screen.

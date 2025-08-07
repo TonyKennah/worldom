@@ -37,13 +37,7 @@ class WorldState:
         self.left_mouse_down_pos: Optional[Tuple[int, int]] = None
         self.right_mouse_down_pos: Optional[Tuple[int, int]] = None
         self.selection_box: Optional[pygame.Rect] = None
-        # Context Menu State
-        self.context_menu_active: bool = False
-        self.context_menu_pos: Optional[Tuple[int, int]] = None
-        self.context_menu_options: List[str] = ["Attack", "Build", "MoveTo"]
-        self.context_menu_rects: List[pygame.Rect] = []
-        self.context_menu_target_tile: Optional[Tuple[int, int]] = None
-        self.context_menu_font = pygame.font.SysFont("Arial", CONTEXT_MENU_FONT_SIZE)
+        self.context_menu = ContextMenuState()
 
 # --- Game Class ---
 class Game:
@@ -120,12 +114,12 @@ class Game:
     def _handle_mouse_button_down(self, event: pygame.event.Event) -> None:
         """Handles mouse button down events."""
         if event.button == 1:  # Left-click
-            if self.world_state.context_menu_active:
+            if self.world_state.context_menu.active:
                 self._handle_context_menu_click(event.pos)
             else:
                 self.world_state.left_mouse_down_pos = event.pos
         elif event.button == 3:  # Right-click
-            if self.world_state.context_menu_active:
+            if self.world_state.context_menu.active:
                 self._close_context_menu()
             else:
                 self.world_state.right_mouse_down_pos = event.pos
@@ -171,33 +165,33 @@ class Game:
         if not self.world_state.hovered_tile:
             return
 
-        self.world_state.context_menu_active = True
-        self.world_state.context_menu_pos = screen_pos
-        self.world_state.context_menu_target_tile = self.world_state.hovered_tile
-        self.world_state.context_menu_rects.clear()
+        self.world_state.context_menu.active = True
+        self.world_state.context_menu.pos = screen_pos
+        self.world_state.context_menu.target_tile = self.world_state.hovered_tile
+        self.world_state.context_menu.rects.clear()
 
         # Calculate rects for each option
         x, y = screen_pos
         padding = CONTEXT_MENU_PADDING
-        for i, option_text in enumerate(self.world_state.context_menu_options):
-            text_surface = self.world_state.context_menu_font.render(option_text, True, (0,0,0))
+        for i, option_text in enumerate(self.world_state.context_menu.options):
+            text_surface = self.world_state.context_menu.font.render(option_text, True, (0,0,0))
             width = text_surface.get_width() + padding * 2
             height = text_surface.get_height() + padding
             rect = pygame.Rect(x, y + i * height, width, height)
-            self.world_state.context_menu_rects.append(rect)
+            self.world_state.context_menu.rects.append(rect)
 
     def _close_context_menu(self) -> None:
         """Closes the context menu."""
-        self.world_state.context_menu_active = False
-        self.world_state.context_menu_pos = None
-        self.world_state.context_menu_rects.clear()
-        self.world_state.context_menu_target_tile = None
+        self.world_state.context_menu.active = False
+        self.world_state.context_menu.pos = None
+        self.world_state.context_menu.rects.clear()
+        self.world_state.context_menu.target_tile = None
 
     def _handle_context_menu_click(self, mouse_pos: Tuple[int, int]) -> None:
         """Handles a click when the context menu is active."""
-        for i, rect in enumerate(self.world_state.context_menu_rects):
+        for i, rect in enumerate(self.world_state.context_menu.rects):
             if rect.collidepoint(mouse_pos):
-                option = self.world_state.context_menu_options[i]
+                option = self.world_state.context_menu.options[i]
                 print(f"Context menu option clicked: {option}")
                 # For now, all options just move the unit
                 if option in ["Attack", "Build", "MoveTo"]:
@@ -209,7 +203,7 @@ class Game:
 
     def _issue_move_command_to_target(self) -> None:
         """Issues a move command to selected units to the stored target tile."""
-        target_tile = self.world_state.context_menu_target_tile
+        target_tile = self.world_state.context_menu.target_tile
         if not self.world_state.selected_units or not target_tile:
             return
 
@@ -273,7 +267,7 @@ class Game:
         for unit in self.world_state.units:
             unit.update(dt)
 
-        if not self.world_state.context_menu_active:
+        if not self.world_state.context_menu.active:
             self._update_hovered_tile()
 
     def _update_hovered_tile(self) -> None:
@@ -303,7 +297,7 @@ class Game:
                              self.world_state.selection_box, SELECTION_BOX_BORDER_WIDTH)
 
         # Draw context menu if active
-        if self.world_state.context_menu_active:
+        if self.world_state.context_menu.active:
             self._draw_context_menu()
 
         self._update_caption()
@@ -311,17 +305,17 @@ class Game:
 
     def _draw_context_menu(self) -> None:
         """Renders the context menu on the screen."""
-        if not self.world_state.context_menu_rects:
+        if not self.world_state.context_menu.rects:
             return
 
-        for i, rect in enumerate(self.world_state.context_menu_rects):
-            option_text = self.world_state.context_menu_options[i]
+        for i, rect in enumerate(self.world_state.context_menu.rects):
+            option_text = self.world_state.context_menu.options[i]
 
             # Draw background and border
             pygame.draw.rect(self.screen, CONTEXT_MENU_BG_COLOR, rect)
             pygame.draw.rect(self.screen, CONTEXT_MENU_BORDER_COLOR, rect, 1)
 
-            text_surface = self.world_state.context_menu_font.render(
+            text_surface = self.world_state.context_menu.font.render(
                 option_text, True, CONTEXT_MENU_TEXT_COLOR)
             text_x = rect.x + CONTEXT_MENU_PADDING
             text_y = rect.y + (CONTEXT_MENU_PADDING / 2)
