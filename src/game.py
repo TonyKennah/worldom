@@ -2,6 +2,7 @@
 """
 Defines the main Game class that orchestrates all game components.
 """
+from __future__ import annotations
 import math
 import random
 import sys
@@ -67,43 +68,36 @@ class DebugPanel:
                 return True  # Signal to exit
         return False
 
-    def draw(
-        self,
-        screen: pygame.Surface,
-        clock: pygame.time.Clock,
-        camera: Camera,
-        world_state: WorldState,
-        game_map: Map
-    ) -> None:
+    def draw(self, game: Game) -> None:
         """Renders the debug information panel at the top of the screen."""
         panel_rect = pygame.Rect(0, 0, settings.SCREEN_WIDTH, settings.DEBUG_PANEL_HEIGHT)
-        pygame.draw.rect(screen, settings.DEBUG_PANEL_BG_COLOR, panel_rect)
+        pygame.draw.rect(game.screen, settings.DEBUG_PANEL_BG_COLOR, panel_rect)
 
-        world_pos = camera.screen_to_world(pygame.mouse.get_pos())
+        world_pos = game.camera.screen_to_world(pygame.mouse.get_pos())
         world_coords = f"({int(world_pos.x)}, {int(world_pos.y)})"
-        zoom_percentage = camera.zoom_state.current * 100
+        zoom_percentage = game.camera.zoom_state.current * 100
         info_string = (
-            f"FPS: {clock.get_fps():.1f} | "
+            f"FPS: {game.clock.get_fps():.1f} | "
             f"Zoom: {zoom_percentage:.0f}% | "
             f"World: {world_coords}"
         )
-        if world_state.hovered_tile:
-            tile_x, tile_y = world_state.hovered_tile
-            terrain = game_map.data[tile_y][tile_x]
+        if game.world_state.hovered_tile:
+            tile_x, tile_y = game.world_state.hovered_tile
+            terrain = game.map.data[tile_y][tile_x]
             tile_info = f"({tile_x}, {tile_y}) ({terrain.capitalize()})"
             info_string += f" | Tile: {tile_info}"
 
         text_surface = self.font.render(info_string, True, settings.DEBUG_PANEL_FONT_COLOR)
         # Vertically center the text in the panel
         text_y = (settings.DEBUG_PANEL_HEIGHT - text_surface.get_height()) // 2
-        screen.blit(text_surface, (10, text_y))
+        game.screen.blit(text_surface, (10, text_y))
 
         # Draw the "Exit" link on the right
         exit_text_surface = self.font.render("Exit", True, settings.DEBUG_PANEL_FONT_COLOR)
         exit_text_x = settings.SCREEN_WIDTH - exit_text_surface.get_width() - 10
         exit_text_y = (settings.DEBUG_PANEL_HEIGHT - exit_text_surface.get_height()) // 2
         # Store the rect so we can check for clicks on it
-        self.exit_link_rect = screen.blit(exit_text_surface, (exit_text_x, exit_text_y))
+        self.exit_link_rect = game.screen.blit(exit_text_surface, (exit_text_x, exit_text_y))
 
 # --- Game Class ---
 class Game:
@@ -175,7 +169,9 @@ class Game:
                         return True
         return False
 
-    def _find_best_spawn_fallback(self, grass_tiles: List[Tuple[int, int]], radius_x: int, radius_y: int) -> Tuple[int, int]:
+    def _find_best_spawn_fallback(
+        self, grass_tiles: List[Tuple[int, int]], radius_x: int, radius_y: int
+    ) -> Tuple[int, int]:
         """Finds the best possible spawn point by maximizing visible land."""
         best_spawn_point = None
         max_land_tiles = -1
@@ -495,7 +491,7 @@ class Game:
             if self.world_state.context_menu.sub_menu.active:
                 self._draw_sub_menu()
 
-        self.debug_panel.draw(self.screen, self.clock, self.camera, self.world_state, self.map)
+        self.debug_panel.draw(self)
         pygame.display.flip()
 
     def _draw_context_menu(self) -> None:
