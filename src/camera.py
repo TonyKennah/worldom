@@ -2,7 +2,7 @@
 """
 Defines the Camera class for managing the game's viewport.
 """
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 import pygame
 

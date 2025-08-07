@@ -75,7 +75,10 @@ worldom/
     *   **`Game` class**:
         *   `__init__()`: Initializes Pygame and creates a maximized window. It also creates instances of the map, camera, and the initial unit.
         *   `run()`: Contains the main game loop that processes events, updates game state, and draws to the screen.
-        *   `_spawn_initial_units()`: Creates the first unit and places it on a valid starting tile.
+        *   `_get_all_grass_tiles()`: Returns a list of all valid spawnable tiles.
+        *   `_is_ocean_visible_from(...)`: Checks if the ocean is visible from a given tile.
+        *   `_find_best_spawn_fallback(...)`: Finds the safest possible spawn point if no "perfect" spot exists.
+        *   `_spawn_initial_units()`: Creates the first unit on the best available starting tile by orchestrating spawn-related helper methods.
         *   `handle_events(events)`: The top-level event handler, called each frame to process the event queue (quit, key presses, etc.).
         *   `_is_click(start_pos, end_pos)`: Helper to determine if a mouse action is a click or a drag.
         *   `_handle_mouse_events(event)`: Dispatches mouse events to more specific handler methods.

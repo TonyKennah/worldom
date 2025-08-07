@@ -155,57 +155,26 @@ class Game:
         pygame.quit()
         sys.exit()
 
-    def _spawn_initial_units(self) -> Unit:
-        """
-        Creates the starting units for the game, ensuring it's on a grass tile
-        and no water is visible on screen at the start. Returns the first unit.
-        """
-        # Calculate how many tiles are visible from the center to the edge of the screen
-        # at the initial zoom level. Add a small buffer.
-        initial_zoom = self.camera.zoom_state.current
-        radius_x = math.ceil(
-            (settings.SCREEN_WIDTH / 2 / initial_zoom) / settings.TILE_SIZE
-        ) + 1
-        radius_y = math.ceil(
-            (settings.SCREEN_HEIGHT / 2 / initial_zoom) / settings.TILE_SIZE
-        ) + 1
-
-        # --- New robust spawning logic ---
-        # 1. Collect all possible grass tiles
+    def _get_all_grass_tiles(self) -> List[Tuple[int, int]]:
+        """Returns a list of all (x, y) coordinates for grass tiles."""
         grass_tiles = []
         for y in range(self.map.height):
             for x in range(self.map.width):
                 if self.map.data[y][x] == 'grass':
                     grass_tiles.append((x, y))
+        return grass_tiles
 
-        if not grass_tiles:
-            raise RuntimeError("Map generation failed: No grass tiles to spawn on.")
+    def _is_ocean_visible_from(self, center_x: int, center_y: int, radius_x: int, radius_y: int) -> bool:
+        """Checks if any ocean tiles are visible from a central point."""
+        for j in range(center_y - radius_y, center_y + radius_y + 1):
+            for i in range(center_x - radius_x, center_x + radius_x + 1):
+                if 0 <= i < self.map.width and 0 <= j < self.map.height:
+                    if self.map.data[j][i] == 'ocean':
+                        return True
+        return False
 
-        # --- New, more robust spawning logic ---
-        # 1. First, try to find "perfect" spawn points where no ocean is visible.
-        perfect_spawn_points = []
-        for x, y in grass_tiles:
-            is_ocean_visible = False
-            for j in range(y - radius_y, y + radius_y + 1):
-                for i in range(x - radius_x, x + radius_x + 1):
-                    if 0 <= i < self.map.width and 0 <= j < self.map.height:
-                        if self.map.data[j][i] == 'ocean':
-                            is_ocean_visible = True
-                            break
-                if is_ocean_visible:
-                    break
-            if not is_ocean_visible:
-                perfect_spawn_points.append((x, y))
-
-        # 2. If we found any perfect spots, pick one at random.
-        if perfect_spawn_points:
-            x, y = random.choice(perfect_spawn_points)
-            new_unit = Unit((x, y))
-            self.world_state.units.append(new_unit)
-            return new_unit
-
-        # 3. If no perfect spots exist, fall back to finding the "best" spot.
-        # The best score is the one with the most non-ocean tiles in the visible area.
+    def _find_best_spawn_fallback(self, grass_tiles: List[Tuple[int, int]], radius_x: int, radius_y: int) -> Tuple[int, int]:
+        """Finds the best possible spawn point by maximizing visible land."""
         best_spawn_point = None
         max_land_tiles = -1
 
@@ -222,13 +191,40 @@ class Game:
                 max_land_tiles = land_tile_count
                 best_spawn_point = (x, y)
 
-        # 4. Fallback: If no spot was found (should be impossible if grass exists),
-        # just use the first available grass tile.
         if best_spawn_point is None:
-            best_spawn_point = grass_tiles[0]
+            return grass_tiles[0]
+        return best_spawn_point
 
-        x, y = best_spawn_point
-        new_unit = Unit((x, y))
+    def _spawn_initial_units(self) -> Unit:
+        """
+        Creates the starting units for the game, ensuring it's on a grass tile
+        and no ocean is visible on screen at the start. Returns the first unit.
+        """
+        initial_zoom = self.camera.zoom_state.current
+        tiles_to_edge_x = (settings.SCREEN_WIDTH / 2 / initial_zoom) / settings.TILE_SIZE
+        tiles_to_edge_y = (settings.SCREEN_HEIGHT / 2 / initial_zoom) / settings.TILE_SIZE
+        radius_x = math.ceil(tiles_to_edge_x) + 1
+        radius_y = math.ceil(tiles_to_edge_y) + 1
+
+        grass_tiles = self._get_all_grass_tiles()
+        if not grass_tiles:
+            raise RuntimeError("Map generation failed: No grass tiles to spawn on.")
+
+        # 1. First, try to find "perfect" spawn points where no ocean is visible.
+        perfect_spawn_points = [
+            (x, y) for x, y in grass_tiles
+            if not self._is_ocean_visible_from(x, y, radius_x, radius_y)
+        ]
+
+        # 2. If we found any perfect spots, pick one at random.
+        if perfect_spawn_points:
+            spawn_point = random.choice(perfect_spawn_points)
+        else:
+            # 3. If no perfect spots exist, fall back to finding the "best" spot.
+            random.shuffle(grass_tiles) # Shuffle to randomize choice among equally good spots
+            spawn_point = self._find_best_spawn_fallback(grass_tiles, radius_x, radius_y)
+
+        new_unit = Unit(spawn_point)
         self.world_state.units.append(new_unit)
         return new_unit
 
