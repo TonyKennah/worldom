@@ -8,9 +8,10 @@ from typing import List, Optional, Tuple
 
 import pygame
 
-from settings import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, BG_COLOR, MAP_WIDTH_TILES,
-                      MAP_HEIGHT_TILES, SELECTION_BOX_COLOR,
-                      SELECTION_BOX_BORDER_WIDTH)
+from settings import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, BG_COLOR, MAP_WIDTH_TILES, MAP_HEIGHT_TILES,
+                      SELECTION_BOX_COLOR, SELECTION_BOX_BORDER_WIDTH, CONTEXT_MENU_BG_COLOR,
+                      CONTEXT_MENU_BORDER_COLOR, CONTEXT_MENU_TEXT_COLOR, CONTEXT_MENU_FONT_SIZE,
+                      CONTEXT_MENU_PADDING)
 from camera import Camera
 from map import Map
 from unit import Unit
@@ -25,6 +26,12 @@ class WorldState:
         self.left_mouse_down_pos: Optional[Tuple[int, int]] = None
         self.right_mouse_down_pos: Optional[Tuple[int, int]] = None
         self.selection_box: Optional[pygame.Rect] = None
+        # Context Menu State
+        self.context_menu_active: bool = False
+        self.context_menu_pos: Optional[Tuple[int, int]] = None
+        self.context_menu_options: List[str] = ["Attack", "Build", "MoveTo"]
+        self.context_menu_rects: List[pygame.Rect] = []
+        self.context_menu_target_tile: Optional[Tuple[int, int]] = None
 
 # --- Game Class ---
 class Game:
@@ -36,6 +43,7 @@ class Game:
         self.clock = pygame.time.Clock()
         self.running: bool = True
         self.events: List[pygame.event.Event] = []
+        self.context_menu_font = pygame.font.SysFont("Arial", CONTEXT_MENU_FONT_SIZE)
 
         self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
 
@@ -84,13 +92,19 @@ class Game:
     def _handle_mouse_events(self, event: pygame.event.Event) -> None:
         """Handles all mouse-related events."""
         if event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:
-                self.world_state.left_mouse_down_pos = event.pos
+            if event.button == 1:  # Left-click
+                if self.world_state.context_menu_active:
+                    self._handle_context_menu_click(event.pos)
+                else:
+                    self.world_state.left_mouse_down_pos = event.pos
             elif event.button == 3:  # Right-click for commands or selection
-                self.world_state.right_mouse_down_pos = event.pos
+                if self.world_state.context_menu_active:
+                    self._close_context_menu()
+                else:
+                    self.world_state.right_mouse_down_pos = event.pos
 
         elif event.type == pygame.MOUSEBUTTONUP:
-            if event.button == 1:
+            if event.button == 1: # Left-click up
                 if self.world_state.left_mouse_down_pos:
                     start_pos = self.world_state.left_mouse_down_pos
                     end_pos = event.pos
@@ -100,7 +114,7 @@ class Game:
                     if dist < 5:  # Threshold for a click
                         self._handle_left_click_selection(event.pos)
                 self.world_state.left_mouse_down_pos = None  # Reset after use
-            elif event.button == 3:
+            elif event.button == 3: # Right-click up
                 if self.world_state.right_mouse_down_pos:
                     start_pos = self.world_state.right_mouse_down_pos
                     end_pos = event.pos
@@ -109,7 +123,8 @@ class Game:
                     dist = vec_start.distance_to(vec_end)
 
                     if dist < 5:  # It's a click
-                        self._handle_right_click_command()
+                        if self.world_state.selected_units:
+                            self._open_context_menu(event.pos)
                     elif self.world_state.selection_box:  # It's a drag
                         self._handle_drag_selection(self.world_state.selection_box)
 
@@ -126,12 +141,54 @@ class Game:
                 height = abs(start_pos[1] - current_pos[1])
                 self.world_state.selection_box = pygame.Rect(x, y, width, height)
 
-    def _handle_right_click_command(self) -> None:
-        """Issues a move command to selected units."""
-        if not self.world_state.selected_units or not self.world_state.hovered_tile:
+    def _open_context_menu(self, screen_pos: Tuple[int, int]) -> None:
+        """Opens a context menu at the given screen position."""
+        if not self.world_state.hovered_tile:
             return
 
-        tile_x, tile_y = self.world_state.hovered_tile
+        self.world_state.context_menu_active = True
+        self.world_state.context_menu_pos = screen_pos
+        self.world_state.context_menu_target_tile = self.world_state.hovered_tile
+        self.world_state.context_menu_rects.clear()
+
+        # Calculate rects for each option
+        x, y = screen_pos
+        padding = CONTEXT_MENU_PADDING
+        for i, option_text in enumerate(self.world_state.context_menu_options):
+            text_surface = self.context_menu_font.render(option_text, True, (0,0,0))
+            width = text_surface.get_width() + padding * 2
+            height = text_surface.get_height() + padding
+            rect = pygame.Rect(x, y + i * height, width, height)
+            self.world_state.context_menu_rects.append(rect)
+
+    def _close_context_menu(self) -> None:
+        """Closes the context menu."""
+        self.world_state.context_menu_active = False
+        self.world_state.context_menu_pos = None
+        self.world_state.context_menu_rects.clear()
+        self.world_state.context_menu_target_tile = None
+
+    def _handle_context_menu_click(self, mouse_pos: Tuple[int, int]) -> None:
+        """Handles a click when the context menu is active."""
+        for i, rect in enumerate(self.world_state.context_menu_rects):
+            if rect.collidepoint(mouse_pos):
+                option = self.world_state.context_menu_options[i]
+                print(f"Context menu option clicked: {option}")
+                # For now, all options just move the unit
+                if option in ["Attack", "Build", "MoveTo"]:
+                    self._issue_move_command_to_target()
+                break
+
+        # Always close the menu after a click (either on an option or outside)
+        self._close_context_menu()
+
+    def _issue_move_command_to_target(self) -> None:
+        """Issues a move command to selected units to the stored target tile."""
+        target_tile = self.world_state.context_menu_target_tile
+        if not self.world_state.selected_units or not target_tile:
+            return
+
+        tile_x, tile_y = target_tile
         terrain = self.map.data[tile_y][tile_x]
 
         if terrain == 'water':
@@ -140,7 +197,7 @@ class Game:
 
         for unit in self.world_state.selected_units:
             start_pos = unit.tile_pos
-            end_pos = pygame.math.Vector2(self.world_state.hovered_tile)
+            end_pos = pygame.math.Vector2(target_tile)
             path = self.map.find_path(start_pos, end_pos)
             if path is not None:
                 unit.set_path(path)
@@ -191,7 +248,8 @@ class Game:
         for unit in self.world_state.units:
             unit.update(dt)
 
-        self._update_hovered_tile()
+        if not self.world_state.context_menu_active:
+            self._update_hovered_tile()
 
     def _update_hovered_tile(self) -> None:
         """Calculates which map tile is currently under the mouse cursor."""
@@ -219,8 +277,27 @@ class Game:
             pygame.draw.rect(self.screen, SELECTION_BOX_COLOR,
                              self.world_state.selection_box, SELECTION_BOX_BORDER_WIDTH)
 
+        # Draw context menu if active
+        if self.world_state.context_menu_active:
+            self._draw_context_menu()
+
         self._update_caption()
         pygame.display.flip()
+
+    def _draw_context_menu(self) -> None:
+        """Renders the context menu on the screen."""
+        if not self.world_state.context_menu_rects:
+            return
+
+        for i, rect in enumerate(self.world_state.context_menu_rects):
+            option_text = self.world_state.context_menu_options[i]
+
+            # Draw background and border
+            pygame.draw.rect(self.screen, CONTEXT_MENU_BG_COLOR, rect)
+            pygame.draw.rect(self.screen, CONTEXT_MENU_BORDER_COLOR, rect, 1)
+
+            text_surface = self.context_menu_font.render(option_text, True, CONTEXT_MENU_TEXT_COLOR)
+            self.screen.blit(text_surface, (rect.x + CONTEXT_MENU_PADDING, rect.y + CONTEXT_MENU_PADDING / 2))
 
     def _update_caption(self) -> None:
         """Updates the window caption with helpful information."""

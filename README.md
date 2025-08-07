@@ -10,7 +10,7 @@ A 2D strategy game prototype created with Python and Pygame, featuring procedura
 *   **Dynamic Camera:** A fully featured camera with stepped zooming (centered on the cursor) and smooth panning (using WASD keys or mouse drag).
 *   **Interactive Tile Map:** An efficient, tile-based map that only renders visible tiles and displays a grid at appropriate zoom levels.
 *   **A\* Pathfinding:** Intelligent, natural-looking unit movement that navigates around obstacles. The pathfinding has been tuned to feel less "robotic" by introducing a small random cost to each step.
-*   **Unit Control:** Select single units with a left-click or multiple units by dragging a selection box with the right mouse button. Command selected units to move with a right-click.
+*   **Unit Control:** Select single units with a left-click or multiple units by dragging a selection box with the right mouse button. Command selected units via a right-click context menu with "Attack", "Build", and "MoveTo" options.
 
 ## Tech Stack
 
@@ -68,16 +68,22 @@ worldom/
 
 *   **`src/game.py`**: The core game class that manages the main game loop, event handling, and game state.
     *   **`WorldState` class**: A simple data class to hold the current state of all game entities, such as units and player selections.
-        *   `__init__()`: Initializes Pygame, the screen, clock, and creates instances of the map, camera, and the initial unit. Centers the camera on the unit.
+    *   **`Game` class**:
+        *   `__init__()`: Initializes Pygame, the screen, clock, and creates instances of the map, camera, and the initial unit.
         *   `run()`: Contains the main game loop that processes events, updates game state, and draws to the screen.
         *   `_spawn_initial_units()`: Creates the first unit and places it on a valid starting tile.
         *   `handle_events()`: The top-level event handler, called each frame to process the event queue (quit, key presses, etc.).
-        *   `_handle_mouse_events(event)`: Specifically handles mouse button down/up events for selection and to differentiate clicks from camera drags.
-        *   `_handle_right_click_command()`: Issues a move command to all selected units by finding a path to the hovered tile.
+        *   `_handle_mouse_events(event)`: Specifically handles mouse button down/up events for selection, camera drags, and opening the context menu.
+        *   `_open_context_menu(screen_pos)`: Displays the right-click command menu and stores the target tile.
+        *   `_close_context_menu()`: Hides the right-click command menu.
+        *   `_handle_context_menu_click(mouse_pos)`: Processes a click on or outside the context menu.
+        *   `_issue_move_command_to_target()`: Issues a move command to all selected units by finding a path to the stored target tile.
         *   `_handle_left_click_selection(mouse_pos)`: Selects a single unit under the cursor, deselecting any other units.
         *   `_handle_drag_selection(selection_rect_screen)`: Selects all units within the dragged selection box.
-        *   `update(dt)`: Updates all game objects (units, camera) for the current frame and determines the hovered tile.
-        *   `draw()`: Renders the map and all game objects to the screen, adjusted by the camera.
+        *   `update(dt)`: Updates all game objects. It also updates the hovered tile, unless the context menu is active.
+        *   `_update_hovered_tile()`: Calculates which map tile is currently under the mouse cursor.
+        *   `draw()`: Renders the map, units, selection box, and context menu to the screen.
+        *   `_draw_context_menu()`: Renders the context menu on the screen.
         *   `_update_caption()`: Updates the window title with helpful debug info like FPS and cursor coordinates.
 
 *   **`src/camera.py`**: Implements the game camera for panning and zooming.
