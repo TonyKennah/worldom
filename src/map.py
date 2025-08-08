@@ -4,7 +4,6 @@ Defines the Map class for world generation, rendering, and pathfinding.
 """
 from __future__ import annotations
 import heapq
-import math
 import random
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
@@ -417,4 +416,3 @@ class Map:
                     current_node, next_node, end_node, state
                 )
         return None # No path found
-
