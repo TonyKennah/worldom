@@ -4,13 +4,13 @@ Defines the Map class for world generation, rendering, and pathfinding.
 """
 from __future__ import annotations
 import heapq
+import math
 import random
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import pygame
 import settings
-from opensimplex import OpenSimplex
 
 if TYPE_CHECKING:
     from camera import Camera
