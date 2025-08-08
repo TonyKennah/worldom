@@ -57,16 +57,19 @@ class DebugPanel:
     def __init__(self) -> None:
         self.font = pygame.font.SysFont("Arial", settings.DEBUG_PANEL_FONT_SIZE)
         self.exit_link_rect: Optional[pygame.Rect] = None
+        self.new_link_rect: Optional[pygame.Rect] = None
 
-    def handle_event(self, event: pygame.event.Event) -> bool:
+    def handle_event(self, event: pygame.event.Event) -> Optional[str]:
         """
         Handles events for the debug panel.
-        Returns True if the game should exit, False otherwise.
+        Returns an action string ('exit', 'new_map') or None.
         """
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.exit_link_rect and self.exit_link_rect.collidepoint(event.pos):
-                return True  # Signal to exit
-        return False
+                return "exit"  # Signal to exit
+            if self.new_link_rect and self.new_link_rect.collidepoint(event.pos):
+                return "new_map" # Signal to create a new map
+        return None
 
     def _draw_main_info(self, game: Game) -> None:
         """Draws the main informational text (FPS, zoom, etc.)."""
@@ -95,13 +98,25 @@ class DebugPanel:
         exit_text_y = (settings.DEBUG_PANEL_HEIGHT - exit_text_surface.get_height()) // 2
         self.exit_link_rect = game.screen.blit(exit_text_surface, (exit_text_x, exit_text_y))
 
+    def _draw_new_link(self, game: Game) -> None:
+        """Draws the clickable 'New' link."""
+        new_text_surface = self.font.render("New", True, settings.DEBUG_PANEL_FONT_COLOR)
+        # Position it to the left of the exit link, which must be drawn first.
+        exit_width = self.exit_link_rect.width if self.exit_link_rect else 0
+        spacing = 15
+        new_text_x = settings.SCREEN_WIDTH - exit_width - 10 - new_text_surface.get_width() - spacing
+        new_text_y = (settings.DEBUG_PANEL_HEIGHT - new_text_surface.get_height()) // 2
+        self.new_link_rect = game.screen.blit(new_text_surface, (new_text_x, new_text_y))
+
     def draw(self, game: Game) -> None:
         """Renders the complete debug panel by calling its helper methods."""
         panel_rect = pygame.Rect(0, 0, settings.SCREEN_WIDTH, settings.DEBUG_PANEL_HEIGHT)
         pygame.draw.rect(game.screen, settings.DEBUG_PANEL_BG_COLOR, panel_rect)
 
         self._draw_main_info(game)
+        # Draw exit first to get its rect for positioning 'New'
         self._draw_exit_link(game)
+        self._draw_new_link(game)
 
 # --- Game Class ---
 class Game:
@@ -197,6 +212,23 @@ class Game:
         self.world_state.units.append(new_unit)
         return new_unit
 
+    def _regenerate_map(self) -> None:
+        """Regenerates the map and resets the world state."""
+        # 1. Show splash screen
+        self._draw_splash_screen()
+
+        # 2. Create new map and world state
+        self.map = Map(settings.MAP_WIDTH_TILES, settings.MAP_HEIGHT_TILES)
+        self.world_state = WorldState()
+
+        # 3. Spawn new unit and center camera
+        initial_unit = self._spawn_initial_units()
+        if initial_unit:
+            self.camera.position = initial_unit.world_pos.copy()
+
+        # 4. Clear event queue to discard clicks during generation
+        pygame.event.clear()
+
     def handle_events(self, events: List[pygame.event.Event]) -> None:
         """Processes all user input and events."""
         for event in events:
@@ -217,9 +249,13 @@ class Game:
                 )
 
             # Let the debug panel handle its events first
-            if self.debug_panel.handle_event(event):
+            action = self.debug_panel.handle_event(event)
+            if action == "exit":
                 self.running = False
                 continue # Event was handled, stop processing it
+            if action == "new_map":
+                self._regenerate_map()
+                continue
 
             self._handle_mouse_events(event)
 
