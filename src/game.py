@@ -171,7 +171,7 @@ class Game:
         text = "A new map is being created."
         text_surface = font.render(text, True, settings.DEBUG_PANEL_FONT_COLOR)
         center = (settings.SCREEN_WIDTH / 2, settings.SCREEN_HEIGHT / 2)
-        text_rect = text_surface.get_rect(center)
+        text_rect = text_surface.get_rect(center=center)
 
         self.screen.blit(text_surface, text_rect)
         pygame.display.flip()
