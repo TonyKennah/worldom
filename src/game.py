@@ -3,7 +3,6 @@
 Defines the main Game class that orchestrates all game components.
 """
 from __future__ import annotations
-import math
 import random
 import sys
 from typing import Any, Dict, List, Optional, Tuple

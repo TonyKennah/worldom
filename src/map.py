@@ -10,8 +10,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import pygame
-import settings
 from opensimplex import OpenSimplex
+import settings
+
 
 if TYPE_CHECKING:
     from camera import Camera
