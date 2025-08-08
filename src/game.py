@@ -104,7 +104,8 @@ class DebugPanel:
         # Position it to the left of the exit link, which must be drawn first.
         exit_width = self.exit_link_rect.width if self.exit_link_rect else 0
         spacing = 15
-        new_text_x = settings.SCREEN_WIDTH - exit_width - 10 - new_text_surface.get_width() - spacing
+        new_text_x = settings.SCREEN_WIDTH - exit_width - 10
+        new_text_x = new_text_x - new_text_surface.get_width() - spacing
         new_text_y = (settings.DEBUG_PANEL_HEIGHT - new_text_surface.get_height()) // 2
         self.new_link_rect = game.screen.blit(new_text_surface, (new_text_x, new_text_y))
 
@@ -170,7 +171,8 @@ class Game:
         font = pygame.font.SysFont("Arial", 48)
         text = "A new map is being created."
         text_surface = font.render(text, True, settings.DEBUG_PANEL_FONT_COLOR)
-        text_rect = text_surface.get_rect(center=(settings.SCREEN_WIDTH / 2, settings.SCREEN_HEIGHT / 2))
+        center = (settings.SCREEN_WIDTH / 2, settings.SCREEN_HEIGHT / 2)
+        text_rect = text_surface.get_rect(center)
 
         self.screen.blit(text_surface, text_rect)
         pygame.display.flip()
