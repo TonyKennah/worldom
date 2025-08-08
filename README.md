@@ -8,7 +8,7 @@ A 2D strategy game prototype created with Python and Pygame, featuring procedura
 
 ## Features
 
-*   **Procedural World Generation:** Creates unique worlds with multiple islands and continents using Perlin noise. The entire world is contained within a finite tile map.
+*   **Procedural World Generation:** Creates unique, seamlessly tileable worlds using 4D Perlin noise. This ensures that the wrap-around map has no visible seams, creating a truly continuous world.
 *   **Dynamic Camera:** A fully featured camera with stepped zooming (centered on the cursor) and smooth panning (using WASD keys and edge scrolling).
 *   **Interactive Tile Map:** An efficient, tile-based map that only renders visible tiles and displays a grid at appropriate zoom levels.
 *   **A\* Pathfinding:** Intelligent, natural-looking unit movement that navigates around obstacles. The pathfinding has been tuned to feel less "robotic" by introducing a small random cost to each step.
@@ -19,15 +19,13 @@ A 2D strategy game prototype created with Python and Pygame, featuring procedura
 
 *   **Language:** Python 3
 *   **Core Library:** [Pygame](https://www.pygame.org/news)
-*   **Map Generation:** `noise` library for Perlin noise
+*   **Map Generation:** `opensimplex` library for seamless Perlin/Simplex noise
 
 ## Getting Started
 
 ### Prerequisites
 
 Make sure you have Python 3 installed on your system.
-
-**Note for Windows Users:** One of the dependencies (`noise`) may need to be compiled from source. If you see an error message like `Microsoft Visual C++ 14.0 or greater is required`, you must install the Microsoft C++ Build Tools.
 
 ### Installation & Running
 
@@ -82,10 +80,8 @@ worldom/
     *   **`Game` class**:
         *   `__init__()`: Initializes Pygame and creates a maximized window. It also creates instances of the map, camera, and the initial unit.
         *   `run()`: Contains the main game loop that processes events, updates game state, and draws to the screen.
-        *   `_get_all_grass_tiles()`: Returns a list of all valid spawnable tiles.
-        *   `_is_ocean_visible_from(...)`: Checks if the ocean is visible from a given tile.
-        *   `_find_best_spawn_fallback(...)`: Finds the safest possible spawn point if no "perfect" spot exists.
-        *   `_spawn_initial_units()`: Creates the first unit on the best available starting tile by orchestrating spawn-related helper methods.
+        *   `_get_all_land_tiles()`: Returns a list of all valid land tiles (grass or rock).
+        *   `_spawn_initial_units()`: Creates the first unit on a random land tile.
         *   `handle_events(events)`: The top-level event handler, called each frame to process the event queue (quit, key presses, etc.).
         *   `_is_click(start_pos, end_pos)`: Helper to determine if a mouse action is a click or a drag.
         *   `_handle_mouse_events(event)`: Dispatches mouse events to more specific handler methods.
@@ -126,15 +122,15 @@ worldom/
     *   **`VisibleArea` class**: A dataclass to represent the visible area of the map in tile coordinates for efficient rendering.
     *   **`AStarState` class**: A helper class to hold the state of an A* pathfinding search (priority queue, costs, etc.).
     *   **`Map` class**:
-        *   `__init__(width, height)`: Generates the procedural world map using Perlin noise, creating different terrain types like grass, rock, oceans, and inland lakes.
+        *   `__init__(width, height)`: Generates a seamlessly tileable 100x100 world map using 4D OpenSimplex noise to create natural-looking continents, mountains, and lakes.
         *   `draw(screen, camera, hovered_tile)`: Renders the visible portion of the map to the screen. It efficiently culls off-screen tiles and highlights the tile under the cursor.
-        *   `is_walkable(tile_pos)`: Checks if a given tile is not an obstacle (e.g., ocean or lake).
+        *   `is_walkable(tile_pos)`: Checks if a given tile is not an obstacle (e.g., an ocean or lake).
         *   `find_path(start_tile, end_tile)`: Uses the A* algorithm to calculate the shortest valid path between two tiles, avoiding obstacles.
 
 *   **`src/unit.py`**: Defines the behavior and appearance of controllable units in the game.
     *   **`Unit` class**:
         *   `__init__(tile_pos)`: Creates a new unit at a given starting tile position.
-        *   `set_path(path)`: Assigns a new sequence of tiles (a path) for the unit to follow. This can interrupt any existing movement.
-        *   `update(dt)`: Smoothly moves the unit along its assigned path from one tile to the next, interpolating its position each frame.
-        *   `draw(screen, camera)`: Renders the unit on the screen, changing its appearance if it is selected.
+        *   `set_path(path)`: Assigns a new sequence of tiles (a path) for the unit to follow.
+        *   `update(dt, map_width, map_height)`: Smoothly moves the unit along its path, correctly handling movement across the wrap-around edges of the toroidal map.
+        *   `draw(screen, camera, map_width_pixels, map_height_pixels)`: Renders the unit, drawing multiple instances if necessary to create a seamless wrap-around effect.
         *   `get_world_rect()`: Returns the unit's bounding box in world coordinates, used for click detection and selection.

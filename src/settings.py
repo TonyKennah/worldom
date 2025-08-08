@@ -21,10 +21,9 @@ TILE_SIZE = 32
 MAP_WIDTH_TILES = 100
 MAP_HEIGHT_TILES = 100
 
-# Terrain Colors
 TERRAIN_COLORS = {
     "grass": (50, 150, 50),      # Lush green for grasslands
-    "ocean": (60, 120, 180),     # Deep blue for oceans
+    "ocean": (30, 70, 130),      # A darker, deeper blue for oceans
     "lake": (80, 140, 200),      # Lighter blue for inland lakes
     "rock": (130, 130, 130),     # Gray for mountains
 }

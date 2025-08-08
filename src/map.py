@@ -9,9 +9,9 @@ import random
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
-import noise
 import pygame
 import settings
+from opensimplex import OpenSimplex
 
 if TYPE_CHECKING:
     from camera import Camera
@@ -33,21 +33,26 @@ class AStarState:
         self.g_cost: Dict[Tuple[int, int], float] = {start_node: 0}
 
 # --- Map Generation Constants ---
-# These can be tweaked to change the world's appearance
-ELEVATION_SCALE = 60.0
-ELEVATION_OCTAVES = 5
-ELEVATION_PERSISTENCE = 0.6
+# Earth-like procedural generation
+ELEVATION_SCALE = 1.5  # Controls the "zoom" of the noise.
+ELEVATION_OCTAVES = 4  # Fewer octaves for faster generation
+ELEVATION_PERSISTENCE = 0.5
 ELEVATION_LACUNARITY = 2.0
 
-LAKE_SCALE = 35.0
-LAKE_OCTAVES = 4
+MOUNTAIN_SCALE = 2.5
+MOUNTAIN_OCTAVES = 4  # Fewer octaves for faster generation
+MOUNTAIN_PERSISTENCE = 0.6
+MOUNTAIN_LACUNARITY = 2.0
+
+LAKE_SCALE = 3.0
+LAKE_OCTAVES = 3  # Fewer octaves for faster generation
 LAKE_PERSISTENCE = 0.5
 LAKE_LACUNARITY = 2.0
 
-# Thresholds for terrain types.
-WATER_THRESHOLD = -0.15
-ROCK_THRESHOLD = 0.2
-LAKE_THRESHOLD = -0.35
+OCEAN_THRESHOLD = 0.05  # Values below this become ocean.
+COASTAL_THRESHOLD = 0.1  # Land below this elevation cannot be a lake.
+ROCK_THRESHOLD = 0.2   # Of land tiles, noise values above this become rock. (Lowered from 0.3 for even more rocks)
+LAKE_THRESHOLD = -0.3  # Of remaining land tiles, noise values below this become lake
 
 class Map:
     """
@@ -63,40 +68,113 @@ class Map:
         self.terrain_types = list(settings.TERRAIN_COLORS.keys())
         self.data: List[List[str]] = self._generate_map()
 
-    def _generate_map(self) -> List[List[str]]:
-        """Creates a natural-looking map using two layers of Perlin noise."""
-        e_seed = random.randint(0, 100)
-        l_seed = random.randint(0, 100)  # Different seed for a different pattern
+    def _fractal_noise(self, gen: OpenSimplex, x: float, y: float, z: float, w: float, octaves: int, persistence: float, lacunarity: float) -> float:
+        """Generates fractal noise using an OpenSimplex generator."""
+        total = 0.0
+        frequency = 1.0
+        amplitude = 1.0
+        max_value = 0.0  # Used for normalizing to [-1, 1]
+        for _ in range(octaves):
+            total += gen.noise4(x * frequency, y * frequency, z * frequency, w * frequency) * amplitude
+            max_value += amplitude
+            amplitude *= persistence
+            frequency *= lacunarity
+        return total / max_value if max_value > 0 else 0
 
-        world: List[List[str]] = [["" for _ in range(self.width)] for _ in range(self.height)]
+    def _generate_map(self) -> List[List[str]]:
+        """Creates a seamlessly tileable map using 4D Perlin noise."""
+        e_gen = OpenSimplex(seed=random.randint(0, 10000))
+        m_gen = OpenSimplex(seed=random.randint(0, 10000))
+        l_gen = OpenSimplex(seed=random.randint(0, 10000))
+
+        world = [["" for _ in range(self.width)] for _ in range(self.height)]
 
         for y in range(self.height):
             for x in range(self.width):
-                # Generate elevation value
-                nx_e, ny_e = x / ELEVATION_SCALE, y / ELEVATION_SCALE
-                elevation = noise.pnoise2(nx_e, ny_e,
-                                          octaves=ELEVATION_OCTAVES,
-                                          persistence=ELEVATION_PERSISTENCE,
-                                          lacunarity=ELEVATION_LACUNARITY,
-                                          base=e_seed)
+                # --- Tileable Noise Calculation ---
+                # Map the 2D coordinates to a 4D torus to create seamless noise
+                angle_x = (x / self.width) * 2 * math.pi
+                angle_y = (y / self.height) * 2 * math.pi
 
-                # Assign terrain based on the elevation and lake values
-                if elevation < WATER_THRESHOLD:
+                # 1. Generate base elevation noise
+                ex = math.cos(angle_x) * ELEVATION_SCALE
+                ey = math.sin(angle_x) * ELEVATION_SCALE
+                ez = math.cos(angle_y) * ELEVATION_SCALE
+                ew = math.sin(angle_y) * ELEVATION_SCALE
+                elevation = self._fractal_noise(e_gen, ex, ey, ez, ew,
+                                                octaves=ELEVATION_OCTAVES,
+                                                persistence=ELEVATION_PERSISTENCE,
+                                                lacunarity=ELEVATION_LACUNARITY)
+
+                # 2. Assign ocean or land
+                if elevation < OCEAN_THRESHOLD:
                     world[y][x] = "ocean"
-                elif elevation > ROCK_THRESHOLD:
+                    continue
+
+                # 3. If it's land, generate mountain noise
+                mx, my = math.cos(angle_x) * MOUNTAIN_SCALE, math.sin(angle_x) * MOUNTAIN_SCALE
+                mz, mw = math.cos(angle_y) * MOUNTAIN_SCALE, math.sin(angle_y) * MOUNTAIN_SCALE
+                mountain_value = self._fractal_noise(m_gen, mx, my, mz, mw,
+                                                     octaves=MOUNTAIN_OCTAVES,
+                                                     persistence=MOUNTAIN_PERSISTENCE,
+                                                     lacunarity=MOUNTAIN_LACUNARITY)
+                if mountain_value > ROCK_THRESHOLD:
                     world[y][x] = "rock"
-                else: # Potential land tile
-                    nx_l, ny_l = x / LAKE_SCALE, y / LAKE_SCALE
-                    lake_value = noise.pnoise2(nx_l, ny_l,
-                                               octaves=LAKE_OCTAVES,
-                                               persistence=LAKE_PERSISTENCE,
-                                               lacunarity=LAKE_LACUNARITY,
-                                               base=l_seed)
-                    if lake_value < LAKE_THRESHOLD:
-                        world[y][x] = "lake"
-                    else:
-                        world[y][x] = "grass"
+                    continue
+
+                # 4. If not mountain, check for coastal areas (which cannot be lakes)
+                if elevation < COASTAL_THRESHOLD:
+                    world[y][x] = "grass"
+                    continue
+
+                # 5. If not coastal, generate lake noise
+                lx, ly = math.cos(angle_x) * LAKE_SCALE, math.sin(angle_x) * LAKE_SCALE
+                lz, lw = math.cos(angle_y) * LAKE_SCALE, math.sin(angle_y) * LAKE_SCALE
+                lake_value = self._fractal_noise(l_gen, lx, ly, lz, lw,
+                                                 octaves=LAKE_OCTAVES,
+                                                 persistence=LAKE_PERSISTENCE,
+                                                 lacunarity=LAKE_LACUNARITY)
+                if lake_value < LAKE_THRESHOLD:
+                    world[y][x] = "lake"
+                else:
+                    world[y][x] = "grass"
+
+        self._convert_inland_oceans_to_lakes(world)
         return world
+
+    def _convert_inland_oceans_to_lakes(self, world: List[List[str]]) -> None:
+        """
+        Finds all disconnected bodies of 'ocean' and converts all but the largest
+        one into 'lake' tiles. This prevents land-locked oceans.
+        """
+        visited = [[False for _ in range(self.width)] for _ in range(self.height)]
+        ocean_bodies = []
+
+        for y_start in range(self.height):
+            for x_start in range(self.width):
+                if world[y_start][x_start] == "ocean" and not visited[y_start][x_start]:
+                    # Found a new, unvisited ocean body. Start a flood fill (BFS).
+                    current_body = []
+                    queue = [(x_start, y_start)]
+                    visited[y_start][x_start] = True
+
+                    while queue:
+                        current_x, current_y = queue.pop(0)
+                        current_body.append((current_x, current_y))
+
+                        for neighbor_x, neighbor_y in self._get_neighbors((current_x, current_y)):
+                            if not visited[neighbor_y][neighbor_x] and world[neighbor_y][neighbor_x] == "ocean":
+                                visited[neighbor_y][neighbor_x] = True
+                                queue.append((neighbor_x, neighbor_y))
+                    ocean_bodies.append(current_body)
+
+        if len(ocean_bodies) <= 1:
+            return  # No inland oceans to convert
+
+        ocean_bodies.sort(key=len, reverse=True)
+        for i in range(1, len(ocean_bodies)):
+            for x, y in ocean_bodies[i]:
+                world[y][x] = "lake"
 
     def draw(
         self,
@@ -124,9 +202,8 @@ class Map:
         """Draws a single instance of the map with a given offset."""
         visible_area = self._calculate_visible_area(camera, offset)
 
-        self._draw_terrain(surface, camera, visible_area, offset)
+        self._draw_terrain(surface, camera, visible_area, offset, hovered_tile)
         self._draw_grid_lines(surface, camera, visible_area, offset)
-        self._draw_hover_highlight(surface, camera, hovered_tile, offset)
 
     def _calculate_visible_area(self, camera: Camera, offset: pygame.math.Vector2) -> VisibleArea:
         """Calculates the visible tile range based on the camera's view and an offset."""
@@ -141,8 +218,9 @@ class Map:
         return VisibleArea(start_row, end_row, start_col, end_col)
 
     def _draw_terrain(self, surface: pygame.Surface, camera: Camera,
-                      area: VisibleArea, offset: pygame.math.Vector2) -> None:
-        """Draws the terrain tiles with a given offset."""
+                      area: VisibleArea, offset: pygame.math.Vector2,
+                      hovered_tile: Optional[Tuple[int, int]]) -> None:
+        """Draws the terrain tiles and the hover highlight."""
         for y in range(area.start_row, area.end_row):
             for x in range(area.start_col, area.end_col):
                 map_x, map_y = x % self.width, y % self.height
@@ -151,7 +229,13 @@ class Map:
                 world_y = y * self.tile_size + offset.y
                 world_rect = pygame.Rect(world_x, world_y, self.tile_size, self.tile_size)
                 screen_rect = camera.apply(world_rect)
+
+                # Draw the terrain tile
                 pygame.draw.rect(surface, settings.TERRAIN_COLORS[terrain], screen_rect)
+
+                # Draw the highlight on top if this is the hovered tile
+                if (map_x, map_y) == hovered_tile:
+                    pygame.draw.rect(surface, settings.HIGHLIGHT_COLOR, screen_rect, 3)
 
     def _draw_vertical_grid_lines(self, surface: pygame.Surface, camera: Camera,
                                   area: VisibleArea, offset: pygame.math.Vector2) -> None:
@@ -181,18 +265,7 @@ class Map:
             self._draw_vertical_grid_lines(surface, camera, area, offset)
             self._draw_horizontal_grid_lines(surface, camera, area, offset)
 
-    def _draw_hover_highlight(self, surface: pygame.Surface, camera: Camera,
-                              hovered_tile: Optional[Tuple[int, int]],
-                              offset: pygame.math.Vector2) -> None:
-        """Draws the highlight for the currently hovered tile for a given map instance."""
-        if hovered_tile:
-            tile_x, tile_y = hovered_tile
-            # Apply the instance offset to the base tile position
-            world_x = tile_x * self.tile_size + offset.x
-            world_y = tile_y * self.tile_size + offset.y
-            world_rect = pygame.Rect(world_x, world_y, self.tile_size, self.tile_size)
-            screen_rect = camera.apply(world_rect)
-            pygame.draw.rect(surface, settings.HIGHLIGHT_COLOR, screen_rect, 3)
+    
 
     def is_walkable(self, tile_pos: Tuple[int, int]) -> bool:
         """Checks if a given tile is walkable based on its terrain type."""

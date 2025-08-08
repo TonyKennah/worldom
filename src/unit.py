@@ -3,6 +3,7 @@ import math
 from typing import TYPE_CHECKING, List, Tuple
 
 import pygame
+import settings
 
 from settings import (TILE_SIZE, UNIT_RADIUS, UNIT_MOVES_PER_SECOND,
                       UNIT_COLOR, UNIT_SELECTED_COLOR, UNIT_INNER_CIRCLE_RATIO)
@@ -39,42 +40,41 @@ class Unit:
 
     def update(self, dt: float, map_width_tiles: int, map_height_tiles: int) -> None:
         """Moves the unit smoothly along its path, handling toroidal map wrapping."""
-        # If we don't have a path and we are at our destination, do nothing.
-        if not self.path and self.world_pos == self.target_world_pos:
-            return
+        map_width_pixels = map_width_tiles * TILE_SIZE
+        map_height_pixels = map_height_tiles * TILE_SIZE
 
         # If we are at our destination, get the next destination from the path.
         if self.world_pos == self.target_world_pos and self.path:
-            next_tile = self.path.pop(0)
-            self.tile_pos = pygame.math.Vector2(next_tile)
+            next_tile_pos = self.path.pop(0)
+            self.tile_pos = pygame.math.Vector2(next_tile_pos)
             self.target_world_pos = (self.tile_pos * TILE_SIZE) + pygame.math.Vector2(TILE_SIZE / 2)
 
-        # Move towards the target position, considering wrap-around
+        # If we don't have a path or are already at the target, do nothing.
+        if self.world_pos == self.target_world_pos:
+            return
+
+        # Calculate the shortest vector to the target on a toroidal map
         move_vec = self.target_world_pos - self.world_pos
-        
-        # Check for wrap-around and adjust the movement vector
-        if abs(move_vec.x) > (map_width_tiles / 2) * TILE_SIZE:
-            move_vec.x -= math.copysign(map_width_tiles * TILE_SIZE, move_vec.x)
-        if abs(move_vec.y) > (map_height_tiles / 2) * TILE_SIZE:
-            move_vec.y -= math.copysign(map_height_tiles * TILE_SIZE, move_vec.y)
+        if abs(move_vec.x) > map_width_pixels / 2:
+            move_vec.x -= math.copysign(map_width_pixels, move_vec.x)
+        if abs(move_vec.y) > map_height_pixels / 2:
+            move_vec.y -= math.copysign(map_height_pixels, move_vec.y)
 
-        dist_to_target_wrapped = move_vec.length()
+        dist_to_target = move_vec.length()
 
-        if dist_to_target_wrapped > 0:
+        if dist_to_target > 0:
             speed = UNIT_MOVES_PER_SECOND * TILE_SIZE
             distance_to_move = speed * dt
 
-            if distance_to_move >= dist_to_target_wrapped:
-                # Snap to target and wrap position
+            if distance_to_move >= dist_to_target:
+                # Snap to target
                 self.world_pos = self.target_world_pos.copy()
             else:
                 # Move towards the target
                 move_vec.normalize_ip()
                 self.world_pos += move_vec * distance_to_move
 
-            # Wrap the unit's world position
-            map_width_pixels = map_width_tiles * TILE_SIZE
-            map_height_pixels = map_height_tiles * TILE_SIZE
+            # Wrap the unit's world position for continuous movement
             self.world_pos.x %= map_width_pixels
             self.world_pos.y %= map_height_pixels
 

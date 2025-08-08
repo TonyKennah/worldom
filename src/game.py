@@ -153,82 +153,24 @@ class Game:
         pygame.quit()
         sys.exit()
 
-    def _get_all_grass_tiles(self) -> List[Tuple[int, int]]:
-        """Returns a list of all (x, y) coordinates for grass tiles."""
-        grass_tiles = []
+    def _get_all_land_tiles(self) -> List[Tuple[int, int]]:
+        """Returns a list of all (x, y) coordinates for land tiles (grass or rock)."""
+        land_tiles = []
         for y in range(self.map.height):
             for x in range(self.map.width):
-                if self.map.data[y][x] == 'grass':
-                    grass_tiles.append((x, y))
-        return grass_tiles
-
-    def _is_ocean_visible_from(
-        self, center_x: int, center_y: int, radius_x: int, radius_y: int
-    ) -> bool:
-        """Checks if any ocean tiles are visible from a central point."""
-        for j in range(center_y - radius_y, center_y + radius_y + 1):
-            for i in range(center_x - radius_x, center_x + radius_x + 1):
-                if 0 <= i < self.map.width and 0 <= j < self.map.height:
-                    if self.map.data[j][i] == 'ocean':
-                        return True
-        return False
-
-    def _find_best_spawn_fallback(
-        self, grass_tiles: List[Tuple[int, int]], radius_x: int, radius_y: int
-    ) -> Tuple[int, int]:
-        """Finds the best possible spawn point by maximizing visible land."""
-        best_spawn_point = None
-        max_land_tiles = -1
-
-        for x, y in grass_tiles:
-            land_tile_count = 0
-            # Check a bounding box around the potential spawn point
-            for j in range(y - radius_y, y + radius_y + 1):
-                for i in range(x - radius_x, x + radius_x + 1):
-                    if 0 <= i < self.map.width and 0 <= j < self.map.height:
-                        if self.map.data[j][i] != 'ocean':
-                            land_tile_count += 1
-
-            if land_tile_count > max_land_tiles:
-                max_land_tiles = land_tile_count
-                best_spawn_point = (x, y)
-
-        if best_spawn_point is None:
-            return grass_tiles[0]
-        return best_spawn_point
+                if self.map.data[y][x] in ['grass', 'rock']:
+                    land_tiles.append((x, y))
+        return land_tiles
 
     def _spawn_initial_units(self) -> Unit:
         """
-        Creates the starting units for the game, ensuring it's on a grass tile
-        and no ocean is visible on screen at the start. Returns the first unit.
+        Creates the starting unit on a random land tile (grass or rock).
         """
-        initial_zoom = self.camera.zoom_state.current
-        # Calculate how many tiles are visible from the center to the edge of the screen
-        screen_radius_x_pixels = settings.SCREEN_WIDTH / 2 / initial_zoom
-        tiles_to_edge_x = screen_radius_x_pixels / settings.TILE_SIZE
-        screen_radius_y_pixels = settings.SCREEN_HEIGHT / 2 / initial_zoom
-        tiles_to_edge_y = screen_radius_y_pixels / settings.TILE_SIZE
-        radius_x = math.ceil(tiles_to_edge_x) + 1
-        radius_y = math.ceil(tiles_to_edge_y) + 1
+        land_tiles = self._get_all_land_tiles()
+        if not land_tiles:
+            raise RuntimeError("Map generation failed: No land tiles to spawn on.")
 
-        grass_tiles = self._get_all_grass_tiles()
-        if not grass_tiles:
-            raise RuntimeError("Map generation failed: No grass tiles to spawn on.")
-
-        # 1. First, try to find "perfect" spawn points where no ocean is visible.
-        perfect_spawn_points = [
-            (x, y) for x, y in grass_tiles
-            if not self._is_ocean_visible_from(x, y, radius_x, radius_y)
-        ]
-
-        # 2. If we found any perfect spots, pick one at random.
-        if perfect_spawn_points:
-            spawn_point = random.choice(perfect_spawn_points)
-        else:
-            # 3. If no perfect spots exist, fall back to finding the "best" spot.
-            random.shuffle(grass_tiles) # Shuffle to randomize choice among equally good spots
-            spawn_point = self._find_best_spawn_fallback(grass_tiles, radius_x, radius_y)
-
+        spawn_point = random.choice(land_tiles)
         new_unit = Unit(spawn_point)
         self.world_state.units.append(new_unit)
         return new_unit
