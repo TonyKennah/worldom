@@ -69,7 +69,7 @@ class Map:
         self.terrain_types = list(settings.TERRAIN_COLORS.keys())
         self.data: List[List[str]] = self._generate_map()
 
-    def _fractal_noise(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    def _fractal_noise(  # pylint: disable=too-many-arguments,R0917
         self,
         gen: OpenSimplex,
         x: float, y: float, z: float, w: float,
