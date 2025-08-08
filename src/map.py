@@ -69,7 +69,7 @@ class Map:
         self.terrain_types = list(settings.TERRAIN_COLORS.keys())
         self.data: List[List[str]] = self._generate_map()
 
-    def _fractal_noise(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    def _fractal_noise(  # pylint: disable=too-many-arguments
         self, gen: OpenSimplex, x: float, y: float, z: float, w: float,
         octaves: int, persistence: float, lacunarity: float
     ) -> float:
@@ -271,7 +271,7 @@ class Map:
         end_row = math.ceil(bottom_right_world.y / self.tile_size)
         return VisibleArea(start_row, end_row, start_col, end_col)
 
-    def _draw_terrain(self, surface: pygame.Surface, camera: Camera, # pylint: disable=too-many-arguments,too-many-positional-arguments
+    def _draw_terrain(self, surface: pygame.Surface, camera: Camera, # pylint: disable=too-many-arguments
                       area: VisibleArea, offset: pygame.math.Vector2, # pylint: disable=c-extension-no-member
                       hovered_tile: Optional[Tuple[int, int]]) -> None:
         """Draws the terrain tiles and the hover highlight."""
