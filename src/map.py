@@ -70,8 +70,13 @@ class Map:
         self.data: List[List[str]] = self._generate_map()
 
     def _fractal_noise(  # pylint: disable=too-many-arguments
-        self, gen: OpenSimplex, x: float, y: float, z: float, w: float,
-        octaves: int, persistence: float, lacunarity: float
+        self,
+        gen: OpenSimplex,
+        x: float, y: float, z: float, w: float,
+        *,
+        octaves: int,
+        persistence: float,
+        lacunarity: float
     ) -> float:
         """Generates fractal noise using an OpenSimplex generator."""
         total = 0.0
@@ -131,10 +136,11 @@ class Map:
         ey = math.sin(angle_x) * ELEVATION_SCALE
         ez = math.cos(angle_y) * ELEVATION_SCALE
         ew = math.sin(angle_y) * ELEVATION_SCALE
-        return self._fractal_noise(gen, ex, ey, ez, ew,
-                                     octaves=ELEVATION_OCTAVES,
-                                     persistence=ELEVATION_PERSISTENCE,
-                                     lacunarity=ELEVATION_LACUNARITY)
+        return self._fractal_noise(
+            gen, ex, ey, ez, ew,
+            octaves=ELEVATION_OCTAVES,
+            persistence=ELEVATION_PERSISTENCE,
+            lacunarity=ELEVATION_LACUNARITY)
 
     def _get_mountain_noise(self, gen: OpenSimplex, angle_x: float, angle_y: float) -> float:
         """Generates mountain noise for a given angle."""
@@ -152,10 +158,11 @@ class Map:
         """Generates lake noise for a given angle."""
         lx, ly = math.cos(angle_x) * LAKE_SCALE, math.sin(angle_x) * LAKE_SCALE
         lz, lw = math.cos(angle_y) * LAKE_SCALE, math.sin(angle_y) * LAKE_SCALE
-        return self._fractal_noise(gen, lx, ly, lz, lw,
-                                     octaves=LAKE_OCTAVES,
-                                     persistence=LAKE_PERSISTENCE,
-                                     lacunarity=LAKE_LACUNARITY)
+        return self._fractal_noise(
+            gen, lx, ly, lz, lw,
+            octaves=LAKE_OCTAVES,
+            persistence=LAKE_PERSISTENCE,
+            lacunarity=LAKE_LACUNARITY)
 
     def _fill_large_lakes(self, world: List[List[str]]) -> None:
         """
@@ -249,15 +256,20 @@ class Map:
         surface: pygame.Surface,
         camera: Camera,
         hovered_tile: Optional[Tuple[int, int]],
-        offset: pygame.math.Vector2 # pylint: disable=c-extension-no-member
+        offset: pygame.math.Vector2  # pylint: disable=c-extension-no-member
     ) -> None:
         """Draws a single instance of the map with a given offset."""
         visible_area = self._calculate_visible_area(camera, offset)
 
-        self._draw_terrain(surface, camera, visible_area, offset, hovered_tile)
+        self._draw_terrain(
+            surface, camera,
+            area=visible_area, offset=offset, hovered_tile=hovered_tile
+        )
         self._draw_grid_lines(surface, camera, visible_area, offset)
 
-    def _calculate_visible_area(self, camera: Camera, offset: pygame.math.Vector2) -> VisibleArea: # pylint: disable=c-extension-no-member
+    def _calculate_visible_area(
+        self, camera: Camera, offset: pygame.math.Vector2  # pylint: disable=c-extension-no-member
+    ) -> VisibleArea:
         """Calculates the visible tile range based on the camera's view and an offset."""
         top_left_world = camera.screen_to_world((0, 0)) - offset
         bottom_right_screen_pos = (settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT)
@@ -271,9 +283,12 @@ class Map:
         end_row = math.ceil(bottom_right_world.y / self.tile_size)
         return VisibleArea(start_row, end_row, start_col, end_col)
 
-    def _draw_terrain(self, surface: pygame.Surface, camera: Camera, # pylint: disable=too-many-arguments
-                      area: VisibleArea, offset: pygame.math.Vector2, # pylint: disable=c-extension-no-member
-                      hovered_tile: Optional[Tuple[int, int]]) -> None:
+    def _draw_terrain(  # pylint: disable=too-many-arguments
+        self, surface: pygame.Surface, camera: Camera, *,
+        area: VisibleArea,
+        offset: pygame.math.Vector2,  # pylint: disable=c-extension-no-member
+        hovered_tile: Optional[Tuple[int, int]]
+    ) -> None:
         """Draws the terrain tiles and the hover highlight."""
         for y in range(area.start_row, area.end_row):
             for x in range(area.start_col, area.end_col):
