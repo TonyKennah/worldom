@@ -13,7 +13,7 @@ A 2D strategy game prototype created with Python and Pygame, featuring procedura
 *   **Interactive Tile Map:** An efficient, tile-based map that only renders visible tiles and displays a grid at appropriate zoom levels.
 *   **A\* Pathfinding:** Intelligent, natural-looking unit movement that navigates around obstacles. The pathfinding has been tuned to feel less "robotic" by introducing a small random cost to each step.
 *   **UI Panel:** An on-screen UI panel displays key information like FPS, zoom level, and cursor coordinates, and includes a clickable Exit link.
-*   **Unit Control:** Select single units with a left-click or multiple units by dragging a selection box with the left mouse button. Command selected units via a right-click context menu. The "Build" command opens a sub-menu with structure options.
+*   **Unit Control:** Select single units with a left-click or multiple units by dragging a selection box. Command selected units via a right-click context menu. The "Build" command opens a sub-menu with structure options.
 
 ## Tech Stack
 
@@ -55,6 +55,7 @@ worldom/
 │   ├── game.py
 │   ├── map.py
 │   ├── settings.py
+│   ├── settings.py
 │   └── unit.py
 └── main.py
 └── requirements.txt
@@ -73,6 +74,7 @@ worldom/
         *   `handle_event(event)`: Processes user input for the panel, like clicking the Exit link.
         *   `_draw_main_info(game)`: Renders the main informational text (FPS, zoom, etc.).
         *   `_draw_exit_link(game)`: Renders the clickable 'Exit' link.
+        *   `_draw_new_link(game)`: Renders the clickable 'New' link to generate a new map.
         *   `draw(game)`: Renders the complete debug panel by calling its helper methods.
     *   **`SubMenuState` class**: Encapsulates the state of a context sub-menu.
     *   **`ContextMenuState` class**: Encapsulates all state related to the right-click context menu, including an instance of `SubMenuState`.
