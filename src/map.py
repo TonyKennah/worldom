@@ -49,7 +49,7 @@ LAKE_OCTAVES = 3  # Fewer octaves for faster generation
 LAKE_PERSISTENCE = 0.5
 LAKE_LACUNARITY = 2.0
 
-OCEAN_THRESHOLD = 0.05  # Values below this become ocean.
+OCEAN_THRESHOLD = 0.0  # Values below this become ocean. (Lowered from 0.05 for more land)
 COASTAL_THRESHOLD = 0.1  # Land below this elevation cannot be a lake.
 ROCK_THRESHOLD = 0.2   # Of land tiles, noise values above this become rock. (Lowered from 0.3 for even more rocks)
 LAKE_THRESHOLD = -0.3  # Of remaining land tiles, noise values below this become lake
@@ -140,7 +140,38 @@ class Map:
                     world[y][x] = "grass"
 
         self._convert_inland_oceans_to_lakes(world)
+        self._fill_large_lakes(world)
         return world
+
+    def _fill_large_lakes(self, world: List[List[str]]) -> None:
+        """
+        Finds all bodies of 'lake' tiles and if a body is larger than 40 tiles,
+        it's filled in with 'grass'.
+        """
+        visited = [[False for _ in range(self.width)] for _ in range(self.height)]
+        LAKE_SIZE_LIMIT = 40
+
+        for y_start in range(self.height):
+            for x_start in range(self.width):
+                if world[y_start][x_start] == "lake" and not visited[y_start][x_start]:
+                    # Found a new, unvisited lake body. Start a flood fill (BFS).
+                    current_body = []
+                    queue = [(x_start, y_start)]
+                    visited[y_start][x_start] = True
+
+                    while queue:
+                        current_x, current_y = queue.pop(0)
+                        current_body.append((current_x, current_y))
+
+                        for neighbor_x, neighbor_y in self._get_neighbors((current_x, current_y)):
+                            if not visited[neighbor_y][neighbor_x] and world[neighbor_y][neighbor_x] == "lake":
+                                visited[neighbor_y][neighbor_x] = True
+                                queue.append((neighbor_x, neighbor_y))
+
+                    # Now that we have the full lake body, check its size
+                    if len(current_body) > LAKE_SIZE_LIMIT:
+                        for x, y in current_body:
+                            world[y][x] = "grass"
 
     def _convert_inland_oceans_to_lakes(self, world: List[List[str]]) -> None:
         """

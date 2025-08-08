@@ -129,6 +129,13 @@ class Game:
         pygame.display.set_caption("WorldDom")
         self.clock = pygame.time.Clock()
         self.running: bool = True
+
+        # --- Show Splash Screen ---
+        # Draw a splash screen to give feedback to the user while the map,
+        # which can be slow, is generating.
+        self._draw_splash_screen()
+
+        # --- Initialize Game Components ---
         self.camera = Camera(settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT)
         self.debug_panel = DebugPanel()
 
@@ -136,13 +143,28 @@ class Game:
         self.world_state = WorldState()
         initial_unit = self._spawn_initial_units()
 
-        # Center camera on the initial unit
+        # Center camera on the initial unit after everything is loaded
         if initial_unit:
             # Use .copy() to prevent the camera and unit from sharing the same Vector2 object
             self.camera.position = initial_unit.world_pos.copy()
 
+    def _draw_splash_screen(self) -> None:
+        """Displays a loading screen while the map generates."""
+        self.screen.fill(settings.DEBUG_PANEL_BG_COLOR)
+
+        font = pygame.font.SysFont("Arial", 48)
+        text = "A new map is being created."
+        text_surface = font.render(text, True, settings.DEBUG_PANEL_FONT_COLOR)
+        text_rect = text_surface.get_rect(center=(settings.SCREEN_WIDTH / 2, settings.SCREEN_HEIGHT / 2))
+
+        self.screen.blit(text_surface, text_rect)
+        pygame.display.flip()
+
     def run(self) -> None:
         """The main game loop."""
+        # Clear any events that accumulated during the slow map generation
+        # process. This prevents clicks during loading from causing issues.
+        pygame.event.clear()
         while self.running:
             dt = self.clock.tick(settings.FPS) / 1000.0  # Delta time in seconds
             events = pygame.event.get()
