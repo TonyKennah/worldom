@@ -49,7 +49,7 @@ class Camera:
         # Rounding all values to prevent gaps/jitter from float truncation.
         return pygame.Rect(round(top_left.x), round(top_left.y), round(w), round(h))
 
-    def update(self, dt: float, events: List[pygame.event.Event], map_width_pixels: int, 
+    def update(self, dt: float, events: List[pygame.event.Event], map_width_pixels: int,
                map_height_pixels: int) -> None:
         """Updates camera position based on user input."""
         self._handle_keyboard_movement(dt)
