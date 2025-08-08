@@ -1,12 +1,15 @@
+"""
+This module defines the Unit class, which represents a single unit in the game.
+"""
 from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, List, Tuple
 
 import pygame
-import settings
 
 from settings import (TILE_SIZE, UNIT_RADIUS, UNIT_MOVES_PER_SECOND,
-                      UNIT_COLOR, UNIT_SELECTED_COLOR, UNIT_INNER_CIRCLE_RATIO)
+                      UNIT_COLOR, UNIT_SELECTED_COLOR,
+                      UNIT_INNER_CIRCLE_RATIO)
 
 if TYPE_CHECKING:
     from camera import Camera
@@ -78,14 +81,20 @@ class Unit:
             self.world_pos.x %= map_width_pixels
             self.world_pos.y %= map_height_pixels
 
-    def draw(self, surface: pygame.Surface, camera: Camera, map_width_pixels: int, map_height_pixels: int) -> None:
+    def draw(
+        self, surface: pygame.Surface, camera: Camera,
+        map_width_pixels: int, map_height_pixels: int
+    ) -> None:
         """Draws the unit on the screen, handling toroidal map wrapping."""
         for dx in [-map_width_pixels, 0, map_width_pixels]:
             for dy in [-map_height_pixels, 0, map_height_pixels]:
                 offset = pygame.math.Vector2(dx, dy)
                 self._draw_single_unit_instance(surface, camera, self.world_pos + offset)
 
-    def _draw_single_unit_instance(self, surface: pygame.Surface, camera: Camera, pos: pygame.math.Vector2) -> None:
+    def _draw_single_unit_instance(
+        self, surface: pygame.Surface, camera: Camera,
+        pos: pygame.math.Vector2
+    ) -> None:
         """Draws a single instance of the unit at a given position."""
         screen_pos = camera.world_to_screen(pos)
         radius = int(UNIT_RADIUS * camera.zoom_state.current)
