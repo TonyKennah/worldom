@@ -136,3 +136,8 @@ worldom/
         *   `update(dt, map_width, map_height)`: Smoothly moves the unit along its path, correctly handling movement across the wrap-around edges of the toroidal map.
         *   `draw(screen, camera, map_width_pixels, map_height_pixels)`: Renders the unit, drawing multiple instances if necessary to create a seamless wrap-around effect.
         *   `get_world_rect()`: Returns the unit's bounding box in world coordinates, used for click detection and selection.
+
+### Example Map 
+Fully zoomed out for debug purposes
+
+![Example](map.jpg "Example Map")
