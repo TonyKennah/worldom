@@ -34,7 +34,7 @@ MANIFEST
 *.spec
 
 # all the images generated
-global_frames_*/
+globe_frames_*/
 frame_*.png
 
 # Installer logs

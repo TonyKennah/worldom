@@ -35,6 +35,7 @@ TERRAIN_COLORS = {
     "ocean": (30, 70, 130),      # A darker, deeper blue for oceans
     "lake": (80, 140, 200),      # Lighter blue for inland lakes
     "rock": (130, 130, 130),     # Gray for mountains
+    "pole": (0, 0, 0),  # Black color for the pole marker
 }
 GRID_LINE_COLOR = (40, 40, 40)
 HIGHLIGHT_COLOR = (255, 255, 0)  # Yellow

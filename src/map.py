@@ -7,7 +7,7 @@ import heapq
 import math
 import random
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Generator, List, Optional, Tuple
 
 import pygame
 from opensimplex import OpenSimplex
@@ -73,7 +73,7 @@ class Map:
         else:
             self.seed = seed
 
-        self.data: List[List[str]] = self._generate_map()
+        self.data: List[List[str]] = [] # Will be populated by the generate() method
 
     def _fractal_noise(  # pylint: disable=too-many-arguments,R0917
         self,
@@ -98,8 +98,13 @@ class Map:
             frequency *= lacunarity
         return total / max_value if max_value > 0 else 0
 
-    def _generate_map(self) -> List[List[str]]:
-        """Creates a seamlessly tileable map using 4D Perlin noise."""
+    def generate(self) -> Generator[float, None, None]:
+        """
+        Generates the map data while yielding progress every few rows to balance
+        UI responsiveness with generation speed.
+        Yields:
+            A float representing the progress of the generation (from 0.0 to 1.0).
+        """
         # Use a seeded random number generator to ensure the map is reproducible
         # from the main game seed.
         map_random = random.Random(self.seed)
@@ -107,7 +112,7 @@ class Map:
         m_gen = OpenSimplex(seed=map_random.randint(0, 10000))
         l_gen = OpenSimplex(seed=map_random.randint(0, 10000))
 
-        world = [["" for _ in range(self.width)] for _ in range(self.height)]
+        self.data = [["" for _ in range(self.width)] for _ in range(self.height)]
 
         for y in range(self.height):
             for x in range(self.width):
@@ -116,28 +121,40 @@ class Map:
 
                 elevation = self._get_elevation_noise(e_gen, angle_x, angle_y)
 
+                terrain_type = ""
                 if elevation < OCEAN_THRESHOLD:
-                    world[y][x] = "ocean"
-                    continue
-
-                mountain_value = self._get_mountain_noise(m_gen, angle_x, angle_y)
-                if mountain_value > ROCK_THRESHOLD:
-                    world[y][x] = "rock"
-                    continue
-
-                if elevation < COASTAL_THRESHOLD:
-                    world[y][x] = "grass"
-                    continue
-
-                lake_value = self._get_lake_noise(l_gen, angle_x, angle_y)
-                if lake_value < LAKE_THRESHOLD:
-                    world[y][x] = "lake"
+                    terrain_type = "ocean"
                 else:
-                    world[y][x] = "grass"
+                    mountain_value = self._get_mountain_noise(m_gen, angle_x, angle_y)
+                    if mountain_value > ROCK_THRESHOLD:
+                        terrain_type = "rock"
+                    elif elevation < COASTAL_THRESHOLD:
+                        terrain_type = "grass"
+                    else:
+                        lake_value = self._get_lake_noise(l_gen, angle_x, angle_y)
+                        terrain_type = "lake" if lake_value < LAKE_THRESHOLD else "grass"
 
-        self._convert_inland_oceans_to_lakes(world)
-        self._fill_large_lakes(world)
-        return world
+                self.data[y][x] = terrain_type
+
+            # Yield progress only after every 4th row, or on the very last row.
+            if (y + 1) % 4 == 0 or (y + 1) == self.height:
+                yield (y + 1) / self.height
+
+        self._convert_inland_oceans_to_lakes(self.data)
+        self._fill_large_lakes(self.data)
+        self._add_pole_marker()
+
+    def _add_pole_marker(self) -> None:
+        """Adds a 2x2 black marker for the North Pole at the top-center of the map."""
+        if self.width < 2 or self.height < 2:
+            return # Map is too small for a 2x2 marker
+
+        pole_x = self.width // 2
+        # Place a 2x2 marker
+        self.data[0][pole_x] = "pole"
+        self.data[0][pole_x - 1] = "pole"
+        self.data[1][pole_x] = "pole"
+        self.data[1][pole_x - 1] = "pole"
 
     def _get_elevation_noise(self, gen: OpenSimplex, angle_x: float, angle_y: float) -> float:
         """Generates elevation noise for a given angle."""
@@ -254,11 +271,20 @@ class Map:
         map_width_pixels = self.width * self.tile_size
         map_height_pixels = self.height * self.tile_size
 
+        # --- Stage 1: Draw all terrain instances ---
         # Draw the map multiple times to create a seamless wrap-around effect
         for dx in [-map_width_pixels, 0, map_width_pixels]:
             for dy in [-map_height_pixels, 0, map_height_pixels]:
                 offset = pygame.math.Vector2(dx, dy)
                 self._draw_single_map_instance(surface, camera, hovered_tile, offset)
+
+        # --- Stage 2: Draw grid lines once on top ---
+        # This prevents overdrawing the grid 9 times and is much more performant.
+        scaled_tile_size = settings.TILE_SIZE * camera.zoom_state.current
+        if scaled_tile_size >= settings.MIN_TILE_PIXELS_FOR_GRID:
+            # We only need to calculate the visible area for the main map instance (offset 0,0)
+            visible_area = self._calculate_visible_area(camera, pygame.math.Vector2(0, 0))
+            self._draw_grid_lines(surface, camera, visible_area, pygame.math.Vector2(0, 0))
 
     def _draw_single_map_instance(
         self,
@@ -274,7 +300,6 @@ class Map:
             surface, camera,
             area=visible_area, offset=offset, hovered_tile=hovered_tile
         )
-        self._draw_grid_lines(surface, camera, visible_area, offset)
 
     def _calculate_visible_area(
         self, camera: Camera, offset: pygame.math.Vector2  # pylint: disable=c-extension-no-member
@@ -348,16 +373,14 @@ class Map:
     def _draw_grid_lines(self, surface: pygame.Surface, camera: Camera,
                          area: VisibleArea, offset: pygame.math.Vector2) -> None: # pylint: disable=c-extension-no-member
         """Draws the grid lines over the terrain."""
-        scaled_tile_size = settings.TILE_SIZE * camera.zoom_state.current
-        if scaled_tile_size >= settings.MIN_TILE_PIXELS_FOR_GRID:
-            self._draw_vertical_grid_lines(surface, camera, area, offset)
-            self._draw_horizontal_grid_lines(surface, camera, area, offset)
+        self._draw_vertical_grid_lines(surface, camera, area, offset)
+        self._draw_horizontal_grid_lines(surface, camera, area, offset)
 
     def is_walkable(self, tile_pos: Tuple[int, int]) -> bool:
         """Checks if a given tile is walkable based on its terrain type."""
         x, y = tile_pos
         # Since the map is toroidal, we only need to check the terrain type.
-        return self.data[y][x] not in ["ocean", "lake"]
+        return self.data[y][x] not in ["ocean", "lake", "pole"]
 
     def _heuristic(self, pos_a: Tuple[int, int], pos_b: Tuple[int, int]) -> float:
         """

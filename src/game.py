@@ -164,7 +164,7 @@ class Game:
         # --- Show Splash Screen ---
         # Draw a splash screen to give feedback to the user while the map,
         # which can be slow, is generating.
-        self._draw_splash_screen()
+        self._draw_splash_screen(message="A new map is being created...")
 
         # --- Initialize Game Components ---
         self.camera = Camera(settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT)
@@ -172,6 +172,12 @@ class Game:
 
         map_seed = random.randint(0, 1_000_000)
         self.map = Map(settings.MAP_WIDTH_TILES, settings.MAP_HEIGHT_TILES, seed=map_seed)
+
+        # --- Stage 1: Generate Map with Progress ---
+        for progress in self.map.generate():
+            self._pump_events_during_load()
+            self._draw_splash_screen(message="Generating map...", progress=progress)
+
         self.world_state = WorldState()
         initial_unit = self._spawn_initial_units()
 
@@ -188,20 +194,20 @@ class Game:
 
         # Generate and load the globe frames for the initial map
         # This loop will update the splash screen with a progress bar.
+        # --- Stage 2: Generate Globe with Progress ---
         for progress in globe_renderer.render_map_as_globe(self.map.data, map_seed):
-            self._draw_splash_screen(progress=progress)
+            self._pump_events_during_load()
+            self._draw_splash_screen(message="Generating globe...", progress=progress)
         self._load_globe_frames(map_seed)
 
-    def _draw_splash_screen(self, progress: Optional[float] = None) -> None:
+    def _draw_splash_screen(self, message: str, progress: Optional[float] = None) -> None:
         """
-        Displays a loading screen. If progress is provided, it also
-        draws a progress bar for the globe generation.
+        Displays a loading screen with a message and an optional progress bar.
         """
         self.screen.fill(settings.DEBUG_PANEL_BG_COLOR)
 
         font = pygame.font.SysFont("Arial", 48)
-        text = "Generating globe..." if progress is not None else "A new map is being created..."
-        text_surface = font.render(text, True, settings.DEBUG_PANEL_FONT_COLOR)
+        text_surface = font.render(message, True, settings.DEBUG_PANEL_FONT_COLOR)
         text_rect = text_surface.get_rect(center=(settings.SCREEN_WIDTH / 2, settings.SCREEN_HEIGHT / 2))
         self.screen.blit(text_surface, text_rect)
 
@@ -233,10 +239,19 @@ class Game:
         pygame.quit()
         sys.exit()
 
+    def _pump_events_during_load(self) -> None:
+        """
+        Processes essential events during loading to keep the window responsive.
+        """
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.run() # This will trigger the exit sequence
+
     def _load_globe_frames(self, map_seed: int) -> None:
         """Loads the pre-rendered globe animation frames from disk."""
         self.globe_frames.clear() # Clear frames from any previous map
-        frame_dir = f"globe_frames_{map_seed}"
+        base_image_dir = "image"
+        frame_dir = os.path.join(base_image_dir, f"globe_frames_{map_seed}")
         if not os.path.isdir(frame_dir):
             print(f"Warning: Globe animation directory not found at '{frame_dir}'")
             return
@@ -274,11 +289,15 @@ class Game:
     def _regenerate_map(self) -> None:
         """Regenerates the map and resets the world state."""
         # 1. Show initial splash screen
-        self._draw_splash_screen()
+        self._draw_splash_screen(message="A new map is being created...")
 
         # 2. Create new map and world state
         map_seed = random.randint(0, 1_000_000)
         self.map = Map(settings.MAP_WIDTH_TILES, settings.MAP_HEIGHT_TILES, seed=map_seed)
+        for progress in self.map.generate():
+            self._pump_events_during_load()
+            self._draw_splash_screen(message="Generating map...", progress=progress)
+
         self.world_state = WorldState()
 
         # 3. Spawn new unit and center camera
@@ -288,7 +307,8 @@ class Game:
 
         # 4. Generate and load globe frames, updating splash screen with progress
         for progress in globe_renderer.render_map_as_globe(self.map.data, map_seed):
-            self._draw_splash_screen(progress=progress)
+            self._pump_events_during_load()
+            self._draw_splash_screen(message="Generating globe...", progress=progress)
         self._load_globe_frames(map_seed)
 
         # 5. Clear event queue to discard clicks during generation
