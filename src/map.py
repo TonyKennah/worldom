@@ -61,12 +61,18 @@ class Map:
 
     Handles map generation and rendering, ensuring only visible tiles are drawn.
     """
-    def __init__(self, width: int, height: int) -> None:
+    def __init__(self, width: int, height: int, seed: Optional[int] = None) -> None:
         """Initializes the map."""
         self.width = width
         self.height = height
         self.tile_size = settings.TILE_SIZE
         self.terrain_types = list(settings.TERRAIN_COLORS.keys())
+
+        if seed is None:
+            self.seed = random.randint(0, 1_000_000)
+        else:
+            self.seed = seed
+
         self.data: List[List[str]] = self._generate_map()
 
     def _fractal_noise(  # pylint: disable=too-many-arguments,R0917
@@ -94,9 +100,12 @@ class Map:
 
     def _generate_map(self) -> List[List[str]]:
         """Creates a seamlessly tileable map using 4D Perlin noise."""
-        e_gen = OpenSimplex(seed=random.randint(0, 10000))
-        m_gen = OpenSimplex(seed=random.randint(0, 10000))
-        l_gen = OpenSimplex(seed=random.randint(0, 10000))
+        # Use a seeded random number generator to ensure the map is reproducible
+        # from the main game seed.
+        map_random = random.Random(self.seed)
+        e_gen = OpenSimplex(seed=map_random.randint(0, 10000))
+        m_gen = OpenSimplex(seed=map_random.randint(0, 10000))
+        l_gen = OpenSimplex(seed=map_random.randint(0, 10000))
 
         world = [["" for _ in range(self.width)] for _ in range(self.height)]
 

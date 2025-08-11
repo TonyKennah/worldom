@@ -33,6 +33,10 @@ MANIFEST
 *.manifest
 *.spec
 
+# all the images generated
+global_frames_*/
+frame_*.png
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt

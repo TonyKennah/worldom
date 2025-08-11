@@ -3,6 +3,7 @@
 Defines the main Game class that orchestrates all game components.
 """
 from __future__ import annotations
+import os
 import random
 import sys
 from typing import Any, Dict, List, Optional, Tuple
@@ -11,6 +12,7 @@ import pygame
 import settings
 
 from camera import Camera
+import globe_renderer
 from map import Map
 from unit import Unit
 
@@ -57,6 +59,7 @@ class DebugPanel:
         self.font = pygame.font.SysFont("Arial", settings.DEBUG_PANEL_FONT_SIZE)
         self.exit_link_rect: Optional[pygame.Rect] = None
         self.new_link_rect: Optional[pygame.Rect] = None
+        self.show_globe_link_rect: Optional[pygame.Rect] = None
 
     def handle_event(self, event: pygame.event.Event) -> Optional[str]:
         """
@@ -68,6 +71,8 @@ class DebugPanel:
                 return "exit"  # Signal to exit
             if self.new_link_rect and self.new_link_rect.collidepoint(event.pos):
                 return "new_map" # Signal to create a new map
+            if self.show_globe_link_rect and self.show_globe_link_rect.collidepoint(event.pos):
+                return "show_globe" # Signal to show the globe
         return None
 
     def _draw_main_info(self, game: Game) -> None:
@@ -108,15 +113,26 @@ class DebugPanel:
         new_text_y = (settings.DEBUG_PANEL_HEIGHT - new_text_surface.get_height()) // 2
         self.new_link_rect = game.screen.blit(new_text_surface, (new_text_x, new_text_y))
 
+    def _draw_show_globe_link(self, game: Game) -> None:
+        """Draws the clickable 'Show Globe' link."""
+        globe_text_surface = self.font.render("Show Globe", True, settings.DEBUG_PANEL_FONT_COLOR)
+        # Position it to the left of the 'New' link, which must be drawn first.
+        new_width = self.new_link_rect.width if self.new_link_rect else 0
+        spacing = 15
+        globe_text_x = self.new_link_rect.left - globe_text_surface.get_width() - spacing
+        globe_text_y = (settings.DEBUG_PANEL_HEIGHT - globe_text_surface.get_height()) // 2
+        self.show_globe_link_rect = game.screen.blit(globe_text_surface, (globe_text_x, globe_text_y))
+
     def draw(self, game: Game) -> None:
         """Renders the complete debug panel by calling its helper methods."""
         panel_rect = pygame.Rect(0, 0, settings.SCREEN_WIDTH, settings.DEBUG_PANEL_HEIGHT)
         pygame.draw.rect(game.screen, settings.DEBUG_PANEL_BG_COLOR, panel_rect)
 
         self._draw_main_info(game)
-        # Draw exit first to get its rect for positioning 'New'
+        # Draw links from right to left to position them correctly relative to each other
         self._draw_exit_link(game)
         self._draw_new_link(game)
+        self._draw_show_globe_link(game)
 
 # --- Game Class ---
 class Game:
@@ -154,7 +170,8 @@ class Game:
         self.camera = Camera(settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT)
         self.debug_panel = DebugPanel()
 
-        self.map = Map(settings.MAP_WIDTH_TILES, settings.MAP_HEIGHT_TILES)
+        map_seed = random.randint(0, 1_000_000)
+        self.map = Map(settings.MAP_WIDTH_TILES, settings.MAP_HEIGHT_TILES, seed=map_seed)
         self.world_state = WorldState()
         initial_unit = self._spawn_initial_units()
 
@@ -163,17 +180,42 @@ class Game:
             # Use .copy() to prevent the camera and unit from sharing the same Vector2 object
             self.camera.position = initial_unit.world_pos.copy()
 
-    def _draw_splash_screen(self) -> None:
-        """Displays a loading screen while the map generates."""
+        # --- Globe Animation State ---
+        self.show_globe_popup: bool = False
+        self.globe_frames: List[pygame.Surface] = []
+        self.globe_frame_index: int = 0
+        self.globe_animation_timer: float = 0.0
+
+        # Generate and load the globe frames for the initial map
+        # This loop will update the splash screen with a progress bar.
+        for progress in globe_renderer.render_map_as_globe(self.map.data, map_seed):
+            self._draw_splash_screen(progress=progress)
+        self._load_globe_frames(map_seed)
+
+    def _draw_splash_screen(self, progress: Optional[float] = None) -> None:
+        """
+        Displays a loading screen. If progress is provided, it also
+        draws a progress bar for the globe generation.
+        """
         self.screen.fill(settings.DEBUG_PANEL_BG_COLOR)
 
         font = pygame.font.SysFont("Arial", 48)
-        text = "A new map is being created."
+        text = "Generating globe..." if progress is not None else "A new map is being created..."
         text_surface = font.render(text, True, settings.DEBUG_PANEL_FONT_COLOR)
-        center = (settings.SCREEN_WIDTH / 2, settings.SCREEN_HEIGHT / 2)
-        text_rect = text_surface.get_rect(center=center)
-
+        text_rect = text_surface.get_rect(center=(settings.SCREEN_WIDTH / 2, settings.SCREEN_HEIGHT / 2))
         self.screen.blit(text_surface, text_rect)
+
+        if progress is not None:
+            bar_width, bar_height = 400, 30
+            bar_x = (settings.SCREEN_WIDTH - bar_width) / 2
+            bar_y = text_rect.bottom + 30
+            # Draw the progress bar background and border
+            pygame.draw.rect(self.screen, (60, 60, 80), (bar_x, bar_y, bar_width, bar_height))
+            pygame.draw.rect(self.screen, (200, 200, 220), (bar_x, bar_y, bar_width, bar_height), 2)
+            # Draw the progress fill
+            fill_width = bar_width * progress
+            pygame.draw.rect(self.screen, (100, 200, 100), (bar_x, bar_y, fill_width, bar_height))
+
         pygame.display.flip()
 
     def run(self) -> None:
@@ -191,14 +233,30 @@ class Game:
         pygame.quit()
         sys.exit()
 
+    def _load_globe_frames(self, map_seed: int) -> None:
+        """Loads the pre-rendered globe animation frames from disk."""
+        self.globe_frames.clear() # Clear frames from any previous map
+        frame_dir = f"globe_frames_{map_seed}"
+        if not os.path.isdir(frame_dir):
+            print(f"Warning: Globe animation directory not found at '{frame_dir}'")
+            return
+
+        try:
+            # Get all .png files and sort them alphabetically to ensure correct order
+            filenames = sorted([f for f in os.listdir(frame_dir) if f.endswith(".png")])
+            self.globe_frames = [pygame.image.load(os.path.join(frame_dir, f)).convert_alpha() for f in filenames]
+            print(f"Successfully loaded {len(self.globe_frames)} globe frames.")
+        except pygame.error as e:
+            print(f"Error loading globe frames: {e}")
+
     def _get_all_land_tiles(self) -> List[Tuple[int, int]]:
         """Returns a list of all (x, y) coordinates for land tiles (grass or rock)."""
-        land_tiles = []
-        for y in range(self.map.height):
-            for x in range(self.map.width):
-                if self.map.data[y][x] in ['grass', 'rock']:
-                    land_tiles.append((x, y))
-        return land_tiles
+        return [
+            (x, y)
+            for y in range(self.map.height)
+            for x in range(self.map.width)
+            if self.map.data[y][x] in {'grass', 'rock'}
+        ]
 
     def _spawn_initial_units(self) -> Unit:
         """
@@ -215,11 +273,12 @@ class Game:
 
     def _regenerate_map(self) -> None:
         """Regenerates the map and resets the world state."""
-        # 1. Show splash screen
+        # 1. Show initial splash screen
         self._draw_splash_screen()
 
         # 2. Create new map and world state
-        self.map = Map(settings.MAP_WIDTH_TILES, settings.MAP_HEIGHT_TILES)
+        map_seed = random.randint(0, 1_000_000)
+        self.map = Map(settings.MAP_WIDTH_TILES, settings.MAP_HEIGHT_TILES, seed=map_seed)
         self.world_state = WorldState()
 
         # 3. Spawn new unit and center camera
@@ -227,7 +286,12 @@ class Game:
         if initial_unit:
             self.camera.position = initial_unit.world_pos.copy()
 
-        # 4. Clear event queue to discard clicks during generation
+        # 4. Generate and load globe frames, updating splash screen with progress
+        for progress in globe_renderer.render_map_as_globe(self.map.data, map_seed):
+            self._draw_splash_screen(progress=progress)
+        self._load_globe_frames(map_seed)
+
+        # 5. Clear event queue to discard clicks during generation
         pygame.event.clear()
 
     def handle_events(self, events: List[pygame.event.Event]) -> None:
@@ -237,7 +301,12 @@ class Game:
                 self.running = False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    self.running = False
+                    # If the globe popup is open, Escape should close it.
+                    # Otherwise, it should exit the game.
+                    if self.show_globe_popup:
+                        self.show_globe_popup = False
+                    else:
+                        self.running = False
             elif event.type == pygame.VIDEORESIZE:
                 current_flags = self.screen.get_flags()
                 self.screen = pygame.display.set_mode((event.w, event.h), current_flags)
@@ -256,6 +325,9 @@ class Game:
                 continue # Event was handled, stop processing it
             if action == "new_map":
                 self._regenerate_map()
+                continue
+            if action == "show_globe":
+                self.show_globe_popup = True
                 continue
 
             self._handle_mouse_events(event)
@@ -285,7 +357,10 @@ class Game:
             return
 
         if event.button == 1:
-            if self.world_state.context_menu.active:
+            if self.show_globe_popup:
+                self.show_globe_popup = False # Close popup on any click
+                return
+            elif self.world_state.context_menu.active:
                 self._handle_context_menu_click(event.pos)
             else:
                 self.world_state.left_mouse_down_pos = event.pos
@@ -464,6 +539,18 @@ class Game:
         else:
             self._update_hovered_tile()
 
+        if self.show_globe_popup:
+            self._update_globe_animation(dt)
+
+    def _update_globe_animation(self, dt: float) -> None:
+        """Cycles through the globe animation frames based on a timer."""
+        if not self.globe_frames:
+            return
+        self.globe_animation_timer += dt
+        if self.globe_animation_timer >= settings.GLOBE_FRAME_DURATION:
+            self.globe_animation_timer = 0
+            self.globe_frame_index = (self.globe_frame_index + 1) % len(self.globe_frames)
+
     def _update_hovered_tile(self) -> None:
         """Calculates which map tile is currently under the mouse cursor."""
         mouse_pos = pygame.mouse.get_pos()
@@ -497,6 +584,10 @@ class Game:
             pygame.draw.rect(self.screen, settings.SELECTION_BOX_COLOR,
                              self.world_state.selection_box, settings.SELECTION_BOX_BORDER_WIDTH)
 
+        # Draw globe popup if active
+        if self.show_globe_popup:
+            self._draw_globe_popup()
+
         # Draw context menu if active
         if self.world_state.context_menu.active:
             self._draw_context_menu()
@@ -505,6 +596,33 @@ class Game:
 
         self.debug_panel.draw(self)
         pygame.display.flip()
+
+    def _draw_globe_popup(self) -> None:
+        """Draws the globe animation popup in the center of the screen."""
+        if not self.globe_frames:
+            # Optionally, draw a "no frames found" message
+            return
+
+        # 1. Draw a semi-transparent overlay to dim the background
+        overlay = pygame.Surface((settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180)) # Black with 180/255 alpha
+        self.screen.blit(overlay, (0, 0))
+
+        # 2. Get the current frame and its size
+        current_frame = self.globe_frames[self.globe_frame_index]
+        frame_rect = current_frame.get_rect()
+
+        # 3. Define the popup box size (with padding)
+        padding = 40
+        popup_width = frame_rect.width + padding
+        popup_height = frame_rect.height + padding
+        popup_rect = pygame.Rect(0, 0, popup_width, popup_height)
+        popup_rect.center = (settings.SCREEN_WIDTH // 2, settings.SCREEN_HEIGHT // 2)
+
+        # 4. Draw the popup box and the globe frame inside it
+        pygame.draw.rect(self.screen, (40, 40, 60), popup_rect, border_radius=10)
+        pygame.draw.rect(self.screen, (200, 200, 220), popup_rect, width=2, border_radius=10)
+        self.screen.blit(current_frame, (popup_rect.x + padding // 2, popup_rect.y + padding // 2))
 
     def _draw_context_menu(self) -> None:
         """Renders the context menu on the screen."""

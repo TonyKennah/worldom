@@ -1,2 +1,4 @@
 pygame
 opensimplex
+matplotlib
+cartopy

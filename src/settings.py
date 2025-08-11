@@ -3,6 +3,15 @@
 Centralized settings and constants for the game.
 """
 
+GLOBE_FRAME_DURATION = 0.04
+
+# --- Globe Generation Settings ---
+GLOBE_NUM_FRAMES = 60  # A good compromise for speed vs. smoothness
+GLOBE_IMAGE_SIZE_PIXELS = 250 # Smaller images render faster
+# Colors for terrain: 0=water, 1=sand, 2=grass, 3=rock
+GLOBE_TERRAIN_COLORS = ['#4d73a8', '#d3c28a', '#669966', '#8c8c8c']
+
+
 # --- General Settings ---
 # These are placeholders. The actual values are set at runtime in game.py
 # when the fullscreen display is initialized.
