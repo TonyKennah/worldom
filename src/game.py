@@ -48,7 +48,8 @@ class WorldState:
         self.units: List[Unit] = []
         self.selected_units: List[Unit] = []
         self.hovered_tile: Optional[Tuple[int, int]] = None
-        self.left_mouse_down_pos: Optional[Tuple[int, int]] = None
+        self.left_mouse_down_screen_pos: Optional[Tuple[int, int]] = None
+        self.left_mouse_down_world_pos: Optional[pygame.math.Vector2] = None
         self.right_mouse_down_pos: Optional[Tuple[int, int]] = None
         self.selection_box: Optional[pygame.Rect] = None
         self.context_menu = ContextMenuState()
@@ -352,7 +353,8 @@ class Game:
             elif self.world_state.context_menu.active:
                 self._handle_context_menu_click(event.pos)
             else:
-                self.world_state.left_mouse_down_pos = event.pos
+                self.world_state.left_mouse_down_screen_pos = event.pos
+                self.world_state.left_mouse_down_world_pos = self.camera.screen_to_world(event.pos)
         elif event.button == 3:  # Right-click
             if self.world_state.context_menu.active:
                 self._close_context_menu()
@@ -368,12 +370,13 @@ class Game:
 
     def _handle_left_mouse_up(self, event: pygame.event.Event) -> None:
         """Handles left mouse button up events (click vs. drag)."""
-        if self._is_click(self.world_state.left_mouse_down_pos, event.pos):
+        if self._is_click(self.world_state.left_mouse_down_screen_pos, event.pos):
             self._handle_left_click_selection(event.pos)
         elif self.world_state.selection_box:  # It's a drag
             self._handle_drag_selection(self.world_state.selection_box)
 
-        self.world_state.left_mouse_down_pos = None  # Reset after use
+        self.world_state.left_mouse_down_screen_pos = None  # Reset after use
+        self.world_state.left_mouse_down_world_pos = None
         self.world_state.selection_box = None
 
     def _handle_right_mouse_up(self, event: pygame.event.Event) -> None:
@@ -386,13 +389,15 @@ class Game:
 
     def _handle_mouse_motion(self, event: pygame.event.Event) -> None:
         """Handles mouse motion for drawing the selection box."""
-        if self.world_state.left_mouse_down_pos:
-            start_pos = self.world_state.left_mouse_down_pos
-            current_pos = event.pos
-            x = min(start_pos[0], current_pos[0])
-            y = min(start_pos[1], current_pos[1])
-            width = abs(start_pos[0] - current_pos[0])
-            height = abs(start_pos[1] - current_pos[1])
+        if self.world_state.left_mouse_down_world_pos:
+            # Convert the fixed world start position back to current screen coordinates
+            start_pos_screen = self.camera.world_to_screen(self.world_state.left_mouse_down_world_pos)
+            current_pos_screen = pygame.math.Vector2(event.pos)
+
+            x = min(start_pos_screen.x, current_pos_screen.x)
+            y = min(start_pos_screen.y, current_pos_screen.y)
+            width = abs(start_pos_screen.x - current_pos_screen.x)
+            height = abs(start_pos_screen.y - current_pos_screen.y)
             self.world_state.selection_box = pygame.Rect(x, y, width, height)
 
     def _open_context_menu(self, screen_pos: Tuple[int, int]) -> None:
