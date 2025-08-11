@@ -164,7 +164,7 @@ class Game:
         # --- Show Splash Screen ---
         # Draw a splash screen to give feedback to the user while the map,
         # which can be slow, is generating.
-        self._draw_splash_screen(message="A new map is being created...")
+        # self._draw_splash_screen(message="A new map is being created...")
 
         # --- Initialize Game Components ---
         self.camera = Camera(settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT)
@@ -176,7 +176,7 @@ class Game:
         # --- Stage 1: Generate Map with Progress ---
         for progress in self.map.generate():
             self._pump_events_during_load()
-            self._draw_splash_screen(message="Generating map...", progress=progress)
+            self._draw_splash_screen(message="1/2 Generating 2D Map.", progress=progress)
 
         self.world_state = WorldState()
         initial_unit = self._spawn_initial_units()
@@ -197,7 +197,7 @@ class Game:
         # --- Stage 2: Generate Globe with Progress ---
         for progress in globe_renderer.render_map_as_globe(self.map.data, map_seed):
             self._pump_events_during_load()
-            self._draw_splash_screen(message="Generating globe...", progress=progress)
+            self._draw_splash_screen(message="2/2 Generating Globe.", progress=progress)
         self._load_globe_frames(map_seed)
 
     def _draw_splash_screen(self, message: str, progress: Optional[float] = None) -> None:
