@@ -258,20 +258,11 @@ class Map:
         map_width_pixels = self.width * self.tile_size
         map_height_pixels = self.height * self.tile_size
 
-        # --- Stage 1: Draw all terrain instances ---
         # Draw the map multiple times to create a seamless wrap-around effect
         for dx in [-map_width_pixels, 0, map_width_pixels]:
             for dy in [-map_height_pixels, 0, map_height_pixels]:
                 offset = pygame.math.Vector2(dx, dy)
                 self._draw_single_map_instance(surface, camera, hovered_tile, offset)
-
-        # --- Stage 2: Draw grid lines once on top ---
-        # This prevents overdrawing the grid 9 times and is much more performant.
-        scaled_tile_size = settings.TILE_SIZE * camera.zoom_state.current
-        if scaled_tile_size >= settings.MIN_TILE_PIXELS_FOR_GRID:
-            # We only need to calculate the visible area for the main map instance (offset 0,0)
-            visible_area = self._calculate_visible_area(camera, pygame.math.Vector2(0, 0))
-            self._draw_grid_lines(surface, camera, visible_area, pygame.math.Vector2(0, 0))
 
     def _draw_single_map_instance(
         self,
@@ -287,7 +278,13 @@ class Map:
             surface, camera,
             area=visible_area, offset=offset, hovered_tile=hovered_tile
         )
-        # The hover highlight must be drawn after the terrain to ensure it's on top.
+
+        # Draw grid lines for this instance if zoomed in enough
+        scaled_tile_size = self.tile_size * camera.zoom_state.current
+        if scaled_tile_size >= settings.MIN_TILE_PIXELS_FOR_GRID:
+            self._draw_grid_lines(surface, camera, visible_area, offset)
+
+        # The hover highlight must be drawn after the terrain and grid to ensure it's on top.
         if hovered_tile:
             self._draw_hover_highlight(surface, camera, visible_area, offset, hovered_tile)
 
@@ -370,6 +367,19 @@ class Map:
                 )
                 screen_rect = camera.apply(world_rect)
                 pygame.draw.rect(surface, current_color, screen_rect)
+
+    def _draw_hover_highlight(self, surface: pygame.Surface, camera: Camera, area: VisibleArea,
+                              offset: pygame.math.Vector2, hovered_tile: Tuple[int, int]) -> None:
+        """Draws the highlight for the currently hovered tile."""
+        for y in range(area.start_row, area.end_row):
+            for x in range(area.start_col, area.end_col):
+                if (x % self.width, y % self.height) == hovered_tile:
+                    world_x = x * self.tile_size + offset.x
+                    world_y = y * self.tile_size + offset.y
+                    world_rect = pygame.Rect(world_x, world_y, self.tile_size, self.tile_size)
+                    screen_rect = camera.apply(world_rect)
+                    pygame.draw.rect(surface, settings.HIGHLIGHT_COLOR, screen_rect, 3)
+                    return # Draw only one highlight per map instance
 
     def _draw_hover_highlight(self, surface: pygame.Surface, camera: Camera, area: VisibleArea,
                               offset: pygame.math.Vector2, hovered_tile: Tuple[int, int]) -> None:

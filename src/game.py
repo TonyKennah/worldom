@@ -161,30 +161,9 @@ class Game:
         self.clock = pygame.time.Clock()
         self.running: bool = True
 
-        # --- Show Splash Screen ---
-        # Draw a splash screen to give feedback to the user while the map,
-        # which can be slow, is generating.
-        # self._draw_splash_screen(message="A new map is being created...")
-
         # --- Initialize Game Components ---
         self.camera = Camera(settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT)
         self.debug_panel = DebugPanel()
-
-        map_seed = random.randint(0, 1_000_000)
-        self.map = Map(settings.MAP_WIDTH_TILES, settings.MAP_HEIGHT_TILES, seed=map_seed)
-
-        # --- Stage 1: Generate Map with Progress ---
-        for progress in self.map.generate():
-            self._pump_events_during_load()
-            self._draw_splash_screen(message="1/2 Generating 2D Map.", progress=progress)
-
-        self.world_state = WorldState()
-        initial_unit = self._spawn_initial_units()
-
-        # Center camera on the initial unit after everything is loaded
-        if initial_unit:
-            # Use .copy() to prevent the camera and unit from sharing the same Vector2 object
-            self.camera.position = initial_unit.world_pos.copy()
 
         # --- Globe Animation State ---
         self.show_globe_popup: bool = False
@@ -192,13 +171,8 @@ class Game:
         self.globe_frame_index: int = 0
         self.globe_animation_timer: float = 0.0
 
-        # Generate and load the globe frames for the initial map
-        # This loop will update the splash screen with a progress bar.
-        # --- Stage 2: Generate Globe with Progress ---
-        for progress in globe_renderer.render_map_as_globe(self.map.data, map_seed):
-            self._pump_events_during_load()
-            self._draw_splash_screen(message="2/2 Generating Globe.", progress=progress)
-        self._load_globe_frames(map_seed)
+        # Create the initial world
+        self._create_new_world()
 
     def _draw_splash_screen(self, message: str, progress: Optional[float] = None) -> None:
         """
@@ -286,32 +260,27 @@ class Game:
         self.world_state.units.append(new_unit)
         return new_unit
 
-    def _regenerate_map(self) -> None:
-        """Regenerates the map and resets the world state."""
-        # 1. Show initial splash screen
-        self._draw_splash_screen(message="A new map is being created...")
-
-        # 2. Create new map and world state
+    def _create_new_world(self) -> None:
+        """Creates a new map, world state, and globe, showing progress."""
         map_seed = random.randint(0, 1_000_000)
         self.map = Map(settings.MAP_WIDTH_TILES, settings.MAP_HEIGHT_TILES, seed=map_seed)
         for progress in self.map.generate():
             self._pump_events_during_load()
-            self._draw_splash_screen(message="Generating map...", progress=progress)
+            self._draw_splash_screen(message="1/2 Generating 2D Map.", progress=progress)
 
         self.world_state = WorldState()
-
-        # 3. Spawn new unit and center camera
         initial_unit = self._spawn_initial_units()
         if initial_unit:
             self.camera.position = initial_unit.world_pos.copy()
 
-        # 4. Generate and load globe frames, updating splash screen with progress
         for progress in globe_renderer.render_map_as_globe(self.map.data, map_seed):
             self._pump_events_during_load()
-            self._draw_splash_screen(message="Generating globe...", progress=progress)
+            self._draw_splash_screen(message="2/2 Generating Globe.", progress=progress)
         self._load_globe_frames(map_seed)
 
-        # 5. Clear event queue to discard clicks during generation
+    def _regenerate_map(self) -> None:
+        """Regenerates the map and resets the world state."""
+        self._create_new_world()
         pygame.event.clear()
 
     def handle_events(self, events: List[pygame.event.Event]) -> None:
