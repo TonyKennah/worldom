@@ -142,19 +142,6 @@ class Map:
 
         self._convert_inland_oceans_to_lakes(self.data)
         self._fill_large_lakes(self.data)
-        self._add_pole_marker()
-
-    def _add_pole_marker(self) -> None:
-        """Adds a 2x2 black marker for the North Pole at the top-center of the map."""
-        if self.width < 2 or self.height < 2:
-            return # Map is too small for a 2x2 marker
-
-        pole_x = self.width // 2
-        # Place a 2x2 marker
-        self.data[0][pole_x] = "pole"
-        self.data[0][pole_x - 1] = "pole"
-        self.data[1][pole_x] = "pole"
-        self.data[1][pole_x - 1] = "pole"
 
     def _get_elevation_noise(self, gen: OpenSimplex, angle_x: float, angle_y: float) -> float:
         """Generates elevation noise for a given angle."""
@@ -380,7 +367,7 @@ class Map:
         """Checks if a given tile is walkable based on its terrain type."""
         x, y = tile_pos
         # Since the map is toroidal, we only need to check the terrain type.
-        return self.data[y][x] not in ["ocean", "lake", "pole"]
+        return self.data[y][x] not in ["ocean", "lake"]
 
     def _heuristic(self, pos_a: Tuple[int, int], pos_b: Tuple[int, int]) -> float:
         """
