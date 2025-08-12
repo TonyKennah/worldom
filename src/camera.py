@@ -258,27 +258,30 @@ class Camera:
         move_keyboard = self._keyboard_move_vector()
         move_edge = self._edge_scroll_vector()
 
-        # Mouse drag panning modifies position directly (world units)
+        # Mouse drag panning modifies position directly (it's not affected by inertia)
         self._handle_drag(events, dt)
 
-        # Compose acceleration vectors (in world units per second)
-        accel = pygame.Vector2(0, 0)
+        # Determine the target velocity based on inputs.
+        # The speed values are in screen pixels/sec, so we divide by zoom
+        # to get the correct world-space velocity.
+        target_velocity = pygame.Vector2(0, 0)
+        inv_zoom = 1.0 / max(self.zoom_state.current, 1e-6)
         if move_keyboard.length_squared() > 0:
             move_keyboard.normalize_ip()
-            accel += move_keyboard * (self.accel_keyboard / max(self.zoom_state.current, 1e-6))
+            target_velocity += move_keyboard * self.accel_keyboard * inv_zoom
         if move_edge.length_squared() > 0:
             move_edge.normalize_ip()
-            accel += move_edge * (self.accel_edge / max(self.zoom_state.current, 1e-6))
+            target_velocity += move_edge * self.accel_edge * inv_zoom
 
         if self.inertia_enabled:
-            # Semi-implicit Euler integration with drag
+            # With inertia, we smoothly accelerate towards the target velocity.
+            # The 'drag' factor controls how quickly we reach the target speed.
+            accel = (target_velocity - self.velocity) * self.drag
             self.velocity += accel * dt
-            # Drag toward zero
-            self.velocity -= self.velocity * min(1.0, self.drag * dt)
             self.position += self.velocity * dt
         else:
-            if accel.length_squared() > 0:
-                self.position += accel * dt
+            # Without inertia, we move directly at the target velocity.
+            self.position += target_velocity * dt
 
         # Optional follow after inputs (soft corrective)
         if follow_target is not None:

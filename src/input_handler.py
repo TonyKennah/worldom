@@ -132,4 +132,6 @@ class InputHandler:
 
             x = min(start_pos_screen.x, current_pos_screen.x)
             y = min(start_pos_screen.y, current_pos_screen.y)
-            width = abs
+            width = abs(start_pos_screen.x - current_pos_screen.x)
+            height = abs(start_pos_screen.y - current_pos_screen.y)
+            self.game.world_state.selection_box = pygame.Rect(x, y, width, height)
