@@ -24,6 +24,8 @@ class UIManager:
         self.globe_frames: List[pygame.Surface] = []
         self.globe_frame_index: int = 0
         self.globe_animation_timer: float = 0.0
+        self.popup_title_font = pygame.font.SysFont("Arial", 24, bold=True)
+        self.breakdown_font = pygame.font.SysFont("Arial", 18)
 
     def update(self, dt: float) -> None:
         """Updates UI components, like animations."""
@@ -65,18 +67,66 @@ class UIManager:
         overlay.fill((0, 0, 0, 180))
         self.screen.blit(overlay, (0, 0))
 
+        # --- Title ---
+        title_surface = self.popup_title_font.render(
+            "World Overview", True, settings.DEBUG_PANEL_FONT_COLOR
+        )
+        title_rect = title_surface.get_rect()
+
+        # --- Globe Image ---
         current_frame = self.game.globe_frames[self.globe_frame_index]
         frame_rect = current_frame.get_rect()
 
+        # --- Terrain Breakdown ---
+        percentages = self.game.map.get_terrain_percentages()
+        breakdown_surfaces = []
+        if percentages:
+            # Sort by percentage (desc) and filter out empty ones
+            sorted_terrain = sorted(percentages.items(), key=lambda item: item[1], reverse=True)
+            for terrain, pct in sorted_terrain:
+                if pct > 0:
+                    text = f"{terrain.capitalize()}: {pct:.1f}%"
+                    surface = self.breakdown_font.render(text, True, settings.DEBUG_PANEL_FONT_COLOR)
+                    breakdown_surfaces.append(surface)
+
+        breakdown_height = sum(s.get_height() for s in breakdown_surfaces)
+        breakdown_width = max(s.get_width() for s in breakdown_surfaces) if breakdown_surfaces else 0
+
+        # --- Popup container ---
         padding = 40
-        popup_width = frame_rect.width + padding
-        popup_height = frame_rect.height + padding
+        title_spacing = 20  # Space between title and globe
+        breakdown_spacing = 20 # Space between globe and breakdown
+        content_width = max(title_rect.width, frame_rect.width, breakdown_width)
+        popup_width = content_width + padding
+        popup_height = title_rect.height + title_spacing + frame_rect.height + padding
+        if breakdown_surfaces:
+            popup_height += breakdown_spacing + breakdown_height
+
         popup_rect = pygame.Rect(0, 0, popup_width, popup_height)
         popup_rect.center = (settings.SCREEN_WIDTH // 2, settings.SCREEN_HEIGHT // 2)
 
+        # Draw popup background and border
         pygame.draw.rect(self.screen, (40, 40, 60), popup_rect, border_radius=10)
         pygame.draw.rect(self.screen, (200, 200, 220), popup_rect, width=2, border_radius=10)
-        self.screen.blit(current_frame, (popup_rect.x + padding // 2, popup_rect.y + padding // 2))
+
+        # --- Draw Content ---
+        # Title
+        title_rect.centerx = popup_rect.centerx
+        title_rect.top = popup_rect.top + (padding // 2)
+        self.screen.blit(title_surface, title_rect)
+
+        # Globe
+        frame_rect.centerx = popup_rect.centerx
+        frame_rect.top = title_rect.bottom + title_spacing
+        self.screen.blit(current_frame, frame_rect)
+
+        # Breakdown
+        if breakdown_surfaces:
+            current_y = frame_rect.bottom + breakdown_spacing
+            for surface in breakdown_surfaces:
+                breakdown_rect = surface.get_rect(centerx=popup_rect.centerx, top=current_y)
+                self.screen.blit(surface, breakdown_rect)
+                current_y += surface.get_height()
 
     def draw_context_menu(self) -> None:
         """Renders the context menu on the screen."""

@@ -150,7 +150,7 @@ class Game:
         self.map = Map(settings.MAP_WIDTH_TILES, settings.MAP_HEIGHT_TILES, seed=map_seed)
         for progress in self.map.generate():
             self._pump_events_during_load()
-            self._draw_splash_screen(message="1/2 Generating 2D Map.", progress=progress)
+            self._draw_splash_screen(message="1/2 Generating 2D Map", progress=progress)
 
         self.world_state = WorldState()
         initial_unit = self._spawn_initial_units()
@@ -159,7 +159,7 @@ class Game:
 
         for progress in globe_renderer.render_map_as_globe(self.map.data, map_seed):
             self._pump_events_during_load()
-            self._draw_splash_screen(message="2/2 Generating Globe.", progress=progress)
+            self._draw_splash_screen(message="2/2 Generating Globe", progress=progress)
         self._load_globe_frames(map_seed)
 
     def regenerate_map(self) -> None:

@@ -517,3 +517,26 @@ class Map:
                     current_node, next_node, end_node, state
                 )
         return None # No path found
+
+    def get_terrain_percentages(self) -> Dict[str, float]:
+        """Calculates the percentage of each terrain type on the map."""
+        if not self.data:
+            return {}
+
+        counts: Dict[str, int] = {
+            "ocean": 0,
+            "lake": 0,
+            "grass": 0,
+            "rock": 0,
+        }
+        total_tiles = self.width * self.height
+
+        if total_tiles == 0:
+            return {}
+
+        for row in self.data:
+            for tile in row:
+                if tile in counts:
+                    counts[tile] += 1
+
+        return {terrain: (count / total_tiles) * 100 for terrain, count in counts.items()}
