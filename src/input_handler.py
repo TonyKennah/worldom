@@ -87,13 +87,13 @@ class InputHandler:
                 self.game.ui_manager.show_globe_popup = False # Close popup on any click
                 return
             elif self.game.world_state.context_menu.active:
-                self.game.handle_context_menu_click(event.pos)
+                self.game.ui_manager.handle_context_menu_click(event.pos)
             else:
                 self.game.world_state.left_mouse_down_screen_pos = event.pos
                 self.game.world_state.left_mouse_down_world_pos = self.game.camera.screen_to_world(event.pos)
         elif event.button == 3:  # Right-click
             if self.game.world_state.context_menu.active:
-                self.game.close_context_menu()
+                self.game.ui_manager.close_context_menu()
             else:
                 self.game.world_state.right_mouse_down_pos = event.pos
 
@@ -119,7 +119,7 @@ class InputHandler:
         """Handles right mouse button up events (click vs. drag)."""
         if self._is_click(self.game.world_state.right_mouse_down_pos, event.pos):
             if self.game.world_state.selected_units:
-                self.game.open_context_menu(event.pos)
+                self.game.ui_manager.open_context_menu(event.pos)
 
         self.game.world_state.right_mouse_down_pos = None
 

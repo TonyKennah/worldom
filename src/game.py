@@ -167,69 +167,7 @@ class Game:
         self._create_new_world()
         pygame.event.clear()
 
-    def open_context_menu(self, screen_pos: Tuple[int, int]) -> None:
-        """Opens a context menu at the given screen position."""
-        if not self.world_state.hovered_tile:
-            return
-
-        self.world_state.context_menu.active = True
-        self.world_state.context_menu.pos = screen_pos
-        self.world_state.context_menu.target_tile = self.world_state.hovered_tile
-        self.world_state.context_menu.rects.clear()
-
-        # Calculate rects for each option
-        x, y = screen_pos
-        padding = settings.CONTEXT_MENU_PADDING
-        for i, option_data in enumerate(self.world_state.context_menu.options):
-            option_text = option_data["label"]
-            text_surface = self.world_state.context_menu.font.render(option_text, True, (0, 0, 0))
-            width = text_surface.get_width() + padding * 2
-            height = text_surface.get_height() + padding
-            rect = pygame.Rect(x, y + i * height, width, height)
-            self.world_state.context_menu.rects.append(rect)
-
-    def close_context_menu(self) -> None:
-        """Closes the context menu."""
-        self.ui_manager.close_sub_menu()
-        self.world_state.context_menu.active = False
-        self.world_state.context_menu.pos = None
-        self.world_state.context_menu.rects.clear()
-        self.world_state.context_menu.target_tile = None
-
-    def handle_context_menu_click(self, mouse_pos: Tuple[int, int]) -> None:
-        """Handles a click when the context menu is active."""
-        context_menu = self.world_state.context_menu
-
-        # Check for sub-menu click first, as it's on top
-        if context_menu.sub_menu.active:
-            for i, rect in enumerate(context_menu.sub_menu.rects):
-                if rect.collidepoint(mouse_pos):
-                    option = context_menu.sub_menu.options[i]
-                    print(f"Sub-menu option clicked: {option}")
-                    self._issue_move_command_to_target()
-                    self.close_context_menu()  # Close everything after action
-                    return
-
-        # Check for main menu click
-        for i, rect in enumerate(context_menu.rects):
-            if rect.collidepoint(mouse_pos):
-                option_data = context_menu.options[i]
-                # If the clicked item has a sub-menu, do nothing.
-                # This allows the user to move their mouse to the sub-menu.
-                if "sub_options" in option_data:
-                    return
-
-                # If it's a normal command, execute it.
-                if option_data["label"] in ["Attack", "MoveTo"]:
-                    self._issue_move_command_to_target()
-                    self.close_context_menu()
-                    return
-
-        # If we clicked, but not on an actionable item (e.g., outside all menus),
-        # then close the menu.
-        self.close_context_menu()
-
-    def _issue_move_command_to_target(self) -> None:
+    def issue_move_command_to_target(self) -> None:
         """Issues a move command to selected units to the stored target tile."""
         target_tile = self.world_state.context_menu.target_tile
         if not self.world_state.selected_units or not target_tile:

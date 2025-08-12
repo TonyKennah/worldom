@@ -3,7 +3,7 @@
 Handles the rendering and state of all UI elements in the game.
 """
 from __future__ import annotations
-from typing import List, Tuple, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING, Any
 
 import pygame
 import settings
@@ -176,3 +176,62 @@ class UIManager:
         context_menu.sub_menu.options.clear()
         context_menu.sub_menu.rects.clear()
         context_menu.sub_menu.parent_rect = None
+
+    def open_context_menu(self, screen_pos: Tuple[int, int]) -> None:
+        """Opens a context menu at the given screen position."""
+        world_state = self.game.world_state
+        if not world_state.hovered_tile:
+            return
+
+        context_menu = world_state.context_menu
+        context_menu.active = True
+        context_menu.pos = screen_pos
+        context_menu.target_tile = world_state.hovered_tile
+        context_menu.rects.clear()
+
+        # Calculate rects for each option
+        x, y = screen_pos
+        padding = settings.CONTEXT_MENU_PADDING
+        for i, option_data in enumerate(context_menu.options):
+            option_text = option_data["label"]
+            text_surface = context_menu.font.render(option_text, True, (0, 0, 0))
+            width = text_surface.get_width() + padding * 2
+            height = text_surface.get_height() + padding
+            rect = pygame.Rect(x, y + i * height, width, height)
+            context_menu.rects.append(rect)
+
+    def close_context_menu(self) -> None:
+        """Closes the context menu."""
+        self.close_sub_menu()
+        context_menu = self.game.world_state.context_menu
+        context_menu.active = False
+        context_menu.pos = None
+        context_menu.rects.clear()
+        context_menu.target_tile = None
+
+    def handle_context_menu_click(self, mouse_pos: Tuple[int, int]) -> None:
+        """Handles a click when the context menu is active."""
+        context_menu = self.game.world_state.context_menu
+
+        # Check for sub-menu click first, as it's on top
+        if context_menu.sub_menu.active:
+            for i, rect in enumerate(context_menu.sub_menu.rects):
+                if rect.collidepoint(mouse_pos):
+                    option = context_menu.sub_menu.options[i]
+                    print(f"Sub-menu option clicked: {option}")
+                    self.game.issue_move_command_to_target()
+                    self.close_context_menu()  # Close everything after action
+                    return
+
+        # Check for main menu click
+        for i, rect in enumerate(context_menu.rects):
+            if rect.collidepoint(mouse_pos):
+                option_data = context_menu.options[i]
+                if "sub_options" in option_data:
+                    return
+                if option_data["label"] in ["Attack", "MoveTo"]:
+                    self.game.issue_move_command_to_target()
+                    self.close_context_menu()
+                    return
+
+        self.close_context_menu()
