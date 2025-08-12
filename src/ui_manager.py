@@ -3,7 +3,8 @@
 Handles the rendering and state of all UI elements in the game.
 """
 from __future__ import annotations
-from typing import List, Tuple, TYPE_CHECKING, Any
+import math
+from typing import List, Optional, Tuple, TYPE_CHECKING, Any
 
 import pygame
 import settings
@@ -24,8 +25,12 @@ class UIManager:
         self.globe_frames: List[pygame.Surface] = []
         self.globe_frame_index: int = 0
         self.globe_animation_timer: float = 0.0
+        self.globe_animation_speed_index: int = settings.GLOBE_ANIMATION_DEFAULT_SPEED_INDEX
+        self.globe_speed_down_rect: Optional[pygame.Rect] = None
+        self.globe_speed_up_rect: Optional[pygame.Rect] = None
         self.popup_title_font = pygame.font.SysFont("Arial", 24, bold=True)
         self.breakdown_font = pygame.font.SysFont("Arial", 18)
+        self.speed_control_font = pygame.font.SysFont("Arial", 16, bold=True)
 
     def update(self, dt: float) -> None:
         """Updates UI components, like animations."""
@@ -36,10 +41,24 @@ class UIManager:
         """Cycles through the globe animation frames based on a timer."""
         if not self.game.globe_frames:
             return
+        
+        frame_duration = settings.GLOBE_ANIMATION_SPEEDS[self.globe_animation_speed_index]
+        if math.isinf(frame_duration):
+            return  # Animation is paused
+
         self.globe_animation_timer += dt
-        if self.globe_animation_timer >= settings.GLOBE_FRAME_DURATION:
+        if self.globe_animation_timer >= frame_duration:
             self.globe_animation_timer = 0
             self.globe_frame_index = (self.globe_frame_index + 1) % len(self.game.globe_frames)
+
+    def increase_globe_speed(self) -> None:
+        """Increases the globe's rotation speed."""
+        num_speeds = len(settings.GLOBE_ANIMATION_SPEEDS)
+        self.globe_animation_speed_index = min(self.globe_animation_speed_index + 1, num_speeds - 1)
+
+    def decrease_globe_speed(self) -> None:
+        """Decreases the globe's rotation speed."""
+        self.globe_animation_speed_index = max(self.globe_animation_speed_index - 1, 0)
 
     def draw_ui(self) -> None:
         """Draws all UI elements, called once per frame."""
@@ -92,15 +111,36 @@ class UIManager:
         breakdown_height = sum(s.get_height() for s in breakdown_surfaces)
         breakdown_width = max(s.get_width() for s in breakdown_surfaces) if breakdown_surfaces else 0
 
+        # --- Speed Controls ---
+        speed_down_surface = self.speed_control_font.render(" << ", True, settings.DEBUG_PANEL_FONT_COLOR)
+        speed_up_surface = self.speed_control_font.render(" >> ", True, settings.DEBUG_PANEL_FONT_COLOR)
+
+        default_duration = settings.GLOBE_ANIMATION_SPEEDS[settings.GLOBE_ANIMATION_DEFAULT_SPEED_INDEX]
+        current_duration = settings.GLOBE_ANIMATION_SPEEDS[self.globe_animation_speed_index]
+        if math.isinf(current_duration):
+            speed_text = "Speed: Paused"
+        else:
+            speed_multiplier = default_duration / current_duration if current_duration > 0 else 0.0
+            speed_text = f"Speed: {speed_multiplier:.1f}x"
+        speed_display_surface = self.breakdown_font.render(speed_text, True, settings.DEBUG_PANEL_FONT_COLOR)
+
+        speed_controls_height = max(
+            speed_down_surface.get_height(),
+            speed_display_surface.get_height(),
+            speed_up_surface.get_height()
+        )
+
         # --- Popup container ---
         padding = 40
         title_spacing = 20  # Space between title and globe
         breakdown_spacing = 20 # Space between globe and breakdown
+        speed_control_spacing = 15 # Space between breakdown and speed controls
         content_width = max(title_rect.width, frame_rect.width, breakdown_width)
         popup_width = content_width + padding
         popup_height = title_rect.height + title_spacing + frame_rect.height + padding
         if breakdown_surfaces:
             popup_height += breakdown_spacing + breakdown_height
+        popup_height += speed_control_spacing + speed_controls_height
 
         popup_rect = pygame.Rect(0, 0, popup_width, popup_height)
         popup_rect.center = (settings.SCREEN_WIDTH // 2, settings.SCREEN_HEIGHT // 2)
@@ -121,12 +161,39 @@ class UIManager:
         self.screen.blit(current_frame, frame_rect)
 
         # Breakdown
+        last_y = frame_rect.bottom
         if breakdown_surfaces:
             current_y = frame_rect.bottom + breakdown_spacing
             for surface in breakdown_surfaces:
                 breakdown_rect = surface.get_rect(centerx=popup_rect.centerx, top=current_y)
                 self.screen.blit(surface, breakdown_rect)
                 current_y += surface.get_height()
+            last_y = current_y
+        
+        # Speed Controls
+        controls_y = last_y + speed_control_spacing
+        spacing_between_controls = 10
+
+        # Position speed display text in the center
+        speed_display_rect = speed_display_surface.get_rect(
+            centerx=popup_rect.centerx,
+            top=controls_y
+        )
+        self.screen.blit(speed_display_surface, speed_display_rect)
+
+        # Position speed down button to the left and store its rect for input handling
+        self.globe_speed_down_rect = speed_down_surface.get_rect(
+            right=speed_display_rect.left - spacing_between_controls,
+            centery=speed_display_rect.centery
+        )
+        self.screen.blit(speed_down_surface, self.globe_speed_down_rect)
+
+        # Position speed up button to the right and store its rect for input handling
+        self.globe_speed_up_rect = speed_up_surface.get_rect(
+            left=speed_display_rect.right + spacing_between_controls,
+            centery=speed_display_rect.centery
+        )
+        self.screen.blit(speed_up_surface, self.globe_speed_up_rect)
 
     def draw_context_menu(self) -> None:
         """Renders the context menu on the screen."""

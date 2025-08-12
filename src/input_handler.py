@@ -84,8 +84,17 @@ class InputHandler:
 
         if event.button == 1:
             if self.game.ui_manager.show_globe_popup:
-                self.game.ui_manager.show_globe_popup = False # Close popup on any click
-                return
+                ui_manager = self.game.ui_manager
+                # Check for clicks on globe popup controls first
+                if ui_manager.globe_speed_down_rect and ui_manager.globe_speed_down_rect.collidepoint(event.pos):
+                    ui_manager.decrease_globe_speed()
+                    return  # Handled, don't close popup
+                if ui_manager.globe_speed_up_rect and ui_manager.globe_speed_up_rect.collidepoint(event.pos):
+                    ui_manager.increase_globe_speed()
+                    return  # Handled, don't close popup
+
+                self.game.ui_manager.show_globe_popup = False  # Close popup on any other click
+                return  # Event handled
             elif self.game.world_state.context_menu.active:
                 self.game.ui_manager.handle_context_menu_click(event.pos)
             else:
