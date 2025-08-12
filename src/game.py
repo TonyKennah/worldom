@@ -6,7 +6,7 @@ from __future__ import annotations
 import os
 import random
 import sys
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import pygame
 import settings
@@ -19,6 +19,7 @@ from world_state import WorldState
 from debug_panel import DebugPanel
 from input_handler import InputHandler
 from selection_manager import SelectionManager
+from ui_manager import UIManager
 
 # --- Game Class ---
 class Game:
@@ -52,12 +53,7 @@ class Game:
         self.debug_panel = DebugPanel()
         self.input_handler = InputHandler(self)
         self.selection_manager = SelectionManager(self)
-
-        # --- Globe Animation State ---
-        self.show_globe_popup: bool = False
-        self.globe_frames: List[pygame.Surface] = []
-        self.globe_frame_index: int = 0
-        self.globe_animation_timer: float = 0.0
+        self.ui_manager = UIManager(self)
 
         # Create the initial world
         self._create_new_world()
@@ -111,7 +107,7 @@ class Game:
 
     def _load_globe_frames(self, map_seed: int) -> None:
         """Loads the pre-rendered globe animation frames from disk."""
-        self.globe_frames.clear() # Clear frames from any previous map
+        self.ui_manager.globe_frames.clear() # Clear frames from any previous map
         base_image_dir = "image"
         frame_dir = os.path.join(base_image_dir, f"globe_frames_{map_seed}")
         if not os.path.isdir(frame_dir):
@@ -194,7 +190,7 @@ class Game:
 
     def close_context_menu(self) -> None:
         """Closes the context menu."""
-        self._close_sub_menu()
+        self.ui_manager.close_sub_menu()
         self.world_state.context_menu.active = False
         self.world_state.context_menu.pos = None
         self.world_state.context_menu.rects.clear()
@@ -211,7 +207,7 @@ class Game:
                     option = context_menu.sub_menu.options[i]
                     print(f"Sub-menu option clicked: {option}")
                     self._issue_move_command_to_target()
-                    self._close_context_menu()  # Close everything after action
+                    self.close_context_menu()  # Close everything after action
                     return
 
         # Check for main menu click
@@ -262,21 +258,28 @@ class Game:
             unit.update(dt, self.map.width, self.map.height)
 
         if self.world_state.context_menu.active:
-            self._handle_context_menu_hover(pygame.mouse.get_pos())
+            self.ui_manager.handle_context_menu_hover(pygame.mouse.get_pos())
         else:
             self._update_hovered_tile()
 
-        if self.show_globe_popup:
-            self._update_globe_animation(dt)
+        self.ui_manager.update(dt)
 
-    def _update_globe_animation(self, dt: float) -> None:
-        """Cycles through the globe animation frames based on a timer."""
-        if not self.globe_frames:
-            return
-        self.globe_animation_timer += dt
-        if self.globe_animation_timer >= settings.GLOBE_FRAME_DURATION:
-            self.globe_animation_timer = 0
-            self.globe_frame_index = (self.globe_frame_index + 1) % len(self.globe_frames)
+    def draw(self) -> None:
+        """Renders all game objects to the screen."""
+        self.screen.fill(settings.BG_COLOR)
+        self.map.draw(self.screen, self.camera, self.world_state.hovered_tile)
+
+        # Draw all units
+        map_width_pixels = self.map.width * settings.TILE_SIZE
+        map_height_pixels = self.map.height * settings.TILE_SIZE
+        for unit in self.world_state.units:
+            unit.draw(self.screen, self.camera, map_width_pixels, map_height_pixels)
+
+        # Delegate all UI drawing to the UIManager
+        self.ui_manager.draw_ui()
+
+        self.debug_panel.draw(self)
+        pygame.display.flip()
 
     def _update_hovered_tile(self) -> None:
         """Calculates which map tile is currently under the mouse cursor."""
@@ -294,158 +297,3 @@ class Game:
         tile_row = int(wrapped_y // self.map.tile_size)
 
         self.world_state.hovered_tile = (tile_col, tile_row)
-
-    def draw(self) -> None:
-        """Renders all game objects to the screen."""
-        self.screen.fill(settings.BG_COLOR)
-        self.map.draw(self.screen, self.camera, self.world_state.hovered_tile)
-
-        # Draw all units
-        map_width_pixels = self.map.width * settings.TILE_SIZE
-        map_height_pixels = self.map.height * settings.TILE_SIZE
-        for unit in self.world_state.units:
-            unit.draw(self.screen, self.camera, map_width_pixels, map_height_pixels)
-
-        # Draw selection box
-        if self.world_state.selection_box:
-            pygame.draw.rect(self.screen, settings.SELECTION_BOX_COLOR,
-                             self.world_state.selection_box, settings.SELECTION_BOX_BORDER_WIDTH)
-
-        # Draw globe popup if active
-        if self.show_globe_popup:
-            self._draw_globe_popup()
-
-        # Draw context menu if active
-        if self.world_state.context_menu.active:
-            self._draw_context_menu()
-            if self.world_state.context_menu.sub_menu.active:
-                self._draw_sub_menu()
-
-        self.debug_panel.draw(self)
-        pygame.display.flip()
-
-    def _draw_globe_popup(self) -> None:
-        """Draws the globe animation popup in the center of the screen."""
-        if not self.globe_frames:
-            # Optionally, draw a "no frames found" message
-            return
-
-        # 1. Draw a semi-transparent overlay to dim the background
-        overlay = pygame.Surface((settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 180)) # Black with 180/255 alpha
-        self.screen.blit(overlay, (0, 0))
-
-        # 2. Get the current frame and its size
-        current_frame = self.globe_frames[self.globe_frame_index]
-        frame_rect = current_frame.get_rect()
-
-        # 3. Define the popup box size (with padding)
-        padding = 40
-        popup_width = frame_rect.width + padding
-        popup_height = frame_rect.height + padding
-        popup_rect = pygame.Rect(0, 0, popup_width, popup_height)
-        popup_rect.center = (settings.SCREEN_WIDTH // 2, settings.SCREEN_HEIGHT // 2)
-
-        # 4. Draw the popup box and the globe frame inside it
-        pygame.draw.rect(self.screen, (40, 40, 60), popup_rect, border_radius=10)
-        pygame.draw.rect(self.screen, (200, 200, 220), popup_rect, width=2, border_radius=10)
-        self.screen.blit(current_frame, (popup_rect.x + padding // 2, popup_rect.y + padding // 2))
-
-    def _draw_context_menu(self) -> None:
-        """Renders the context menu on the screen."""
-        if not self.world_state.context_menu.rects:
-            return
-
-        for i, rect in enumerate(self.world_state.context_menu.rects):
-            option_text = self.world_state.context_menu.options[i]["label"]
-
-            # Draw background and border
-            pygame.draw.rect(self.screen, settings.CONTEXT_MENU_BG_COLOR, rect)
-            pygame.draw.rect(self.screen, settings.CONTEXT_MENU_BORDER_COLOR, rect, 1)
-
-            text_surface = self.world_state.context_menu.font.render(
-                option_text, True, settings.CONTEXT_MENU_TEXT_COLOR)
-            text_x = rect.x + settings.CONTEXT_MENU_PADDING
-            text_y = rect.y + (settings.CONTEXT_MENU_PADDING / 2)
-            self.screen.blit(text_surface, (text_x, text_y))
-
-    def _draw_sub_menu(self) -> None:
-        """Renders the sub-menu on the screen."""
-        context_menu = self.world_state.context_menu
-        if not context_menu.sub_menu.rects:
-            return
-
-        for i, rect in enumerate(context_menu.sub_menu.rects):
-            option_text = context_menu.sub_menu.options[i]
-
-            # Draw background and border
-            pygame.draw.rect(self.screen, settings.CONTEXT_MENU_BG_COLOR, rect)
-            pygame.draw.rect(self.screen, settings.CONTEXT_MENU_BORDER_COLOR, rect, 1)
-
-            text_surface = context_menu.font.render(
-                option_text, True, settings.CONTEXT_MENU_TEXT_COLOR
-            )
-            text_x = rect.x + settings.CONTEXT_MENU_PADDING
-            text_y = rect.y + (settings.CONTEXT_MENU_PADDING / 2)
-            self.screen.blit(text_surface, (text_x, text_y))
-
-    def _handle_context_menu_hover(self, mouse_pos: Tuple[int, int]) -> None:
-        """Handles hover events for the context menu to show sub-menus."""
-        context_menu = self.world_state.context_menu
-
-        hovered_main_item = False
-        for i, rect in enumerate(context_menu.rects):
-            if rect.collidepoint(mouse_pos):
-                hovered_main_item = True
-                option_data = context_menu.options[i]
-                if "sub_options" in option_data:
-                    # Open sub-menu if not already open for this item
-                    if (not context_menu.sub_menu.active
-                            or context_menu.sub_menu.parent_rect != rect):
-                        self._open_sub_menu(option_data["sub_options"], rect)
-                else:
-                    # This item has no sub-menu, so close any active one
-                    self._close_sub_menu()
-                break  # Found the hovered item
-
-        if not hovered_main_item:
-            # Mouse is not over any main menu item. Check if it's over the sub-menu.
-            is_mouse_on_sub_menu = False
-            if context_menu.sub_menu.active:
-                for sub_rect in context_menu.sub_menu.rects:
-                    if sub_rect.collidepoint(mouse_pos):
-                        is_mouse_on_sub_menu = True
-                        break
-
-            if not is_mouse_on_sub_menu:
-                self._close_sub_menu()
-
-    def _open_sub_menu(self, sub_options: List[str], parent_rect: pygame.Rect) -> None:
-        """Opens a sub-menu next to a parent menu item."""
-        context_menu = self.world_state.context_menu
-        context_menu.sub_menu.active = True
-        context_menu.sub_menu.options = sub_options.copy()
-        context_menu.sub_menu.parent_rect = parent_rect
-        context_menu.sub_menu.rects.clear()
-
-        # Position sub-menu to the right of the parent
-        x = parent_rect.right
-        y = parent_rect.top
-        padding = settings.CONTEXT_MENU_PADDING
-
-        for i, option_text in enumerate(sub_options):
-            text_surface = context_menu.font.render(option_text, True, (0, 0, 0))
-            width = text_surface.get_width() + padding * 2
-            height = text_surface.get_height() + padding
-            rect = pygame.Rect(x, y + i * height, width, height)
-            context_menu.sub_menu.rects.append(rect)
-
-    def _close_sub_menu(self) -> None:
-        """Closes the sub-menu."""
-        context_menu = self.world_state.context_menu
-        if not context_menu.sub_menu.active:
-            return
-        context_menu.sub_menu.active = False
-        context_menu.sub_menu.options.clear()
-        context_menu.sub_menu.rects.clear()
-        context_menu.sub_menu.parent_rect = None

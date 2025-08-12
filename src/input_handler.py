@@ -29,8 +29,8 @@ class InputHandler:
                 if event.key == pygame.K_ESCAPE:
                     # If the globe popup is open, Escape should close it.
                     # Otherwise, it should exit the game.
-                    if self.game.show_globe_popup:
-                        self.game.show_globe_popup = False
+                    if self.game.ui_manager.show_globe_popup:
+                        self.game.ui_manager.show_globe_popup = False
                     else:
                         self.game.running = False
             elif event.type == pygame.VIDEORESIZE:
@@ -53,7 +53,7 @@ class InputHandler:
                 self.game.regenerate_map()
                 continue
             if action == "show_globe":
-                self.game.show_globe_popup = True
+                self.game.ui_manager.show_globe_popup = True
                 continue
 
             self._handle_mouse_events(event)
@@ -83,8 +83,8 @@ class InputHandler:
             return
 
         if event.button == 1:
-            if self.game.show_globe_popup:
-                self.game.show_globe_popup = False # Close popup on any click
+            if self.game.ui_manager.show_globe_popup:
+                self.game.ui_manager.show_globe_popup = False # Close popup on any click
                 return
             elif self.game.world_state.context_menu.active:
                 self.game.handle_context_menu_click(event.pos)
