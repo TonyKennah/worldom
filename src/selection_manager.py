@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Tuple, TYPE_CHECKING
 
-
+import pygame
 
 if TYPE_CHECKING:
     from game import Game
