@@ -6,6 +6,9 @@
 
 A 2D strategy game prototype created with Python and Pygame, featuring procedural world generation and tile-based unit movement.
 
+## Project Purpose
+The project is a 2D strategy game prototype named "Worldom," built with Python and Pygame. It features procedural world generation using Perlin noise, a dynamic camera with zoom and pan, a tile-based map, A* pathfinding for unit movement, and basic unit selection and control.
+
 ## Features
 
 *   **Procedural World Generation:** Creates unique, seamlessly tileable worlds using 4D Perlin noise. This ensures that the wrap-around map has no visible seams, creating a truly continuous world.
@@ -19,7 +22,10 @@ A 2D strategy game prototype created with Python and Pygame, featuring procedura
 
 *   **Language:** Python 3
 *   **Core Library:** [Pygame](https://www.pygame.org/news)
-*   **Map Generation:** `opensimplex` library for seamless Perlin/Simplex noise
+*   **Map Generation:** `noise` library for Perlin noise
+
+## Code Style
+The project follows standard Python conventions (PEP 8). It uses type hints for function signatures and class attributes. Docstrings are used to explain the purpose of modules, classes, and functions. The code is organized into classes and methods, with a clear separation of concerns between different components (e.g., `Game`, `Camera`, `Map`, `Unit`). The project uses a `src` layout to separate source code from other files.
 
 ## Getting Started
 
@@ -43,6 +49,14 @@ Make sure you have Python 3 installed on your system.
     ```bash
     python main.py
     ```
+
+## Suggested Commands
+- **Run the game:** `python main.py`
+- **Install dependencies:** `pip install -r requirements.txt`
+- **Linting:** `pylint --extension-pkg-allow-list=pygame $(git ls-files '*.py')` (Note: This command is from the GitHub Actions workflow and might need to be adapted for local use, especially on Windows, e.g., by replacing `$(git ls-files '*.py')` with a list of Python files).
+
+## Task Completion
+After completing a task, you should run the linter to ensure the code quality is maintained. There are no automated tests set up for this project.
 
 ## Project Structure
 
@@ -79,10 +93,14 @@ worldom/
     *   **`SubMenuState` class**: Encapsulates the state of a context sub-menu.
     *   **`ContextMenuState` class**: Encapsulates all state related to the right-click context menu, including an instance of `SubMenuState`.
     *   **`WorldState` class**: A data class to hold the current state of all game entities, such as units, player selections, and an instance of `ContextMenuState`.
+*   **`src/game.py`**: The core game class that manages the main game loop, game state, and coordinates the other managers.
+    *   **`WorldState` class**: A data class to hold the current state of all game entities, such as units and player selections.
     *   **`Game` class**:
         *   `__init__()`: Initializes Pygame and creates a maximized window. It also creates instances of the map, camera, and the initial unit.
         *   `run()`: Contains the main game loop that processes events, updates game state, and draws to the screen.
         *   `_get_all_land_tiles()`: Returns a list of all valid land tiles (grass or rock).
+        *   `__init__()`: Initializes Pygame, the window, and creates instances of the map, camera, and all manager classes (`InputHandler`, `UIManager`, `SelectionManager`).
+        *   `run()`: Contains the main game loop that calls the `update` and `draw` methods of its managers.
         *   `_spawn_initial_units()`: Creates the first unit on a random land tile.
         *   `handle_events(events)`: The top-level event handler, called each frame to process the event queue (quit, key presses, etc.).
         *   `_is_click(start_pos, end_pos)`: Helper to determine if a mouse action is a click or a drag.
@@ -100,12 +118,7 @@ worldom/
         *   `_close_sub_menu()`: Hides the sub-menu.
         *   `_issue_move_command_to_target()`: Issues a move command to all selected units by finding a path to the stored target tile.
         *   `_handle_left_click_selection(mouse_pos)`: Selects a single unit under the cursor, deselecting any other units.
-        *   `_handle_drag_selection(selection_rect_screen)`: Selects all units within the dragged selection box.
-        *   `update(dt, events)`: Updates all game objects. It also handles context menu hovering and updates the hovered tile.
-        *   `_update_hovered_tile()`: Calculates which map tile is currently under the mouse cursor.
-        *   `draw()`: Renders the map, units, selection box, context menu, and debug panel to the screen.
-        *   `_draw_context_menu()`: Renders the context menu on the screen.
-        *   `_draw_sub_menu()`: Renders the sub-menu on the screen.
+        *   `_handle_drag_selection(selection_rect_screen)`: Selects all units within the dragged.
 
 *   **`src/camera.py`**: Implements the game camera for panning and zooming.
     *   **`ZoomState` class**: Encapsulates the state and logic for camera zooming, including discrete zoom levels.
