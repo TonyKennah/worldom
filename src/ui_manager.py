@@ -195,42 +195,67 @@ class UIManager:
         self.screen.blit(speed_up_surface, self.globe_speed_up_rect)
 
     def draw_context_menu(self) -> None:
-        """Renders the context menu on the screen."""
+        """Renders the context menu on the screen as a single panel."""
         context_menu = self.game.world_state.context_menu
         if not context_menu.rects:
             return
 
+        # Create a single panel rect that encompasses all option rects
+        panel_rect = context_menu.rects[0].unionall(context_menu.rects[1:])
+
+        # Draw the main panel background and border
+        pygame.draw.rect(self.screen, settings.CONTEXT_MENU_BG_COLOR, panel_rect, border_radius=3)
+        pygame.draw.rect(self.screen, settings.CONTEXT_MENU_BORDER_COLOR, panel_rect, 1, border_radius=3)
+
+        # Draw each option on the panel
+        mouse_pos = pygame.mouse.get_pos()
         for i, rect in enumerate(context_menu.rects):
+            # Draw a highlight if the mouse is over this option
+            if rect.collidepoint(mouse_pos):
+                pygame.draw.rect(self.screen, settings.CONTEXT_MENU_HOVER_BG_COLOR, rect, border_radius=3)
+
             option_text = context_menu.options[i]["label"]
-
-            pygame.draw.rect(self.screen, settings.CONTEXT_MENU_BG_COLOR, rect)
-            pygame.draw.rect(self.screen, settings.CONTEXT_MENU_BORDER_COLOR, rect, 1)
-
             text_surface = context_menu.font.render(
                 option_text, True, settings.CONTEXT_MENU_TEXT_COLOR)
-            text_x = rect.x + settings.CONTEXT_MENU_PADDING
-            text_y = rect.y + (settings.CONTEXT_MENU_PADDING / 2)
-            self.screen.blit(text_surface, (text_x, text_y))
+
+            # Center the text vertically within its rect
+            text_rect = text_surface.get_rect(
+                x=rect.x + settings.CONTEXT_MENU_PADDING,
+                centery=rect.centery
+            )
+            self.screen.blit(text_surface, text_rect)
 
     def draw_sub_menu(self) -> None:
-        """Renders the sub-menu on the screen."""
-        context_menu = self.game.world_state.context_menu
-        if not context_menu.sub_menu.rects:
+        """Renders the sub-menu on the screen as a single panel."""
+        sub_menu = self.game.world_state.context_menu.sub_menu
+        if not sub_menu.rects:
             return
 
-        for i, rect in enumerate(context_menu.sub_menu.rects):
-            option_text = context_menu.sub_menu.options[i]
+        # Create a single panel rect for the sub-menu
+        panel_rect = sub_menu.rects[0].unionall(sub_menu.rects[1:])
 
-            # Draw background and border
-            pygame.draw.rect(self.screen, settings.CONTEXT_MENU_BG_COLOR, rect)
-            pygame.draw.rect(self.screen, settings.CONTEXT_MENU_BORDER_COLOR, rect, 1)
+        # Draw the sub-menu panel background and border
+        pygame.draw.rect(self.screen, settings.CONTEXT_MENU_BG_COLOR, panel_rect, border_radius=3)
+        pygame.draw.rect(self.screen, settings.CONTEXT_MENU_BORDER_COLOR, panel_rect, 1, border_radius=3)
 
-            text_surface = context_menu.font.render(
+        # Draw each option
+        mouse_pos = pygame.mouse.get_pos()
+        for i, rect in enumerate(sub_menu.rects):
+            # Draw a highlight if the mouse is over this option
+            if rect.collidepoint(mouse_pos):
+                pygame.draw.rect(self.screen, settings.CONTEXT_MENU_HOVER_BG_COLOR, rect, border_radius=3)
+
+            option_text = sub_menu.options[i]
+            text_surface = self.game.world_state.context_menu.font.render(
                 option_text, True, settings.CONTEXT_MENU_TEXT_COLOR
             )
-            text_x = rect.x + settings.CONTEXT_MENU_PADDING
-            text_y = rect.y + (settings.CONTEXT_MENU_PADDING / 2)
-            self.screen.blit(text_surface, (text_x, text_y))
+
+            # Center the text vertically within its rect
+            text_rect = text_surface.get_rect(
+                x=rect.x + settings.CONTEXT_MENU_PADDING,
+                centery=rect.centery
+            )
+            self.screen.blit(text_surface, text_rect)
 
     def handle_context_menu_hover(self, mouse_pos: Tuple[int, int]) -> None:
         """Handles hover events for the context menu to show sub-menus."""
@@ -271,14 +296,21 @@ class UIManager:
         context_menu.sub_menu.parent_rect = parent_rect
         context_menu.sub_menu.rects.clear()
 
+        padding = settings.CONTEXT_MENU_PADDING
+
+        # Calculate max width for uniform-sized options
+        max_width = 0
+        for option_text in sub_options:
+            text_surface = context_menu.font.render(option_text, True, (0, 0, 0))
+            max_width = max(max_width, text_surface.get_width())
+        item_width = max_width + padding * 2
+
         # Position sub-menu to the right of the parent
         x = parent_rect.right
         y = parent_rect.top
-        padding = settings.CONTEXT_MENU_PADDING
-
         for i, option_text in enumerate(sub_options):
-            text_surface = context_menu.font.render(option_text, True, (0, 0, 0))
-            width = text_surface.get_width() + padding * 2
+            text_surface = context_menu.font.render(option_text, True, (0, 0, 0)) # For height
+            width = item_width
             height = text_surface.get_height() + padding
             rect = pygame.Rect(x, y + i * height, width, height)
             context_menu.sub_menu.rects.append(rect)
@@ -305,9 +337,17 @@ class UIManager:
         context_menu.target_tile = world_state.hovered_tile
         context_menu.rects.clear()
 
+        padding = settings.CONTEXT_MENU_PADDING
+
+        # Calculate max width for uniform-sized options
+        max_width = 0
+        for option_data in context_menu.options:
+            text_surface = context_menu.font.render(option_data["label"], True, (0, 0, 0))
+            max_width = max(max_width, text_surface.get_width())
+        item_width = max_width + padding * 2
+
         # Calculate rects for each option
         x, y = screen_pos
-        padding = settings.CONTEXT_MENU_PADDING
         for i, option_data in enumerate(context_menu.options):
             option_text = option_data["label"]
             text_surface = context_menu.font.render(option_text, True, (0, 0, 0))
