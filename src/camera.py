@@ -3,10 +3,11 @@
 Camera system for a 2D world (pygame).
 - Smooth, mouse-anchored zoom with optional easing
 - Inertial panning (keyboard, edge scroll, middle-mouse drag)
-- Toroidal wrap *or* clamped bounds
-- Follow/center helpers with soft deadzone
+- Toroidal wrap *or* clamped bounds (per-axis)
+- Follow/center helpers with soft deadzone & optional lookahead
 - Screen shake (trauma-based)
 - Culling & parallax utilities
+- Tweened pan_to(), speed modifiers (Shift/Alt), and debug overlay hook
 """
 
 from __future__ import annotations
@@ -19,8 +20,7 @@ import random
 import pygame
 
 # ---------------------------------------------------------------------
-# External settings expected to exist in your project. If they don't,
-# the fallback values below will be used.
+# External settings (fallbacks if not present in your project).
 # ---------------------------------------------------------------------
 try:
     from settings import (
@@ -50,7 +50,6 @@ class ZoomState:
     lerp_rate: float = 12.0  # higher = snappier zoom
 
     def __post_init__(self) -> None:
-        # Ensure current/target align with index/levels
         self.index = max(0, min(self.index, len(self.levels) - 1))
         self.current = float(self.levels[self.index])
         self.target = self.current
@@ -67,6 +66,18 @@ class ZoomState:
         self.current = float(self.levels[nearest])
         self.target = self.current
 
+    def set_levels(self, levels: Sequence[float], *, keep_value: bool = True) -> None:
+        """Replace zoom levels at runtime."""
+        if not levels:
+            return
+        self.levels = tuple(sorted(levels))
+        if keep_value:
+            self.set_to_level(self.current)
+        else:
+            self.index = max(0, min(self.index, len(self.levels) - 1))
+            self.current = float(self.levels[self.index])
+            self.target = self.current
+
     def update(self, dt: float) -> bool:
         """
         Smoothly approach target. Returns True if zoom changed this frame.
@@ -77,7 +88,6 @@ class ZoomState:
         t = 1.0 - math.exp(-self.lerp_rate * max(dt, 0.0))
         prev = self.current
         self.current = prev + (self.target - prev) * t
-        # Snap if close
         if abs(self.current - self.target) < 1e-3:
             self.current = self.target
         return self.current != prev
@@ -89,6 +99,10 @@ class ZoomState:
 
 class Camera:
     """Manages the game's viewport, handling zoom & panning with polish."""
+
+    # A safe coordinate range to guard against extreme values reaching pygame.Rect
+    _SAFE_MIN = -2_000_000_000
+    _SAFE_MAX =  2_000_000_000
 
     def __init__(self, width: int, height: int) -> None:
         """Initialize camera."""
@@ -105,11 +119,17 @@ class Camera:
         self.accel_edge = float(EDGE_SCROLL_SPEED)
         self.drag = 8.0  # higher = stronger deceleration
         self.inertia_enabled = True
+        self.max_speed = 10_000.0  # hard clamp on camera speed
+
+        # Speed modifiers (keyboard)
+        self.shift_speed_mult = 1.6
+        self.alt_speed_mult = 0.55
 
         # Drag-panning
         self._dragging = False
         self._last_mouse = pygame.Vector2(0.0, 0.0)
         self.drag_button = pygame.BUTTON_MIDDLE  # middle mouse drag to pan
+        self.drag_with_alt_left = True          # hold ALT + LMB to drag
 
         # Zoom
         self.zoom_state = ZoomState()
@@ -126,13 +146,28 @@ class Camera:
         self._shake_freq = 42.0    # Hz-ish
         self._shake_seed = random.random() * 10_000.0
 
-        # Optional follow behavior (soft deadzone)
+        # Optional follow behavior (soft deadzone + lookahead)
         self.follow_deadzone_frac = pygame.Vector2(0.20, 0.20)  # fraction of screen
         self.follow_strength = 10.0  # smoothing toward target
+        self.follow_lookahead = pygame.Vector2(0.0, 0.0)  # in screen px, offset by velocity
+
+        # Tweened pan_to()
+        self._pan_active = False
+        self._pan_time = 0.0
+        self._pan_dur = 0.0
+        self._pan_start = pygame.Vector2()
+        self._pan_end = pygame.Vector2()
+
+        # Cached visible rect (world space)
+        self._visible_world_rect = pygame.Rect(0, 0, 0, 0)
 
     # -------------------------
     # Public utilities
     # -------------------------
+
+    @property
+    def zoom(self) -> float:
+        return self.zoom_state.current
 
     def set_window_size(self, width: int, height: int) -> None:
         """Update camera on window resize."""
@@ -144,13 +179,42 @@ class Camera:
         """Instantly center the camera on a world position."""
         self.position.update(world_pos)
 
+    def pan_to(self, world_pos: Tuple[float, float], duration: float = 0.35) -> None:
+        """
+        Smoothly pan the camera to a world position over `duration` seconds.
+        Cancels inertia for the duration of the tween.
+        """
+        self._pan_active = True
+        self._pan_time = 0.0
+        self._pan_dur = max(1e-4, float(duration))
+        self._pan_start.update(self.position)
+        self._pan_end.update(world_pos)
+        self.velocity.update(0, 0)  # prevent overshoot from inertia
+
+    def cancel_pan(self) -> None:
+        self._pan_active = False
+        self._pan_time = 0.0
+        self._pan_dur = 0.0
+
     def follow(self, target_world: pygame.Vector2, dt: float) -> None:
         """
         Soft-follow a target using a rectangular deadzone in *screen space*.
         The camera recenters only when target leaves the deadzone.
+        Includes optional lookahead (in screen px), projected from self.velocity.
         """
         # Convert target's world pos into screen space
         target_screen = self.world_to_screen(target_world)
+
+        # Lookahead (screen space) based on camera's velocity
+        lookahead = pygame.Vector2(0, 0)
+        if self.follow_lookahead.length_squared() > 0:
+            if self.velocity.length_squared() > 0:
+                vdir = self.velocity.normalize()
+                lookahead = pygame.Vector2(
+                    vdir.x * self.follow_lookahead.x,
+                    vdir.y * self.follow_lookahead.y
+                )
+                target_screen += lookahead
 
         dz_w = self.width * self.follow_deadzone_frac.x * 0.5
         dz_h = self.height * self.follow_deadzone_frac.y * 0.5
@@ -178,8 +242,7 @@ class Camera:
         self._trauma = max(0.0, min(1.0, self._trauma + magnitude))
 
     def screen_to_world(self, screen_pos: Tuple[int, int]) -> pygame.Vector2:
-        """Convert screen -> world coordinates."""
-        # Remove shake from the mapping so world picks are stable
+        """Convert screen -> world coordinates (ignores shake for stability)."""
         screen_vec = pygame.Vector2(screen_pos) - self.screen_center
         world_offset = screen_vec / max(self.zoom_state.current, 1e-6)
         return self.position + world_offset
@@ -195,16 +258,11 @@ class Camera:
         w = rect.width * self.zoom_state.current
         h = rect.height * self.zoom_state.current
 
-        # Define a safe range for coordinates to prevent pygame errors
-        # with very large or small numbers that can result from floats.
-        SAFE_MIN = -2_000_000_000
-        SAFE_MAX = 2_000_000_000
-
         # Clamp all values to the safe range before creating the Rect
-        safe_x = max(SAFE_MIN, min(round(tl.x), SAFE_MAX))
-        safe_y = max(SAFE_MIN, min(round(tl.y), SAFE_MAX))
-        safe_w = max(0, min(round(w), SAFE_MAX))  # Width/height can't be negative
-        safe_h = max(0, min(round(h), SAFE_MAX))
+        safe_x = max(self._SAFE_MIN, min(round(tl.x), self._SAFE_MAX))
+        safe_y = max(self._SAFE_MIN, min(round(tl.y), self._SAFE_MAX))
+        safe_w = max(0, min(round(w), self._SAFE_MAX))  # Width/height can't be negative
+        safe_h = max(0, min(round(h), self._SAFE_MAX))
 
         return pygame.Rect(safe_x, safe_y, safe_w, safe_h)
 
@@ -213,19 +271,25 @@ class Camera:
         p = self.world_to_screen(world_pos)
         return (int(round(p.x)), int(round(p.y)))
 
+    def apply_line(self, p0: Tuple[float, float], p1: Tuple[float, float]) -> Tuple[Tuple[int, int], Tuple[int, int]]:
+        """Transform a world-space line to a screen-space line."""
+        a = self.apply_point(p0)
+        b = self.apply_point(p1)
+        return a, b
+
     def get_visible_world_rect(self, margin: float = 0.0) -> pygame.Rect:
-        """Returns the world-space rectangle currently visible by the camera."""
+        """Returns the world-space rectangle currently visible by the camera (cached each call)."""
         top_left = self.screen_to_world((0 - margin, 0 - margin))
         bot_right = self.screen_to_world((self.width + margin, self.height + margin))
         x0, y0 = top_left
         x1, y1 = bot_right
-        # Ensure positive width/height even if zoom flips (it shouldn't)
-        return pygame.Rect(
+        self._visible_world_rect.update(
             int(math.floor(min(x0, x1))),
             int(math.floor(min(y0, y1))),
             int(math.ceil(abs(x1 - x0))),
             int(math.ceil(abs(y1 - y0))),
         )
+        return self._visible_world_rect
 
     def is_world_rect_visible(self, rect: pygame.Rect, margin: float = 0.0) -> bool:
         """Quick culling test in world space."""
@@ -241,6 +305,13 @@ class Camera:
         parallax_pos = self.position * (1.0 - factor) + pygame.Vector2(world_pos) * factor
         p = self.world_to_screen(parallax_pos)
         return (int(round(p.x)), int(round(p.y)))
+
+    def set_bounds_mode(self, *, wrap_x: Optional[bool] = None, wrap_y: Optional[bool] = None) -> None:
+        """Toggle per-axis wrapping/clamping."""
+        if wrap_x is not None:
+            self.wrap_x = bool(wrap_x)
+        if wrap_y is not None:
+            self.wrap_y = bool(wrap_y)
 
     # -------------------------
     # Frame update
@@ -261,6 +332,7 @@ class Camera:
         - zoom easing
         - wrapping/clamping
         - optional follow
+        - optional pan_to tween
         """
         # Zoom first so subsequent mappings are correct this frame
         self._handle_mouse_input(events)
@@ -268,31 +340,40 @@ class Camera:
 
         # Movement inputs
         move_keyboard = self._keyboard_move_vector()
-        move_edge = self._edge_scroll_vector()
+        move_edge = self._edge_scroll_vector(events)
 
-        # Mouse drag panning modifies position directly (it's not affected by inertia)
-        self._handle_drag(events, dt)
+        # Mouse drag panning modifies position directly (not affected by inertia)
+        self._handle_drag(events)
 
         # Determine the target velocity based on inputs.
-        # The speed values are in screen pixels/sec, so we divide by zoom
-        # to get the correct world-space velocity.
-        target_velocity = pygame.Vector2(0, 0)
         inv_zoom = 1.0 / max(self.zoom_state.current, 1e-6)
+        speed_mult = self._speed_modifier()
+        target_velocity = pygame.Vector2(0, 0)
+
         if move_keyboard.length_squared() > 0:
             move_keyboard.normalize_ip()
-            target_velocity += move_keyboard * self.accel_keyboard * inv_zoom
+            target_velocity += move_keyboard * self.accel_keyboard * inv_zoom * speed_mult
         if move_edge.length_squared() > 0:
             move_edge.normalize_ip()
-            target_velocity += move_edge * self.accel_edge * inv_zoom
+            target_velocity += move_edge * self.accel_edge * inv_zoom * speed_mult
 
+        # Clamp max speed (safety)
+        if target_velocity.length() > self.max_speed:
+            target_velocity.scale_to_length(self.max_speed)
+
+        # Apply tween pan if active (overrides velocity)
+        if self._pan_active:
+            self._update_pan(dt)
+            target_velocity.update(0, 0)
+
+        # Integrate
         if self.inertia_enabled:
-            # With inertia, we smoothly accelerate towards the target velocity.
-            # The 'drag' factor controls how quickly we reach the target speed.
             accel = (target_velocity - self.velocity) * self.drag
             self.velocity += accel * dt
+            if self.velocity.length() > self.max_speed:
+                self.velocity.scale_to_length(self.max_speed)
             self.position += self.velocity * dt
         else:
-            # Without inertia, we move directly at the target velocity.
             self.position += target_velocity * dt
 
         # Optional follow after inputs (soft corrective)
@@ -310,6 +391,15 @@ class Camera:
     # Internal helpers
     # -------------------------
 
+    def _speed_modifier(self) -> float:
+        keys = pygame.key.get_pressed()
+        mult = 1.0
+        if keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]:
+            mult *= self.shift_speed_mult
+        if keys[pygame.K_LALT] or keys[pygame.K_RALT]:
+            mult *= self.alt_speed_mult
+        return mult
+
     def _keyboard_move_vector(self) -> pygame.Vector2:
         """WASD movement vector (unscaled)."""
         keys = pygame.key.get_pressed()
@@ -324,9 +414,16 @@ class Camera:
             v.x += 1
         return v
 
-    def _edge_scroll_vector(self) -> pygame.Vector2:
-        """Edge-scroll vector (unscaled)."""
+    def _edge_scroll_vector(self, events: Sequence[pygame.event.Event]) -> pygame.Vector2:
+        """
+        Edge-scroll vector (unscaled).
+        Gated off while dragging or while a mouse button is held (to avoid fighting with selection/drag).
+        """
         if not pygame.mouse.get_focused():
+            return pygame.Vector2(0, 0)
+
+        pressed = pygame.mouse.get_pressed(num_buttons=5)
+        if self._dragging or any(pressed):
             return pygame.Vector2(0, 0)
 
         mx, my = pygame.mouse.get_pos()
@@ -347,15 +444,16 @@ class Camera:
 
         return v
 
-    def _handle_drag(self, events: Sequence[pygame.event.Event], dt: float) -> None:
-        """Middle-mouse drag panning in world units."""
-        # We don't use dt here other than potential future smoothing
+    def _handle_drag(self, events: Sequence[pygame.event.Event]) -> None:
+        """Middle-mouse drag panning, or ALT + LMB if enabled."""
         for e in events:
-            if e.type == pygame.MOUSEBUTTONDOWN and e.button == self.drag_button:
-                self._dragging = True
-                self._last_mouse = pygame.Vector2(pygame.mouse.get_pos())
-            elif e.type == pygame.MOUSEBUTTONUP and e.button == self.drag_button:
-                self._dragging = False
+            if e.type == pygame.MOUSEBUTTONDOWN:
+                if e.button == self.drag_button or (self.drag_with_alt_left and e.button == pygame.BUTTON_LEFT and (pygame.key.get_mods() & pygame.KMOD_ALT)):
+                    self._dragging = True
+                    self._last_mouse = pygame.Vector2(pygame.mouse.get_pos())
+            elif e.type == pygame.MOUSEBUTTONUP:
+                if e.button == self.drag_button or e.button == pygame.BUTTON_LEFT:
+                    self._dragging = False
 
         if self._dragging:
             cur = pygame.Vector2(pygame.mouse.get_pos())
@@ -369,7 +467,6 @@ class Camera:
         """Zoom with mouse-wheel; keep mouse-anchored if enabled."""
         for event in events:
             if event.type == pygame.MOUSEWHEEL:
-                # Pre-zoom world point under the mouse
                 anchor_world = self.screen_to_world(pygame.mouse.get_pos()) if self.zoom_anchors_mouse else None
 
                 dy = event.y
@@ -381,17 +478,9 @@ class Camera:
                 elif dy < 0:
                     self.zoom_state.step(-1)
 
-                # After setting target, we may want to *also* snap current if player is
-                # flicking the wheel very fast (feel free to tweak this behavior)
-                # Here we keep it smooth: no snap.
-
                 if anchor_world is not None:
-                    # Adjust position so that the world point under the mouse stays fixed
-                    # wrt the screen while zoom animates. We compute the diff using the
-                    # *new target* scale, which feels more immediate.
-                    cur = pygame.Vector2(pygame.mouse.get_pos())
                     # Compute where the anchor would end up at target zoom, then offset.
-                    # screen_to_world depends on current zoom; we need a manual mapping:
+                    cur = pygame.Vector2(pygame.mouse.get_pos())
                     screen_vec = cur - self.screen_center
                     world_offset_at_target = screen_vec / self.zoom_state.target
                     desired_position = anchor_world - world_offset_at_target
@@ -402,7 +491,6 @@ class Camera:
         if self.wrap_x:
             self.position.x %= map_w
         else:
-            # Clamp so you can't pan beyond edges (keep view in-bounds)
             half_w_world = (self.width * 0.5) / max(self.zoom_state.current, 1e-6)
             self.position.x = max(half_w_world, min(self.position.x, map_w - half_w_world))
 
@@ -416,12 +504,32 @@ class Camera:
         """Compute per-frame shake offset from trauma."""
         if self._trauma <= 0.0:
             return pygame.Vector2(0, 0)
-
-        # Use simple time-based noise (no pygame clock dependency here).
         t = pygame.time.get_ticks() * 0.001  # seconds
         mag = (self._trauma * self._trauma)  # square for nicer decay curve
         nx = math.sin((self._shake_seed + t) * self._shake_freq) * mag
         ny = math.cos((self._shake_seed * 0.5 + t * 1.3) * self._shake_freq) * mag
-        # Shake amount in pixels (unscaled by zoom; screen-space shake)
-        shake_px = 6.0
+        shake_px = 6.0  # screen-space shake
         return pygame.Vector2(nx * shake_px, ny * shake_px)
+
+    def _update_pan(self, dt: float) -> None:
+        """Advance a pan_to() tween."""
+        if not self._pan_active:
+            return
+        self._pan_time += dt
+        t = min(1.0, self._pan_time / self._pan_dur)
+        # Smoothstep ease
+        t = t * t * (3 - 2 * t)
+        self.position = self._pan_start.lerp(self._pan_end, t)
+        if self._pan_time >= self._pan_dur:
+            self._pan_active = False
+
+    # -------------------------
+    # Debug overlay (optional)
+    # -------------------------
+    def debug_draw_overlay(self, screen: pygame.Surface) -> None:
+        """Draws a simple overlay: center cross, deadzone box, zoom/pos text."""
+        try:
+            from camera_debug import draw_camera_debug_overlay
+        except Exception:
+            return
+        draw_camera_debug_overlay(screen, self)
