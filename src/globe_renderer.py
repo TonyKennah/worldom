@@ -7,6 +7,7 @@ from typing import Generator, List
 
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
+import cartopy.feature as cfeature
 import numpy as np
 from matplotlib.colors import ListedColormap
 
@@ -24,7 +25,8 @@ def render_map_as_globe(map_data: List[List[str]], map_seed: int) -> Generator[f
     Yields:
         A float representing the progress of the generation (from 0.0 to 1.0).
     """
-    frame_dir = f"globe_frames_{map_seed}"
+    base_image_dir = "image"
+    frame_dir = os.path.join(base_image_dir, f"globe_frames_{map_seed}")
     if os.path.exists(frame_dir):
         print(f"Globe frames for map seed {map_seed} already exist. Skipping generation.")
         return
@@ -57,17 +59,16 @@ def render_map_as_globe(map_data: List[List[str]], map_seed: int) -> Generator[f
         ax.set_global()
 
         # --- Paint the map data onto the globe ---
-        # We use pcolormesh which is efficient for grid data.
-        # The transform tells cartopy that our grid is a standard lat/lon map.
+        # First, draw a solid ocean color as the base layer.
+        ax.add_feature(cfeature.OCEAN, zorder=0, facecolor=settings.GLOBE_TERRAIN_COLORS[0])
+
+        # Then, draw the generated terrain data over the ocean.
         ax.pcolormesh(
             lons, lats, numerical_data,
             transform=ccrs.PlateCarree(),
             cmap=color_map,
             shading='auto'
         )
-
-        # Optionally add coastlines for reference
-        ax.coastlines(linewidth=0.5, color='white', alpha=0.5)
 
         # --- Save the frame ---
         filename = os.path.join(frame_dir, f"frame_{str(i).zfill(3)}.png")

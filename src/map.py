@@ -7,7 +7,7 @@ import heapq
 import math
 import random
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Generator, List, Optional, Tuple
 
 import pygame
 from opensimplex import OpenSimplex
@@ -73,7 +73,7 @@ class Map:
         else:
             self.seed = seed
 
-        self.data: List[List[str]] = self._generate_map()
+        self.data: List[List[str]] = [] # Will be populated by the generate() method
 
     def _fractal_noise(  # pylint: disable=too-many-arguments,R0917
         self,
@@ -98,8 +98,13 @@ class Map:
             frequency *= lacunarity
         return total / max_value if max_value > 0 else 0
 
-    def _generate_map(self) -> List[List[str]]:
-        """Creates a seamlessly tileable map using 4D Perlin noise."""
+    def generate(self) -> Generator[float, None, None]:
+        """
+        Generates the map data while yielding progress every few rows to balance
+        UI responsiveness with generation speed.
+        Yields:
+            A float representing the progress of the generation (from 0.0 to 1.0).
+        """
         # Use a seeded random number generator to ensure the map is reproducible
         # from the main game seed.
         map_random = random.Random(self.seed)
@@ -107,7 +112,7 @@ class Map:
         m_gen = OpenSimplex(seed=map_random.randint(0, 10000))
         l_gen = OpenSimplex(seed=map_random.randint(0, 10000))
 
-        world = [["" for _ in range(self.width)] for _ in range(self.height)]
+        self.data = [["" for _ in range(self.width)] for _ in range(self.height)]
 
         for y in range(self.height):
             for x in range(self.width):
@@ -116,28 +121,27 @@ class Map:
 
                 elevation = self._get_elevation_noise(e_gen, angle_x, angle_y)
 
+                terrain_type = ""
                 if elevation < OCEAN_THRESHOLD:
-                    world[y][x] = "ocean"
-                    continue
-
-                mountain_value = self._get_mountain_noise(m_gen, angle_x, angle_y)
-                if mountain_value > ROCK_THRESHOLD:
-                    world[y][x] = "rock"
-                    continue
-
-                if elevation < COASTAL_THRESHOLD:
-                    world[y][x] = "grass"
-                    continue
-
-                lake_value = self._get_lake_noise(l_gen, angle_x, angle_y)
-                if lake_value < LAKE_THRESHOLD:
-                    world[y][x] = "lake"
+                    terrain_type = "ocean"
                 else:
-                    world[y][x] = "grass"
+                    mountain_value = self._get_mountain_noise(m_gen, angle_x, angle_y)
+                    if mountain_value > ROCK_THRESHOLD:
+                        terrain_type = "rock"
+                    elif elevation < COASTAL_THRESHOLD:
+                        terrain_type = "grass"
+                    else:
+                        lake_value = self._get_lake_noise(l_gen, angle_x, angle_y)
+                        terrain_type = "lake" if lake_value < LAKE_THRESHOLD else "grass"
 
-        self._convert_inland_oceans_to_lakes(world)
-        self._fill_large_lakes(world)
-        return world
+                self.data[y][x] = terrain_type
+
+            # Yield progress only after every 4th row, or on the very last row.
+            if (y + 1) % 4 == 0 or (y + 1) == self.height:
+                yield (y + 1) / self.height
+
+        self._convert_inland_oceans_to_lakes(self.data)
+        self._fill_large_lakes(self.data)
 
     def _get_elevation_noise(self, gen: OpenSimplex, angle_x: float, angle_y: float) -> float:
         """Generates elevation noise for a given angle."""
@@ -274,7 +278,15 @@ class Map:
             surface, camera,
             area=visible_area, offset=offset, hovered_tile=hovered_tile
         )
-        self._draw_grid_lines(surface, camera, visible_area, offset)
+
+        # Draw grid lines for this instance if zoomed in enough
+        scaled_tile_size = self.tile_size * camera.zoom_state.current
+        if scaled_tile_size >= settings.MIN_TILE_PIXELS_FOR_GRID:
+            self._draw_grid_lines(surface, camera, visible_area, offset)
+
+        # The hover highlight must be drawn after the terrain and grid to ensure it's on top.
+        if hovered_tile:
+            self._draw_hover_highlight(surface, camera, visible_area, offset, hovered_tile)
 
     def _calculate_visible_area(
         self, camera: Camera, offset: pygame.math.Vector2  # pylint: disable=c-extension-no-member
@@ -292,30 +304,95 @@ class Map:
         end_row = math.ceil(bottom_right_world.y / self.tile_size)
         return VisibleArea(start_row, end_row, start_col, end_col)
 
-    def _draw_terrain(  # pylint: disable=too-many-arguments
+    def _draw_terrain(  # pylint: disable=too-many-arguments,too-many-locals
         self, surface: pygame.Surface, camera: Camera, *,
         area: VisibleArea,
         offset: pygame.math.Vector2,  # pylint: disable=c-extension-no-member
         hovered_tile: Optional[Tuple[int, int]]
     ) -> None:
-        """Draws the terrain tiles and the hover highlight."""
+        """Draws the terrain tiles using a greedy meshing algorithm to optimize performance."""
+        # A grid to keep track of tiles we've already drawn as part of a larger mesh.
+        # We only need to track the visible area.
+        rows = area.end_row - area.start_row
+        cols = area.end_col - area.start_col
+        if rows <= 0 or cols <= 0:
+            return
+        visited = [[False for _ in range(cols)] for _ in range(rows)]
+
         for y in range(area.start_row, area.end_row):
             for x in range(area.start_col, area.end_col):
+                # Convert world tile coords to local visited grid coords
+                visited_y, visited_x = y - area.start_row, x - area.start_col
+
+                if visited[visited_y][visited_x]:
+                    continue
+
+                # 1. Get the color of the current tile
                 map_x, map_y = x % self.width, y % self.height
-                terrain = self.data[map_y][map_x]
-                world_x = x * self.tile_size + offset.x
-                world_y = y * self.tile_size + offset.y
+                current_terrain = self.data[map_y][map_x]
+                current_color = settings.TERRAIN_COLORS[current_terrain]
+
+                # 2. Find the maximum width of the mesh (expand right)
+                width = 1
+                while x + width < area.end_col:
+                    next_map_x = (x + width) % self.width
+                    if self.data[map_y][next_map_x] != current_terrain or visited[visited_y][visited_x + width]:
+                        break
+                    width += 1
+
+                # 3. Find the maximum height of the mesh (expand down)
+                height = 1
+                while y + height < area.end_row:
+                    can_expand_down = True
+                    for i in range(width):
+                        check_x, check_y = x + i, y + height
+                        if self.data[check_y % self.height][check_x % self.width] != current_terrain or \
+                           visited[check_y - area.start_row][check_x - area.start_col]:
+                            can_expand_down = False
+                            break
+                    if not can_expand_down:
+                        break
+                    height += 1
+
+                # 4. Mark all tiles in the new mesh as visited
+                for i in range(height):
+                    for j in range(width):
+                        visited[visited_y + i][visited_x + j] = True
+
+                # 5. Draw the single large rectangle
+                world_x, world_y = x * self.tile_size + offset.x, y * self.tile_size + offset.y
                 world_rect = pygame.Rect(
-                    world_x, world_y, self.tile_size, self.tile_size
+                    world_x, world_y,
+                    self.tile_size * width, self.tile_size * height
                 )
                 screen_rect = camera.apply(world_rect)
+                pygame.draw.rect(surface, current_color, screen_rect)
 
-                # Draw the terrain tile
-                pygame.draw.rect(surface, settings.TERRAIN_COLORS[terrain], screen_rect)
-
-                # Draw the highlight on top if this is the hovered tile
-                if (map_x, map_y) == hovered_tile:
+    def _draw_hover_highlight(self, surface: pygame.Surface, camera: Camera, area: VisibleArea,
+                              offset: pygame.math.Vector2, hovered_tile: Tuple[int, int]) -> None:
+        """Draws the highlight for the currently hovered tile."""
+        for y in range(area.start_row, area.end_row):
+            for x in range(area.start_col, area.end_col):
+                if (x % self.width, y % self.height) == hovered_tile:
+                    world_x = x * self.tile_size + offset.x
+                    world_y = y * self.tile_size + offset.y
+                    world_rect = pygame.Rect(world_x, world_y, self.tile_size, self.tile_size)
+                    screen_rect = camera.apply(world_rect)
                     pygame.draw.rect(surface, settings.HIGHLIGHT_COLOR, screen_rect, 3)
+                    return # Draw only one highlight per map instance
+
+    def _draw_hover_highlight(self, surface: pygame.Surface, camera: Camera, area: VisibleArea,
+                              offset: pygame.math.Vector2, hovered_tile: Tuple[int, int]) -> None:
+        """Draws the highlight for the currently hovered tile."""
+        for y in range(area.start_row, area.end_row):
+            for x in range(area.start_col, area.end_col):
+                if (x % self.width, y % self.height) == hovered_tile:
+                    world_x = x * self.tile_size + offset.x
+                    world_y = y * self.tile_size + offset.y
+                    world_rect = pygame.Rect(world_x, world_y, self.tile_size, self.tile_size)
+                    screen_rect = camera.apply(world_rect)
+                    pygame.draw.rect(surface, settings.HIGHLIGHT_COLOR, screen_rect, 3)
+                    return # Draw only one highlight per map instance
 
     def _draw_vertical_grid_lines(
         self, surface: pygame.Surface, camera: Camera,
@@ -348,10 +425,8 @@ class Map:
     def _draw_grid_lines(self, surface: pygame.Surface, camera: Camera,
                          area: VisibleArea, offset: pygame.math.Vector2) -> None: # pylint: disable=c-extension-no-member
         """Draws the grid lines over the terrain."""
-        scaled_tile_size = settings.TILE_SIZE * camera.zoom_state.current
-        if scaled_tile_size >= settings.MIN_TILE_PIXELS_FOR_GRID:
-            self._draw_vertical_grid_lines(surface, camera, area, offset)
-            self._draw_horizontal_grid_lines(surface, camera, area, offset)
+        self._draw_vertical_grid_lines(surface, camera, area, offset)
+        self._draw_horizontal_grid_lines(surface, camera, area, offset)
 
     def is_walkable(self, tile_pos: Tuple[int, int]) -> bool:
         """Checks if a given tile is walkable based on its terrain type."""
