@@ -25,13 +25,15 @@ def render_map_as_globe(map_data: List[List[str]], map_seed: int) -> Generator[f
     Yields:
         A float representing the progress of the generation (from 0.0 to 1.0).
     """
+    globe_frames_dir_name = "globe_frames"
     base_image_dir = "image"
-    frame_dir = os.path.join(base_image_dir, f"globe_frames_{map_seed}")
+    frame_dir = os.path.join(base_image_dir, globe_frames_dir_name)
     if os.path.exists(frame_dir):
-        print(f"Globe frames for map seed {map_seed} already exist. Skipping generation.")
-        return
+        print(f"Globe frames already exist. Overwriting...")
+        # remove all files in the directory
+        [os.remove(os.path.join(frame_dir, f)) for f in os.listdir(frame_dir) if os.path.isfile(os.path.join(frame_dir, f))]
 
-    os.makedirs(frame_dir)
+    os.makedirs(frame_dir, exist_ok=True)
     print(f"Generating globe frames for map seed {map_seed} in '{frame_dir}/'...")
 
     # --- Convert map data to a numerical grid for plotting ---

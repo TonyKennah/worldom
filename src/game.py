@@ -47,6 +47,7 @@ class Game:
         pygame.display.set_caption("WorldDom")
         self.clock = pygame.time.Clock()
         self.running: bool = True
+        self.globe_frames: List[pygame.Surface] = []
 
         # --- Initialize Game Components ---
         self.camera = Camera(settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT)
@@ -105,11 +106,11 @@ class Game:
             if event.type == pygame.QUIT:
                 self.run() # This will trigger the exit sequence
 
-    def _load_globe_frames(self, map_seed: int) -> None:
+    def _load_globe_frames(self) -> None:
         """Loads the pre-rendered globe animation frames from disk."""
-        self.ui_manager.globe_frames.clear() # Clear frames from any previous map
+        self.globe_frames.clear() # Clear frames from any previous map
         base_image_dir = "image"
-        frame_dir = os.path.join(base_image_dir, f"globe_frames_{map_seed}")
+        frame_dir = os.path.join(base_image_dir, "globe_frames")
         if not os.path.isdir(frame_dir):
             print(f"Warning: Globe animation directory not found at '{frame_dir}'")
             return
@@ -160,7 +161,7 @@ class Game:
         for progress in globe_renderer.render_map_as_globe(self.map.data, map_seed):
             self._pump_events_during_load()
             self._draw_splash_screen(message="2/2 Generating Globe", progress=progress)
-        self._load_globe_frames(map_seed)
+        self._load_globe_frames()
 
     def regenerate_map(self) -> None:
         """Regenerates the map and resets the world state."""

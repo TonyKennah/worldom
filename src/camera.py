@@ -194,7 +194,19 @@ class Camera:
         tl = self.world_to_screen(rect.topleft)
         w = rect.width * self.zoom_state.current
         h = rect.height * self.zoom_state.current
-        return pygame.Rect(round(tl.x), round(tl.y), round(w), round(h))
+
+        # Define a safe range for coordinates to prevent pygame errors
+        # with very large or small numbers that can result from floats.
+        SAFE_MIN = -2_000_000_000
+        SAFE_MAX = 2_000_000_000
+
+        # Clamp all values to the safe range before creating the Rect
+        safe_x = max(SAFE_MIN, min(round(tl.x), SAFE_MAX))
+        safe_y = max(SAFE_MIN, min(round(tl.y), SAFE_MAX))
+        safe_w = max(0, min(round(w), SAFE_MAX))  # Width/height can't be negative
+        safe_h = max(0, min(round(h), SAFE_MAX))
+
+        return pygame.Rect(safe_x, safe_y, safe_w, safe_h)
 
     def apply_point(self, world_pos: Tuple[float, float]) -> Tuple[int, int]:
         """Transform a world-space point to screen-space point."""
@@ -388,20 +400,14 @@ class Camera:
     def _apply_bounds(self, map_w: int, map_h: int) -> None:
         """Apply wrap or clamp to camera position."""
         if self.wrap_x:
-            if self.position.x < 0:
-                self.position.x += map_w
-            elif self.position.x >= map_w:
-                self.position.x -= map_w
+            self.position.x %= map_w
         else:
             # Clamp so you can't pan beyond edges (keep view in-bounds)
             half_w_world = (self.width * 0.5) / max(self.zoom_state.current, 1e-6)
             self.position.x = max(half_w_world, min(self.position.x, map_w - half_w_world))
 
         if self.wrap_y:
-            if self.position.y < 0:
-                self.position.y += map_h
-            elif self.position.y >= map_h:
-                self.position.y -= map_h
+            self.position.y %= map_h
         else:
             half_h_world = (self.height * 0.5) / max(self.zoom_state.current, 1e-6)
             self.position.y = max(half_h_world, min(self.position.y, map_h - half_h_world))

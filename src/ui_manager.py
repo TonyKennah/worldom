@@ -22,7 +22,6 @@ class UIManager:
 
         # --- Globe Animation State ---
         self.show_globe_popup: bool = False
-        self.globe_frames: List[pygame.Surface] = []
         self.globe_frame_index: int = 0
         self.globe_animation_timer: float = 0.0
         self.globe_animation_speed_index: int = settings.GLOBE_ANIMATION_DEFAULT_SPEED_INDEX
