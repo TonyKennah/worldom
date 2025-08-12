@@ -66,11 +66,18 @@ The project uses a standard `src` layout to keep the source code organized and s
 worldom/
 ├── src/
 │   ├── camera.py
+│   ├── context_menu.py
+│   ├── debug_panel.py
 │   ├── game.py
+│   ├── globe_frames.py
+│   ├── globe_renderer.py
+│   ├── input_handler.py
 │   ├── map.py
+│   ├── selection_manager.py
 │   ├── settings.py
-│   ├── settings.py
-│   └── unit.py
+│   ├── ui_manager.py
+│   ├── unit.py
+│   └── world_state.py
 └── main.py
 └── requirements.txt
 ```
@@ -82,73 +89,44 @@ worldom/
 
 *   **`src/settings.py`**: Contains global constants and configuration settings for the game, such as screen dimensions, colors, tile sizes, and game speed. This file does not contain any classes.
 
-*   **`src/game.py`**: The core game class that manages the main game loop, event handling, and game state.
-    *   **`DebugPanel` class**: Handles rendering and interaction for the top debug panel.
-        *   `__init__()`: Initializes the panel's font and state.
-        *   `handle_event(event)`: Processes user input for the panel, like clicking the Exit link.
-        *   `_draw_main_info(game)`: Renders the main informational text (FPS, zoom, etc.).
-        *   `_draw_exit_link(game)`: Renders the clickable 'Exit' link.
-        *   `_draw_new_link(game)`: Renders the clickable 'New' link to generate a new map.
-        *   `draw(game)`: Renders the complete debug panel by calling its helper methods.
-    *   **`SubMenuState` class**: Encapsulates the state of a context sub-menu.
-    *   **`ContextMenuState` class**: Encapsulates all state related to the right-click context menu, including an instance of `SubMenuState`.
-    *   **`WorldState` class**: A data class to hold the current state of all game entities, such as units, player selections, and an instance of `ContextMenuState`.
-*   **`src/game.py`**: The core game class that manages the main game loop, game state, and coordinates the other managers.
-    *   **`WorldState` class**: A data class to hold the current state of all game entities, such as units and player selections.
-    *   **`Game` class**:
-        *   `__init__()`: Initializes Pygame and creates a maximized window. It also creates instances of the map, camera, and the initial unit.
-        *   `run()`: Contains the main game loop that processes events, updates game state, and draws to the screen.
-        *   `_get_all_land_tiles()`: Returns a list of all valid land tiles (grass or rock).
-        *   `__init__()`: Initializes Pygame, the window, and creates instances of the map, camera, and all manager classes (`InputHandler`, `UIManager`, `SelectionManager`).
-        *   `run()`: Contains the main game loop that calls the `update` and `draw` methods of its managers.
-        *   `_spawn_initial_units()`: Creates the first unit on a random land tile.
-        *   `handle_events(events)`: The top-level event handler, called each frame to process the event queue (quit, key presses, etc.).
-        *   `_is_click(start_pos, end_pos)`: Helper to determine if a mouse action is a click or a drag.
-        *   `_handle_mouse_events(event)`: Dispatches mouse events to more specific handler methods.
-        *   `_handle_mouse_button_down(event)`: Handles `MOUSEBUTTONDOWN` events for game world interactions.
-        *   `_handle_mouse_button_up(event)`: Handles `MOUSEBUTTONUP` events for both buttons.
-        *   `_handle_left_mouse_up(event)`: Differentiates between a left-click (for selection) and a left-drag (for creating a selection box).
-        *   `_handle_right_mouse_up(event)`: Handles a right-click to open the context menu for selected units.
-        *   `_handle_mouse_motion(event)`: Updates the selection box rectangle during a left-drag.
-        *   `_open_context_menu(screen_pos)`: Displays the right-click command menu and stores the target tile.
-        *   `_close_context_menu()`: Hides the right-click command menu.
-        *   `_handle_context_menu_click(mouse_pos)`: Processes a click on or outside the context menu.
-        *   `_handle_context_menu_hover(mouse_pos)`: Checks for hovering over context menu items to open sub-menus.
-        *   `_open_sub_menu(...)`: Displays a sub-menu for a context menu item.
-        *   `_close_sub_menu()`: Hides the sub-menu.
-        *   `_issue_move_command_to_target()`: Issues a move command to all selected units by finding a path to the stored target tile.
-        *   `_handle_left_click_selection(mouse_pos)`: Selects a single unit under the cursor, deselecting any other units.
-        *   `_handle_drag_selection(selection_rect_screen)`: Selects all units within the dragged.
+*   **`src/game.py`**: The core game class (`Game`) that manages the main game loop, event handling, and game state.
 
 *   **`src/camera.py`**: Implements the game camera for panning and zooming.
-    *   **`ZoomState` class**: Encapsulates the state and logic for camera zooming, including discrete zoom levels.
-    *   **`Camera` class**:
-        *   `__init__(width, height)`: Initializes the camera's viewable area, position, and zoom/pan states.
-        *   `screen_to_world(screen_pos)`: Converts screen pixel coordinates to in-game world coordinates, accounting for camera pan and zoom.
-        *   `world_to_screen(world_pos)`: Converts in-game world coordinates to screen pixel coordinates.
-        *   `apply(rect)`: Adjusts a `pygame.Rect`'s position and size based on the camera's offset and zoom. Used for rendering.
-        *   `update(dt, events)`: The main update method for the camera, called once per frame. It calls helper methods to process input.
-        *   `_handle_keyboard_movement(dt)`: Pans the camera smoothly based on WASD key presses.
-        *   `_handle_mouse_input(events)`: Manages mouse-based camera controls, specifically zooming via the mouse wheel.
-        *   `_handle_zoom(event)`: Processes mouse wheel events to zoom in or out, keeping the point under the cursor stationary.
-        *   `_handle_edge_scrolling(dt)`: Pans the camera when the mouse cursor is near the edges of the screen, ignoring the area covered by the debug panel.
+    *   **`ZoomState` class**: Encapsulates the state and logic for camera zooming.
+    *   **`Camera` class**: Manages the camera's viewable area, position, and zoom/pan states.
+
+*   **`src/context_menu.py`**:
+    *   **`SubMenuState` class**: Encapsulates the state of a context sub-menu.
+    *   **`ContextMenuState` class**: Encapsulates all state related to the right-click context menu.
+
+*   **`src/debug_panel.py`**:
+    *   **`DebugPanel` class**: Handles rendering and interaction for the top debug panel.
+
+*   **`src/globe_frames.py`**:
+    *   **`create_globe_animation_frames()`**: Function to create frames for a rotating globe animation.
+
+*   **`src/globe_renderer.py`**:
+    *   **`render_map_as_globe()`**: Function to render the map as a 3D globe.
+
+*   **`src/input_handler.py`**:
+    *   **`InputHandler` class**: Manages all user input, including keyboard and mouse events.
 
 *   **`src/map.py`**: Handles the procedural generation, pathfinding logic, and rendering of the game world.
-    *   **`VisibleArea` class**: A dataclass to represent the visible area of the map in tile coordinates for efficient rendering.
-    *   **`AStarState` class**: A helper class to hold the state of an A* pathfinding search (priority queue, costs, etc.).
-    *   **`Map` class**:
-        *   `__init__(width, height)`: Generates a seamlessly tileable 100x100 world map using 4D OpenSimplex noise to create natural-looking continents, mountains, and lakes.
-        *   `draw(screen, camera, hovered_tile)`: Renders the visible portion of the map to the screen. It efficiently culls off-screen tiles and highlights the tile under the cursor.
-        *   `is_walkable(tile_pos)`: Checks if a given tile is not an obstacle (e.g., an ocean or lake).
-        *   `find_path(start_tile, end_tile)`: Uses the A* algorithm to calculate the shortest valid path between two tiles, avoiding obstacles.
+    *   **`VisibleArea` class**: A dataclass to represent the visible area of the map.
+    *   **`AStarState` class**: A helper class to hold the state of an A* pathfinding search.
+    *   **`Map` class**: Manages the game map, including generation and pathfinding.
+
+*   **`src/selection_manager.py`**:
+    *   **`SelectionManager` class**: Manages the selection of units.
+
+*   **`src/ui_manager.py`**:
+    *   **`UIManager` class**: Manages the user interface, including the debug panel and context menus.
 
 *   **`src/unit.py`**: Defines the behavior and appearance of controllable units in the game.
-    *   **`Unit` class**:
-        *   `__init__(tile_pos)`: Creates a new unit at a given starting tile position.
-        *   `set_path(path)`: Assigns a new sequence of tiles (a path) for the unit to follow.
-        *   `update(dt, map_width, map_height)`: Smoothly moves the unit along its path, correctly handling movement across the wrap-around edges of the toroidal map.
-        *   `draw(screen, camera, map_width_pixels, map_height_pixels)`: Renders the unit, drawing multiple instances if necessary to create a seamless wrap-around effect.
-        *   `get_world_rect()`: Returns the unit's bounding box in world coordinates, used for click detection and selection.
+    *   **`Unit` class**: Represents a single unit in the game.
+
+*   **`src/world_state.py`**:
+    *   **`WorldState` class**: A data class to hold the current state of all game entities.
 
 ### Example Map 
 Fully zoomed out for debug purposes
