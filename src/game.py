@@ -124,12 +124,12 @@ class Game:
             print(f"Error loading globe frames: {e}")
 
     def _get_all_land_tiles(self) -> List[Tuple[int, int]]:
-        """Returns a list of all (x, y) coordinates for land tiles (grass or rock)."""
+        """Returns a list of all (x, y) coordinates for walkable land tiles."""
         return [
             (x, y)
             for y in range(self.map.height)
             for x in range(self.map.width)
-            if self.map.data[y][x] in {'grass', 'rock'}
+            if self.map.is_walkable((x, y))
         ]
 
     def _spawn_initial_units(self) -> Unit:
@@ -147,6 +147,17 @@ class Game:
 
     def _create_new_world(self) -> None:
         """Creates a new map, world state, and globe, showing progress."""
+        # --- Select a random theme and update global settings ---
+        theme_name = random.choice(list(settings.PLANET_THEMES.keys()))
+        settings.ACTIVE_THEME_NAME = theme_name
+        settings.ACTIVE_THEME = settings.PLANET_THEMES[theme_name]
+        settings.TERRAIN_TYPES = list(settings.ACTIVE_THEME["terrains"].keys())
+        settings.TERRAIN_DATA = settings.ACTIVE_THEME["terrains"]
+        settings.TERRAIN_COLORS = {key: data["color"] for key, data in settings.TERRAIN_DATA.items()}
+        settings.WALKABLE_TERRAINS = {key for key, data in settings.TERRAIN_DATA.items() if data["walkable"]}
+        settings.GLOBE_TERRAIN_COLORS = [data["globe_color"] for data in settings.TERRAIN_DATA.values()]
+        print(f"Selected theme: {settings.ACTIVE_THEME['name']} ({settings.ACTIVE_THEME_NAME})")
+
         map_seed = random.randint(0, 1_000_000)
         self.map = Map(settings.MAP_WIDTH_TILES, settings.MAP_HEIGHT_TILES, seed=map_seed)
         for progress in self.map.generate():

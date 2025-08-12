@@ -10,9 +10,51 @@ GLOBE_ANIMATION_DEFAULT_SPEED_INDEX = 4 # Default to 1x speed (0.04)
 # --- Globe Generation Settings ---
 GLOBE_NUM_FRAMES = 60  # A good compromise for speed vs. smoothness
 GLOBE_IMAGE_SIZE_PIXELS = 250 # Smaller images render faster
-# Colors for terrain: 0=water, 1=sand, 2=grass, 3=rock
-GLOBE_TERRAIN_COLORS = ['#4d73a8', '#d3c28a', '#669966', '#8c8c8c']
 
+# --- Planet Theme Settings ---
+PLANET_THEMES = {
+    "earth": {
+        "name": "Earth",
+        "terrains": {
+            # logical_name: {display_name, color, globe_color, is_walkable}
+            "ocean": {"name": "Ocean", "color": (30, 70, 130), "globe_color": "#4d73a8", "walkable": False},
+            "lake": {"name": "Lake", "color": (80, 140, 200), "globe_color": "#6495ED", "walkable": False},
+            "grass": {"name": "Grass", "color": (50, 150, 50), "globe_color": "#669966", "walkable": True},
+            "rock": {"name": "Rock", "color": (130, 130, 130), "globe_color": "#8c8c8c", "walkable": True},
+        }
+    },
+    "titan": {
+        "name": "Titan",
+        "terrains": {
+            "ocean": {"name": "Methane Sea", "color": (104, 60, 144), "globe_color": "#683c90", "walkable": False},
+            "lake": {"name": "Tar Pit", "color": (40, 40, 40), "globe_color": "#282828", "walkable": False},
+            "grass": {"name": "Crystalline Plains", "color": (200, 200, 220), "globe_color": "#c8c8dc", "walkable": True},
+            "rock": {"name": "Obsidian Spires", "color": (20, 20, 30), "globe_color": "#14141e", "walkable": True},
+        }
+    },
+    "phoebe": {
+        "name": "Phoebe",
+        "terrains": {
+            "ocean": {"name": "Dimethyl Sulfide Sea", "color": (5,36,65), "globe_color": "#052441", "walkable": False},
+            "lake": {"name": "Colbalt Crystal", "color": (73,243,206), "globe_color": "#49F3CE", "walkable": False},
+            "grass": {"name": "Sand", "color": (168,166,19), "globe_color": "#a8a613", "walkable": True},
+            "rock": {"name": "Ammonia Lake", "color": (147,147,192), "globe_color": "#9393c0", "walkable": True},
+        }
+    }
+}
+
+# --- Active Theme Selection ---
+# This is now handled dynamically in the Game class.
+# The variables below are placeholders that will be updated at runtime.
+ACTIVE_THEME_NAME: str = ""
+ACTIVE_THEME: dict = {}
+
+# --- Derived Settings (do not change directly) ---
+TERRAIN_TYPES: list = []
+TERRAIN_DATA: dict = {}
+TERRAIN_COLORS: dict = {}
+WALKABLE_TERRAINS: set = set()
+GLOBE_TERRAIN_COLORS: list = []
 
 # --- General Settings ---
 # These are placeholders. The actual values are set at runtime in game.py
@@ -32,13 +74,6 @@ TILE_SIZE = 32
 MAP_WIDTH_TILES = 100
 MAP_HEIGHT_TILES = 100
 
-TERRAIN_COLORS = {
-    "grass": (50, 150, 50),      # Lush green for grasslands
-    "ocean": (30, 70, 130),      # A darker, deeper blue for oceans
-    "lake": (80, 140, 200),      # Lighter blue for inland lakes
-    "rock": (130, 130, 130),     # Gray for mountains
-    "pole": (0, 0, 0),  # Black color for the pole marker
-}
 GRID_LINE_COLOR = (40, 40, 40)
 HIGHLIGHT_COLOR = (255, 255, 0)  # Yellow
 MIN_TILE_PIXELS_FOR_GRID = 4

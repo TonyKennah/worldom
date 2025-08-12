@@ -41,8 +41,9 @@ class DebugPanel:
         )
         if game.world_state.hovered_tile:
             tile_x, tile_y = game.world_state.hovered_tile
-            terrain = game.map.data[tile_y][tile_x]
-            tile_info = f"({tile_x}, {tile_y}) ({terrain.capitalize()})"
+            terrain_key = game.map.data[tile_y][tile_x]
+            terrain_name = settings.TERRAIN_DATA.get(terrain_key, {}).get("name", terrain_key.capitalize())
+            tile_info = f"({tile_x}, {tile_y}) ({terrain_name})"
             info_string += f" | Tile: {tile_info}"
 
         text_surface = self.font.render(info_string, True, settings.DEBUG_PANEL_FONT_COLOR)

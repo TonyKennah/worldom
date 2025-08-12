@@ -37,8 +37,8 @@ def render_map_as_globe(map_data: List[List[str]], map_seed: int) -> Generator[f
     print(f"Generating globe frames for map seed {map_seed} in '{frame_dir}/'...")
 
     # --- Convert map data to a numerical grid for plotting ---
-    terrain_map = {'water': 0, 'sand': 1, 'grass': 2, 'rock': 3}
     color_map = ListedColormap(settings.GLOBE_TERRAIN_COLORS)
+    terrain_map = {name: i for i, name in enumerate(settings.TERRAIN_TYPES)}
     numerical_data = np.array(
         [[terrain_map.get(cell, 0) for cell in row] for row in map_data]
     )

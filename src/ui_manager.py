@@ -86,8 +86,9 @@ class UIManager:
         self.screen.blit(overlay, (0, 0))
 
         # --- Title ---
+        title_text = f"{settings.ACTIVE_THEME.get('name', 'World')} Overview (Seed: {self.game.map.seed})"
         title_surface = self.popup_title_font.render(
-            "World Overview", True, settings.DEBUG_PANEL_FONT_COLOR
+            title_text, True, settings.DEBUG_PANEL_FONT_COLOR
         )
         title_rect = title_surface.get_rect()
 
@@ -103,7 +104,8 @@ class UIManager:
             sorted_terrain = sorted(percentages.items(), key=lambda item: item[1], reverse=True)
             for terrain, pct in sorted_terrain:
                 if pct > 0:
-                    text = f"{terrain.capitalize()}: {pct:.1f}%"
+                    terrain_name = settings.TERRAIN_DATA.get(terrain, {}).get("name", terrain.capitalize())
+                    text = f"{terrain_name}: {pct:.1f}%"
                     surface = self.breakdown_font.render(text, True, settings.DEBUG_PANEL_FONT_COLOR)
                     breakdown_surfaces.append(surface)
 
