@@ -11,11 +11,11 @@ from typing import TYPE_CHECKING, Dict, Generator, List, Optional, Tuple
 
 import pygame
 from opensimplex import OpenSimplex
-import settings
+import src.utils.settings as settings
 
 
 if TYPE_CHECKING:
-    from camera import Camera
+    from src.core.camera import Camera
 
 @dataclass
 class VisibleArea:

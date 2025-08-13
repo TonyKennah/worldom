@@ -8,8 +8,8 @@ from typing import List, Optional, Tuple
 
 import pygame
 
-from context_menu import ContextMenuState
-from unit import Unit
+from src.ui.context_menu import ContextMenuState
+from src.entities.unit import Unit
 
 @dataclass
 class WorldState:

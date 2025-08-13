@@ -7,10 +7,10 @@ from typing import List, Optional, Tuple, TYPE_CHECKING
 
 import pygame
 
-import settings
+import src.utils.settings as settings
 
 if TYPE_CHECKING:
-    from game import Game
+    from src.core.game import Game
 
 class InputHandler:
     """Processes raw user input and delegates actions to the game."""

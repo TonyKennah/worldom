@@ -7,10 +7,10 @@ import math
 from typing import List, Optional, Tuple, TYPE_CHECKING, Any
 
 import pygame
-import settings
+import src.utils.settings as settings
 
 if TYPE_CHECKING:
-    from game import Game
+    from src.core.game import Game
 
 class UIManager:
     """Manages the drawing and state of all UI components."""

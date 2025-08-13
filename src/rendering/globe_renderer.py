@@ -11,7 +11,7 @@ import cartopy.feature as cfeature
 import numpy as np
 from matplotlib.colors import ListedColormap
 
-import settings
+import src.utils.settings as settings
 
 
 def render_map_as_globe(map_data: List[List[str]], map_seed: int) -> Generator[float, None, None]:

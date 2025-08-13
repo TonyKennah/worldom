@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 
 import pygame
-import settings
+import src.utils.settings as settings
 
 class SubMenuState:
     """Encapsulates the state of a context sub-menu."""

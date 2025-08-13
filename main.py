@@ -9,7 +9,7 @@ import os
 # It allows us to import modules from within the 'src' folder
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from game import Game  # pylint: disable=wrong-import-position
+from src.core.game import Game  # pylint: disable=wrong-import-position
 
 if __name__ == '__main__':
     game_instance = Game()

@@ -2,10 +2,10 @@ from __future__ import annotations
 from typing import Optional, Tuple, TYPE_CHECKING
 
 import pygame
-import settings
+import src.utils.settings as settings
 
 if TYPE_CHECKING:
-    from game import Game
+    from src.core.game import Game
 
 class DebugPanel:
     """Handles rendering and interaction for the top debug panel."""

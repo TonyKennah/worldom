@@ -4,7 +4,7 @@ from typing import Tuple, TYPE_CHECKING
 import pygame
 
 if TYPE_CHECKING:
-    from game import Game
+    from src.core.game import Game
 
 class SelectionManager:
     """Processes selections and delegates actions to the game."""

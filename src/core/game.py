@@ -9,17 +9,17 @@ import sys
 from typing import List, Optional, Tuple
 
 import pygame
-import settings
+import src.utils.settings as settings
 
-from camera import Camera
-import globe_renderer
-from map import Map
-from unit import Unit
-from world_state import WorldState
-from debug_panel import DebugPanel
-from input_handler import InputHandler
-from selection_manager import SelectionManager
-from ui_manager import UIManager
+from src.core.camera import Camera
+import src.rendering.globe_renderer as globe_renderer
+from src.core.map import Map
+from src.entities.unit import Unit
+from src.world.world_state import WorldState
+from src.core.debug_panel import DebugPanel
+from src.ui.input_handler import InputHandler
+from src.ui.selection_manager import SelectionManager
+from src.ui.ui_manager import UIManager
 
 # --- Game Class ---
 class Game:

@@ -26,7 +26,7 @@ import pygame
 # External settings (fallbacks if not present in your project).
 # ---------------------------------------------------------------------
 try:
-    from settings import (
+    from src.utils.settings import (
         CAMERA_SPEED,
         EDGE_SCROLL_SPEED,
         EDGE_SCROLL_BOUNDARY,
@@ -660,7 +660,7 @@ class Camera:
     def debug_draw_overlay(self, screen: pygame.Surface) -> None:
         """Draws a simple overlay: center cross, deadzone box, zoom/pos text."""
         try:
-            from camera_debug import draw_camera_debug_overlay
+            from src.core.camera_debug import draw_camera_debug_overlay
         except Exception:
             return
         draw_camera_debug_overlay(screen, self)
