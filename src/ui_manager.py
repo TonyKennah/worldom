@@ -86,7 +86,7 @@ class UIManager:
         self.screen.blit(overlay, (0, 0))
 
         # --- Title ---
-        title_text = f"{settings.ACTIVE_THEME.get('name', 'World')} Overview (Seed: {self.game.map.seed})"
+        title_text = f"{settings.ACTIVE_THEME.get('name', 'World')} Overview"
         title_surface = self.popup_title_font.render(
             title_text, True, settings.DEBUG_PANEL_FONT_COLOR
         )

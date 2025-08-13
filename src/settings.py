@@ -4,8 +4,10 @@ Centralized settings and constants for the game.
 """
 import math
 
-GLOBE_ANIMATION_SPEEDS = (math.inf, 0.1, 0.08, 0.06, 0.04, 0.02, 0.01) # Frame durations. 0.04 is 1x.
-GLOBE_ANIMATION_DEFAULT_SPEED_INDEX = 4 # Default to 1x speed (0.04)
+# Frame durations for globe animation. A shorter duration means a faster speed.
+# The multiplier is calculated relative to the 1.0x speed (0.04s).
+GLOBE_ANIMATION_SPEEDS = (math.inf, 0.4, 0.08, 0.04, 0.02, 0.01)  # Paused, 0.1x, 0.5x, 1x, 2x, 4x
+GLOBE_ANIMATION_DEFAULT_SPEED_INDEX = 3  # Default to 1x speed (0.04)
 
 # --- Globe Generation Settings ---
 GLOBE_NUM_FRAMES = 60  # A good compromise for speed vs. smoothness
