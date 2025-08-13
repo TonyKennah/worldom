@@ -67,20 +67,33 @@ The project uses a standard `src` layout to keep the source code organized and s
 ```
 worldom/
 ├── src/
-│   ├── camera.py
-│   ├── context_menu.py
-│   ├── debug_panel.py
-│   ├── game.py
-│   ├── globe_frames.py
-│   ├── globe_renderer.py
-│   ├── input_handler.py
-│   ├── map.py
-│   ├── selection_manager.py
-│   ├── settings.py
-│   ├── ui_manager.py
-│   ├── unit.py
-│   └── world_state.py
-└── main.py
+│   ├── core/
+│   │   ├── camera.py
+│   │   ├── camera_debug.py
+│   │   ├── debug_panel.py
+│   │   ├── game.py
+│   │   └── map.py
+│   ├── entities/
+│   │   └── unit.py
+│   ├── redundant/
+│   │   └── spatial_hash.py
+│   ├── rendering/
+│   │   ├── globe_frames.py
+│   │   └── globe_renderer.py
+│   ├── ui/
+│   │   ├── context_menu.py
+│   │   ├── input_handler.py
+│   │   ├── selection_manager.py
+│   │   └── ui_manager.py
+│   ├── utils/
+│   │   ├── camera_utils.py
+│   │   ├── env_check.py
+│   │   ├── settings.py
+│   │   └── spatial_hash.py
+│   └── world/
+│       ├── commands.py
+│       └── world_state.py
+├── main.py
 └── requirements.txt
 ```
 
@@ -89,45 +102,58 @@ worldom/
 
 *   **`main.py`**: The main entry point of the application. It initializes the `Game` object and runs the main game loop.
 
-*   **`src/settings.py`**: Contains global constants and configuration settings for the game, such as screen dimensions, colors, tile sizes, and game speed. This file does not contain any classes.
-
-*   **`src/game.py`**: The core game class (`Game`) that manages the main game loop, event handling, and game state.
-
-*   **`src/camera.py`**: Implements the game camera for panning and zooming.
+*   **`src/core/camera.py`**: Implements the game camera for panning and zooming.
     *   **`ZoomState` class**: Encapsulates the state and logic for camera zooming.
     *   **`Camera` class**: Manages the camera's viewable area, position, and zoom/pan states.
 
-*   **`src/context_menu.py`**:
-    *   **`SubMenuState` class**: Encapsulates the state of a context sub-menu.
-    *   **`ContextMenuState` class**: Encapsulates all state related to the right-click context menu.
+*   **`src/core/camera_debug.py`**:
+    *   **`CameraDebugOverlay` class**: Handles rendering a debug overlay with information about the camera's state.
 
-*   **`src/debug_panel.py`**:
+*   **`src/core/debug_panel.py`**:
     *   **`DebugPanel` class**: Handles rendering and interaction for the top debug panel.
 
-*   **`src/globe_frames.py`**:
-    *   **`create_globe_animation_frames()`**: Function to create frames for a rotating globe animation.
+*   **`src/core/game.py`**: The core game class (`Game`) that manages the main game loop, event handling, and game state.
 
-*   **`src/globe_renderer.py`**:
-    *   **`render_map_as_globe()`**: Function to render the map as a 3D globe.
-
-*   **`src/input_handler.py`**:
-    *   **`InputHandler` class**: Manages all user input, including keyboard and mouse events.
-
-*   **`src/map.py`**: Handles the procedural generation, pathfinding logic, and rendering of the game world.
+*   **`src/core/map.py`**: Handles the procedural generation, pathfinding logic, and rendering of the game world.
     *   **`VisibleArea` class**: A dataclass to represent the visible area of the map.
     *   **`AStarState` class**: A helper class to hold the state of an A* pathfinding search.
     *   **`Map` class**: Manages the game map, including generation and pathfinding.
 
-*   **`src/selection_manager.py`**:
-    *   **`SelectionManager` class**: Manages the selection of units.
-
-*   **`src/ui_manager.py`**:
-    *   **`UIManager` class**: Manages the user interface, including the debug panel and context menus.
-
-*   **`src/unit.py`**: Defines the behavior and appearance of controllable units in the game.
+*   **`src/entities/unit.py`**: Defines the behavior and appearance of controllable units in the game.
     *   **`Unit` class**: Represents a single unit in the game.
 
-*   **`src/world_state.py`**:
+*   **`src/redundant/spatial_hash.py`**: A redundant implementation of a spatial hash.
+
+*   **`src/rendering/globe_frames.py`**:
+    *   **`create_globe_animation_frames()`**: Function to create frames for a rotating globe animation.
+
+*   **`src/rendering/globe_renderer.py`**:
+    *   **`render_map_as_globe()`**: Function to render the map as a 3D globe.
+
+*   **`src/ui/context_menu.py`**:
+    *   **`SubMenuState` class**: Encapsulates the state of a context sub-menu.
+    *   **`ContextMenuState` class**: Encapsulates all state related to the right-click context menu.
+
+*   **`src/ui/input_handler.py`**:
+    *   **`InputHandler` class**: Manages all user input, including keyboard and mouse events.
+
+*   **`src/ui/selection_manager.py`**:
+    *   **`SelectionManager` class**: Manages the selection of units.
+
+*   **`src/ui/ui_manager.py`**:
+    *   **`UIManager` class**: Manages the user interface, including the debug panel and context menus.
+
+*   **`src/utils/camera_utils.py`**: Contains utility functions related to the camera, such as culling and calculating visible tiles.
+
+*   **`src/utils/env_check.py`**: A script to verify the Python environment and dependencies.
+
+*   **`src/utils/settings.py`**: Contains global constants and configuration settings for the game, such as screen dimensions, colors, tile sizes, and game speed. This file does not contain any classes.
+
+*   **`src/utils/spatial_hash.py`**: Implements a spatial hash for efficient querying of objects in 2D space.
+
+*   **`src/world/commands.py`**: Defines data classes for unit commands like `Move`, `Attack`, etc.
+
+*   **`src/world/world_state.py`**:
     *   **`WorldState` class**: A data class to hold the current state of all game entities.
 
 ### Example Map 
