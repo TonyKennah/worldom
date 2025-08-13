@@ -324,6 +324,7 @@ class Camera:
         map_width_pixels: int,
         map_height_pixels: int,
         follow_target: Optional[pygame.Vector2] = None,
+        edge_scroll_exclusion_zone: Optional[pygame.Rect] = None,
     ) -> None:
         """
         Update camera each frame:
@@ -427,7 +428,13 @@ class Camera:
             return pygame.Vector2(0, 0)
 
         mx, my = pygame.mouse.get_pos()
+        mouse_pos = (mx, my)
         v = pygame.Vector2(0, 0)
+
+        # If the mouse is inside a defined exclusion zone (like over UI buttons),
+        # disable edge scrolling to prevent accidental camera movement.
+        if exclusion_zone and exclusion_zone.collidepoint(mouse_pos):
+            return v
 
         # Horizontal (outside debug panel height)
         if my >= DEBUG_PANEL_HEIGHT:

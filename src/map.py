@@ -66,7 +66,7 @@ class Map:
         self.width = width
         self.height = height
         self.tile_size = settings.TILE_SIZE
-        self.terrain_types = list(settings.TERRAIN_COLORS.keys())
+        self.terrain_types = settings.TERRAIN_TYPES
 
         if seed is None:
             self.seed = random.randint(0, 1_000_000)
@@ -421,8 +421,7 @@ class Map:
     def is_walkable(self, tile_pos: Tuple[int, int]) -> bool:
         """Checks if a given tile is walkable based on its terrain type."""
         x, y = tile_pos
-        # Since the map is toroidal, we only need to check the terrain type.
-        return self.data[y][x] not in ["ocean", "lake"]
+        return self.data[y][x] in settings.WALKABLE_TERRAINS
 
     def _heuristic(self, pos_a: Tuple[int, int], pos_b: Tuple[int, int]) -> float:
         """
@@ -513,12 +512,7 @@ class Map:
         if not self.data:
             return {}
 
-        counts: Dict[str, int] = {
-            "ocean": 0,
-            "lake": 0,
-            "grass": 0,
-            "rock": 0,
-        }
+        counts: Dict[str, int] = {terrain: 0 for terrain in settings.TERRAIN_TYPES}
         total_tiles = self.width * self.height
 
         if total_tiles == 0:

@@ -41,41 +41,61 @@ class DebugPanel:
         )
         if game.world_state.hovered_tile:
             tile_x, tile_y = game.world_state.hovered_tile
-            terrain = game.map.data[tile_y][tile_x]
-            tile_info = f"({tile_x}, {tile_y}) ({terrain.capitalize()})"
+            terrain_key = game.map.data[tile_y][tile_x]
+            terrain_name = settings.TERRAIN_DATA.get(terrain_key, {}).get("name", terrain_key.capitalize())
+            tile_info = f"({tile_x}, {tile_y}) ({terrain_name})"
             info_string += f" | Tile: {tile_info}"
 
         text_surface = self.font.render(info_string, True, settings.DEBUG_PANEL_FONT_COLOR)
         text_y = (settings.DEBUG_PANEL_HEIGHT - text_surface.get_height()) // 2
         game.screen.blit(text_surface, (10, text_y))
 
+    def _draw_link(
+        self,
+        game: Game,
+        text: str,
+        topright: Tuple[int, int]
+    ) -> pygame.Rect:
+        """Draws a clickable link with padding and hover effect."""
+        text_surface = self.font.render(text, True, settings.DEBUG_PANEL_FONT_COLOR)
+
+        # Create a padded rect for the link to make the clickable area larger.
+        padding_x = 8
+        link_rect = text_surface.get_rect()
+        link_rect.width += padding_x * 2
+        link_rect.height = settings.DEBUG_PANEL_HEIGHT
+        link_rect.topright = topright
+
+        # Check for hover and draw a highlight background if needed.
+        mouse_pos = pygame.mouse.get_pos()
+        if link_rect.collidepoint(mouse_pos):
+            pygame.draw.rect(game.screen, settings.DEBUG_PANEL_LINK_HOVER_BG_COLOR, link_rect, border_radius=3)
+
+        # Draw the text centered in the link rect.
+        text_rect = text_surface.get_rect(center=link_rect.center)
+        game.screen.blit(text_surface, text_rect)
+
+        return link_rect
+
     def _draw_exit_link(self, game: Game) -> None:
         """Draws the clickable 'Exit' link."""
-        exit_text_surface = self.font.render("Exit", True, settings.DEBUG_PANEL_FONT_COLOR)
-        exit_text_x = settings.SCREEN_WIDTH - exit_text_surface.get_width() - 10
-        exit_text_y = (settings.DEBUG_PANEL_HEIGHT - exit_text_surface.get_height()) // 2
-        self.exit_link_rect = game.screen.blit(exit_text_surface, (exit_text_x, exit_text_y))
+        self.exit_link_rect = self._draw_link(game, "Exit", (settings.SCREEN_WIDTH - 10, 0))
 
     def _draw_new_link(self, game: Game) -> None:
         """Draws the clickable 'New' link."""
-        new_text_surface = self.font.render("New", True, settings.DEBUG_PANEL_FONT_COLOR)
-        # Position it to the left of the exit link, which must be drawn first.
-        exit_width = self.exit_link_rect.width if self.exit_link_rect else 0
-        spacing = 15
-        new_text_x = settings.SCREEN_WIDTH - exit_width - 10
-        new_text_x = new_text_x - new_text_surface.get_width() - spacing
-        new_text_y = (settings.DEBUG_PANEL_HEIGHT - new_text_surface.get_height()) // 2
-        self.new_link_rect = game.screen.blit(new_text_surface, (new_text_x, new_text_y))
+        if not self.exit_link_rect:
+            return
+        spacing = 5
+        topright = (self.exit_link_rect.left - spacing, 0)
+        self.new_link_rect = self._draw_link(game, "New", topright)
 
     def _draw_show_globe_link(self, game: Game) -> None:
         """Draws the clickable 'Show Globe' link."""
-        globe_text_surface = self.font.render("Show Globe", True, settings.DEBUG_PANEL_FONT_COLOR)
-        # Position it to the left of the 'New' link, which must be drawn first.
-        new_width = self.new_link_rect.width if self.new_link_rect else 0
-        spacing = 15
-        globe_text_x = self.new_link_rect.left - globe_text_surface.get_width() - spacing
-        globe_text_y = (settings.DEBUG_PANEL_HEIGHT - globe_text_surface.get_height()) // 2
-        self.show_globe_link_rect = game.screen.blit(globe_text_surface, (globe_text_x, globe_text_y))
+        if not self.new_link_rect:
+            return
+        spacing = 5
+        topright = (self.new_link_rect.left - spacing, 0)
+        self.show_globe_link_rect = self._draw_link(game, "Show Globe", topright)
 
     def draw(self, game: Game) -> None:
         """Renders the complete debug panel by calling its helper methods."""
