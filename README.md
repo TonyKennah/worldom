@@ -131,6 +131,6 @@ worldom/
 ### Example Map 
 Fully zoomed out for debug purposes
 
-![Example](map.jpg "Example Map")
+![Example](image/map.jpg "Example Map")
 
 [![Watch the video](https://img.youtube.com/vi/7C-pfmnbEbI/0.jpg)](https://www.youtube.com/watch?v=7C-pfmnbEbI)
