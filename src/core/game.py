@@ -48,26 +48,35 @@ class Game:
 
         # Prefer scaled/high-DPI rendering; enable vsync if available
         flags = pygame.FULLSCREEN
-        try:
-            flags |= pygame.SCALED  # crisp scaling on HiDPI monitors
-        except AttributeError:
-            pass
+        # The SCALED flag makes everything appear larger on high-DPI monitors.
+        # Commenting this block out will make the game render at the native resolution,
+        # making UI elements and text appear smaller (less "zoomed in").
+        # try:
+        #     flags |= pygame.SCALED
+        # except AttributeError:
+        #     pass
 
         # Try to request vsync (Pygame 2.0+)
         self.screen: pygame.Surface
         try:
-            # The SCALED flag requires a non-zero logical size. If the settings
-            # provide a size of (0,0), it will crash. We provide a sensible
-            # fallback default size to prevent this.
-            w = settings.SCREEN_WIDTH if settings.SCREEN_WIDTH > 0 else 1280
-            h = settings.SCREEN_HEIGHT if settings.SCREEN_HEIGHT > 0 else 720
-            self.screen = pygame.display.set_mode((w, h), flags, vsync=1)  # type: ignore[call-arg]
+            # For true native fullscreen (least "zoomed-in"), we pass (0, 0).
+            # However, the SCALED flag is incompatible with (0,0) and requires a fixed size.
+            # This logic handles both cases.
+            size = (0, 0)
+            if flags & pygame.SCALED:
+                w = settings.SCREEN_WIDTH if settings.SCREEN_WIDTH > 0 else 1280
+                h = settings.SCREEN_HEIGHT if settings.SCREEN_HEIGHT > 0 else 720
+                size = (w, h)
+            self.screen = pygame.display.set_mode(size, flags, vsync=1)  # type: ignore[call-arg]
             self.vsync = True
         except TypeError:
             # Older pygame; fallback without vsync kwarg
-            w = settings.SCREEN_WIDTH if settings.SCREEN_WIDTH > 0 else 1280
-            h = settings.SCREEN_HEIGHT if settings.SCREEN_HEIGHT > 0 else 720
-            self.screen = pygame.display.set_mode((w, h), flags)
+            size = (0, 0)
+            if flags & pygame.SCALED:
+                w = settings.SCREEN_WIDTH if settings.SCREEN_WIDTH > 0 else 1280
+                h = settings.SCREEN_HEIGHT if settings.SCREEN_HEIGHT > 0 else 720
+                size = (w, h)
+            self.screen = pygame.display.set_mode(size, flags)
             self.vsync = False
 
         # Update global settings with the actual screen size (needed by modules that import settings)
