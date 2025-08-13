@@ -409,7 +409,7 @@ class Map:
     ) -> None:
         visible_area = self._calculate_visible_area(camera, offset)
 
-        self._draw_terrain(surface, camera, area=visible_area, offset=offset, hovered_tile=hovered_tile)
+        self._draw_terrain(surface, camera, area=visible_area, offset=offset)
 
         # Grid if zoomed in enough
         scaled_tile = self.tile_size * camera.zoom_state.current
@@ -438,8 +438,7 @@ class Map:
         camera: Camera,
         *,
         area: VisibleArea,
-        offset: pygame.math.Vector2,  # pylint: disable=c-extension-no-member
-        hovered_tile: Optional[Tuple[int, int]]
+        offset: pygame.math.Vector2  # pylint: disable=c-extension-no-member
     ) -> None:
         """Greedy meshing renderer for large solid rectangles."""
         rows = area.end_row - area.start_row
