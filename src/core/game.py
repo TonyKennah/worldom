@@ -47,24 +47,27 @@ class Game:
         pygame.init()
 
         # Prefer scaled/high-DPI rendering; enable vsync if available
-        flags = pygame.RESIZABLE
+        flags = pygame.FULLSCREEN
         try:
             flags |= pygame.SCALED  # crisp scaling on HiDPI monitors
-        except AttributeError:
-            pass
-        try:
-            flags |= pygame.MAXIMIZED
         except AttributeError:
             pass
 
         # Try to request vsync (Pygame 2.0+)
         self.screen: pygame.Surface
         try:
-            self.screen = pygame.display.set_mode((0, 0), flags, vsync=1)  # type: ignore[call-arg]
+            # The SCALED flag requires a non-zero logical size. If the settings
+            # provide a size of (0,0), it will crash. We provide a sensible
+            # fallback default size to prevent this.
+            w = settings.SCREEN_WIDTH if settings.SCREEN_WIDTH > 0 else 1280
+            h = settings.SCREEN_HEIGHT if settings.SCREEN_HEIGHT > 0 else 720
+            self.screen = pygame.display.set_mode((w, h), flags, vsync=1)  # type: ignore[call-arg]
             self.vsync = True
         except TypeError:
             # Older pygame; fallback without vsync kwarg
-            self.screen = pygame.display.set_mode((0, 0), flags)
+            w = settings.SCREEN_WIDTH if settings.SCREEN_WIDTH > 0 else 1280
+            h = settings.SCREEN_HEIGHT if settings.SCREEN_HEIGHT > 0 else 720
+            self.screen = pygame.display.set_mode((w, h), flags)
             self.vsync = False
 
         # Update global settings with the actual screen size (needed by modules that import settings)
@@ -109,11 +112,11 @@ class Game:
         """React to OS/window resize events."""
         # Pygame auto-resizes the display Surface; just refresh cached sizes and dependent systems.
         self._update_settings_from_window()
-        # Resize starfield and camera viewport
+        # Resize starfield and camera to match the new window dimensions.
         self.starfield.width = settings.SCREEN_WIDTH
         self.starfield.height = settings.SCREEN_HEIGHT
-        self.camera.viewport_w = settings.SCREEN_WIDTH
-        self.camera.viewport_h = settings.SCREEN_HEIGHT
+        self.camera.width = settings.SCREEN_WIDTH
+        self.camera.height = settings.SCREEN_HEIGHT
 
     # ---------------------
     # Splash / loading
