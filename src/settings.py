@@ -100,14 +100,22 @@ MIN_TILE_PIXELS_FOR_GRID = 4
 
 # --- Unit Settings ---
 UNIT_COLOR = (255, 0, 0)  # Red
-UNIT_SELECTED_COLOR = (255, 255, 255) # White
+# The color of the selection indicator for a unit. Set dynamically based on theme.
+UNIT_SELECTED_COLOR = (255, 255, 255)
 UNIT_RADIUS = TILE_SIZE // 3
 UNIT_MOVES_PER_SECOND = 3.0 # How many tiles the unit moves in one second.
 UNIT_INNER_CIRCLE_RATIO = 0.8 # For drawing the selected unit
 
 # --- UI Settings ---
-SELECTION_BOX_COLOR = (255, 255, 255)  # White
+# The color of the selection box. Set dynamically based on theme.
+SELECTION_BOX_COLOR = (255, 255, 255)
 SELECTION_BOX_BORDER_WIDTH = 1
+
+# --- Dynamic Color Settings ---
+# These are used by the game to choose selection colors based on the world theme.
+DEFAULT_SELECTION_COLOR = (255, 255, 0)    # Yellow, for most themes
+ALT_SELECTION_COLOR = (0, 0, 0)          # Black, for themes with bright terrain
+BRIGHT_TERRAIN_THRESHOLD = 220            # Avg RGB value to trigger alt color
 
 # Debug Panel
 DEBUG_PANEL_HEIGHT = 30

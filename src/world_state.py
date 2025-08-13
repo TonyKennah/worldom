@@ -23,6 +23,7 @@ class WorldState:
     # --- Player Selections & Actions ---
     selected_units: List[Unit] = field(default_factory=list)
     hovered_tile: Optional[Tuple[int, int]] = None
+    hovered_world_pos: Optional[pygame.math.Vector2] = None
     selection_box: Optional[pygame.Rect] = None
 
     # --- UI State ---

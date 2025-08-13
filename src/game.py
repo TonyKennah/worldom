@@ -158,6 +158,26 @@ class Game:
         settings.GLOBE_TERRAIN_COLORS = [data["globe_color"] for data in settings.TERRAIN_DATA.values()]
         print(f"Selected theme: {settings.ACTIVE_THEME['name']} ({settings.ACTIVE_THEME_NAME})")
 
+        # --- Determine selection color based on theme ---
+        # If any walkable terrain is very bright, use a high-contrast selection color
+        # to ensure visibility (e.g., on snow).
+        has_bright_walkable_terrain = False
+        for terrain_data in settings.TERRAIN_DATA.values():
+            if terrain_data["walkable"]:
+                r, g, b = terrain_data["color"]
+                brightness = (r + g + b) / 3
+                if brightness > settings.BRIGHT_TERRAIN_THRESHOLD:
+                    has_bright_walkable_terrain = True
+                    break
+
+        if has_bright_walkable_terrain:
+            print("Bright theme detected. Using high-contrast selection colors.")
+            settings.UNIT_SELECTED_COLOR = settings.ALT_SELECTION_COLOR
+            settings.SELECTION_BOX_COLOR = settings.ALT_SELECTION_COLOR
+        else:
+            settings.UNIT_SELECTED_COLOR = settings.DEFAULT_SELECTION_COLOR
+            settings.SELECTION_BOX_COLOR = settings.DEFAULT_SELECTION_COLOR
+
         map_seed = random.randint(0, 1_000_000)
         self.map = Map(settings.MAP_WIDTH_TILES, settings.MAP_HEIGHT_TILES, seed=map_seed)
         for progress in self.map.generate():
@@ -230,7 +250,7 @@ class Game:
     def draw(self) -> None:
         """Renders all game objects to the screen."""
         self.screen.fill(settings.BG_COLOR)
-        self.map.draw(self.screen, self.camera, self.world_state.hovered_tile)
+        self.map.draw(self.screen, self.camera, self.world_state.hovered_tile, self.world_state.hovered_world_pos)
 
         # Draw all units
         map_width_pixels = self.map.width * settings.TILE_SIZE
@@ -248,6 +268,7 @@ class Game:
         """Calculates which map tile is currently under the mouse cursor."""
         mouse_pos = pygame.mouse.get_pos()
         world_pos = self.camera.screen_to_world(mouse_pos)
+        self.world_state.hovered_world_pos = world_pos
 
         map_width_pixels = self.map.width * self.map.tile_size
         map_height_pixels = self.map.height * self.map.tile_size

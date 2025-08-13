@@ -252,17 +252,20 @@ class Map:
         self,
         surface: pygame.Surface,
         camera: Camera,
-        hovered_tile: Optional[Tuple[int, int]] = None
+        hovered_tile: Optional[Tuple[int, int]] = None,
+        hovered_world_pos: Optional[pygame.math.Vector2] = None
     ) -> None:
         """Renders the map, handling toroidal wrapping by drawing multiple copies."""
         map_width_pixels = self.width * self.tile_size
         map_height_pixels = self.height * self.tile_size
 
-        # Draw the map multiple times to create a seamless wrap-around effect
+        # Draw map instances that are potentially visible to create a wrap-around effect
         for dx in [-map_width_pixels, 0, map_width_pixels]:
             for dy in [-map_height_pixels, 0, map_height_pixels]:
-                offset = pygame.math.Vector2(dx, dy)
-                self._draw_single_map_instance(surface, camera, hovered_tile, offset)
+                instance_rect = pygame.Rect(dx, dy, map_width_pixels, map_height_pixels)
+                if camera.is_world_rect_visible(instance_rect, margin=self.tile_size):
+                    offset = pygame.math.Vector2(dx, dy)
+                    self._draw_single_map_instance(surface, camera, hovered_tile, offset)
 
     def _draw_single_map_instance(
         self,
@@ -379,8 +382,7 @@ class Map:
                     world_y = y * self.tile_size + offset.y
                     world_rect = pygame.Rect(world_x, world_y, self.tile_size, self.tile_size)
                     screen_rect = camera.apply(world_rect)
-                    pygame.draw.rect(surface, settings.HIGHLIGHT_COLOR, screen_rect, 3)
-                    return # Draw only one highlight per map instance
+                    pygame.draw.rect(surface, settings.HIGHLIGHT_COLOR, screen_rect, 2)
 
 
 
