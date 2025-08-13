@@ -354,15 +354,9 @@ class Map:
         if hovered_tile is None and hovered_world_pos is not None:
             hovered_tile = self.world_to_tile(hovered_world_pos)
 
-        map_w_px = self.width * self.tile_size
-        map_h_px = self.height * self.tile_size
-
-        # Draw potentially visible wrapped instances (center + 8 neighbors)
-        for dx in (-map_w_px, 0, map_w_px):
-            for dy in (-map_h_px, 0, map_h_px):
-                instance_rect = pygame.Rect(dx, dy, map_w_px, map_h_px)
-
         # --- Level of Detail (LOD) ---
+        map_width_pixels = self.width * self.tile_size
+        map_height_pixels = self.height * self.tile_size
         # If zoomed out far enough, draw the pre-rendered map image for performance.
         if self.lod_surface and camera.zoom < settings.MAP_LOD_ZOOM_THRESHOLD:
             for dx in [-map_width_pixels, 0, map_width_pixels]:
