@@ -341,7 +341,7 @@ class Camera:
 
         # Movement inputs
         move_keyboard = self._keyboard_move_vector()
-        move_edge = self._edge_scroll_vector(events)
+        move_edge = self._edge_scroll_vector(edge_scroll_exclusion_zone)
 
         # Mouse drag panning modifies position directly (not affected by inertia)
         self._handle_drag(events)
@@ -415,7 +415,7 @@ class Camera:
             v.x += 1
         return v
 
-    def _edge_scroll_vector(self, events: Sequence[pygame.event.Event]) -> pygame.Vector2:
+    def _edge_scroll_vector(self, exclusion_zone: Optional[pygame.Rect] = None) -> pygame.Vector2:
         """
         Edge-scroll vector (unscaled).
         Gated off while dragging or while a mouse button is held (to avoid fighting with selection/drag).
