@@ -5,6 +5,7 @@ Defines the main Game class that orchestrates all game components.
 from __future__ import annotations
 import os
 import random
+import threading
 import sys
 from typing import List, Optional, Tuple
 
@@ -20,6 +21,7 @@ from src.core.debug_panel import DebugPanel
 from src.ui.input_handler import InputHandler
 from src.ui.selection_manager import SelectionManager
 from src.ui.ui_manager import UIManager
+from src.ui.starfield import Starfield
 
 # --- Game Class ---
 class Game:
@@ -53,6 +55,7 @@ class Game:
         self.clock = pygame.time.Clock()
         self.running: bool = True
         self.globe_frames: List[pygame.Surface] = []
+        self.starfield = Starfield(settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT, num_stars=800, speed_factor=750.0)
 
         # --- Initialize Game Components ---
         self.camera = Camera(settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT)
@@ -66,9 +69,11 @@ class Game:
 
     def _draw_splash_screen(self, message: str, progress: Optional[float] = None) -> None:
         """
-        Displays a loading screen with a message and an optional progress bar.
+        Draws a loading screen. Animation updates should happen before calling this.
         """
-        self.screen.fill(settings.DEBUG_PANEL_BG_COLOR)
+        # A dark blue/purple background for space
+        self.screen.fill((5, 0, 15))
+        self.starfield.draw(self.screen)
 
         font = pygame.font.SysFont("Arial", 48)
         text_surface = font.render(message, True, settings.DEBUG_PANEL_FONT_COLOR)
@@ -85,8 +90,6 @@ class Game:
             # Draw the progress fill
             fill_width = bar_width * progress
             pygame.draw.rect(self.screen, (100, 200, 100), (bar_x, bar_y, fill_width, bar_height))
-
-        pygame.display.flip()
 
     def run(self) -> None:
         """The main game loop."""
@@ -109,7 +112,33 @@ class Game:
         """
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                self.run() # This will trigger the exit sequence
+                self.running = False
+                pygame.quit()
+                sys.exit()
+
+    def _run_loading_loop(self, target_func, message: str) -> None:
+        """
+        Runs a smooth animation loop on the main thread while a worker
+        thread performs a long-running task.
+        """
+        progress_state = {'progress': 0.0}
+        worker_thread = threading.Thread(target=target_func, args=(progress_state,))
+        worker_thread.start()
+
+        # Main thread's rendering loop
+        while worker_thread.is_alive():
+            dt = self.clock.tick(settings.FPS) / 1000.0
+            self._pump_events_during_load()
+
+            self.starfield.update(dt)  # Update animation with real delta time
+            self._draw_splash_screen(message, progress=progress_state['progress'])
+            pygame.display.flip()
+
+        worker_thread.join()  # Ensure thread is finished before continuing
+
+        # Draw one final time at 100% to ensure the bar is full
+        self._draw_splash_screen(message, progress=1.0)
+        pygame.display.flip()
 
     def _load_globe_frames(self) -> None:
         """Loads the pre-rendered globe animation frames from disk."""
@@ -185,18 +214,25 @@ class Game:
 
         map_seed = random.randint(0, 1_000_000)
         self.map = Map(settings.MAP_WIDTH_TILES, settings.MAP_HEIGHT_TILES, seed=map_seed)
-        for progress in self.map.generate():
-            self._pump_events_during_load()
-            self._draw_splash_screen(message="Interstellar Travel", progress=progress)
+
+        # --- Worker function for map generation ---
+        def map_generation_worker(progress_state: dict[str, float]) -> None:
+            for progress in self.map.generate():
+                progress_state['progress'] = progress
+
+        self._run_loading_loop(map_generation_worker, "Interstellar Travel")
 
         self.world_state = WorldState()
         initial_unit = self._spawn_initial_units()
         if initial_unit:
             self.camera.position = initial_unit.world_pos.copy()
 
-        for progress in globe_renderer.render_map_as_globe(self.map.data, map_seed):
-            self._pump_events_during_load()
-            self._draw_splash_screen(message="Sourcing Planet", progress=progress)
+        # --- Worker function for globe rendering ---
+        def globe_rendering_worker(progress_state: dict[str, float]) -> None:
+            for progress in globe_renderer.render_map_as_globe(self.map.data, map_seed):
+                progress_state['progress'] = progress
+
+        self._run_loading_loop(globe_rendering_worker, "Sourcing Planet")
         self._load_globe_frames()
 
         # Show the globe popup immediately upon starting a new world
