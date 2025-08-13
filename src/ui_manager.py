@@ -378,7 +378,7 @@ class UIManager:
         for i, option_data in enumerate(context_menu.options):
             option_text = option_data["label"]
             text_surface = context_menu.font.render(option_text, True, (0, 0, 0))
-            width = text_surface.get_width() + padding * 2
+            width = item_width
             height = text_surface.get_height() + padding
             rect = pygame.Rect(x, y + i * height, width, height)
             context_menu.rects.append(rect)
