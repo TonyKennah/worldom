@@ -253,6 +253,7 @@ class Camera:
         map_width_pixels: int,
         map_height_pixels: int,
         follow_target: Optional[pygame.Vector2] = None,
+        edge_scroll_exclusion_zone: Optional[pygame.Rect] = None,
     ) -> None:
         """
         Update camera each frame:
@@ -268,7 +269,7 @@ class Camera:
 
         # Movement inputs
         move_keyboard = self._keyboard_move_vector()
-        move_edge = self._edge_scroll_vector()
+        move_edge = self._edge_scroll_vector(edge_scroll_exclusion_zone)
 
         # Mouse drag panning modifies position directly (it's not affected by inertia)
         self._handle_drag(events, dt)
@@ -324,13 +325,19 @@ class Camera:
             v.x += 1
         return v
 
-    def _edge_scroll_vector(self) -> pygame.Vector2:
+    def _edge_scroll_vector(self, exclusion_zone: Optional[pygame.Rect] = None) -> pygame.Vector2:
         """Edge-scroll vector (unscaled)."""
         if not pygame.mouse.get_focused():
             return pygame.Vector2(0, 0)
 
         mx, my = pygame.mouse.get_pos()
+        mouse_pos = (mx, my)
         v = pygame.Vector2(0, 0)
+
+        # If the mouse is inside a defined exclusion zone (like over UI buttons),
+        # disable edge scrolling to prevent accidental camera movement.
+        if exclusion_zone and exclusion_zone.collidepoint(mouse_pos):
+            return v
 
         # Horizontal (outside debug panel height)
         if my >= DEBUG_PANEL_HEIGHT:

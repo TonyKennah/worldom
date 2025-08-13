@@ -199,9 +199,22 @@ class Game:
 
     def update(self, dt: float, events: List[pygame.event.Event]) -> None:
         """Updates the state of all game objects."""
+        # Define an exclusion zone for edge scrolling based on debug panel links
+        exclusion_zone = None
+        if self.debug_panel.show_globe_link_rect and self.debug_panel.exit_link_rect:
+            # Add extra space to the left of the links to create a larger buffer
+            # where edge scrolling is disabled, making the links easier to click.
+            padding = 50
+            left = self.debug_panel.show_globe_link_rect.left - padding
+            right = self.debug_panel.exit_link_rect.right
+            # The height should cover the debug panel AND the edge scroll boundary below it.
+            # This prevents upward scrolling when the mouse is just under the UI links.
+            height = settings.DEBUG_PANEL_HEIGHT + settings.EDGE_SCROLL_BOUNDARY
+            exclusion_zone = pygame.Rect(left, 0, right - left, height)
+
         map_width_pixels = self.map.width * settings.TILE_SIZE
         map_height_pixels = self.map.height * settings.TILE_SIZE
-        self.camera.update(dt, events, map_width_pixels, map_height_pixels)
+        self.camera.update(dt, events, map_width_pixels, map_height_pixels, edge_scroll_exclusion_zone=exclusion_zone)
 
         # Update all units
         for unit in self.world_state.units:
