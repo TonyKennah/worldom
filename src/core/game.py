@@ -169,13 +169,26 @@ class Game:
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 progress_state['cancel'] = True
 
-    def _run_loading_loop(self, target_func, message: str) -> None:
+    def _run_loading_loop(
+        self,
+        target_func,
+        message: str,
+        start_speed: Optional[float] = None,
+        end_speed: Optional[float] = None,
+        transition_start_progress: float = 0.0,
+        transition_duration: float = 1.0,
+    ) -> None:
         """
         Runs a smooth animation loop on the main thread while a worker
-        thread performs a long-running task. Captures worker exceptions.
+        thread performs a long-running task. Captures worker exceptions and
+        can smoothly transition the starfield speed.
         """
         progress_state: Dict[str, Any] = {'progress': 0.0, 'cancel': False, 'error': None}
         exception_info: Dict[str, Any] = {}
+
+        # Set initial speed if provided for the transition
+        if start_speed is not None:
+            self.starfield.speed_factor = start_speed
 
         # Wrap the target so we can capture exceptions in the worker thread
         def worker_wrapper():
@@ -196,9 +209,25 @@ class Game:
             if progress_state.get('cancel'):
                 break
 
-            # Smooth progress easing
+            # Use raw progress for calculations, smoothed progress for the visual bar
             raw = float(progress_state.get('progress', 0.0))
             displayed = 0.9 * displayed + 0.1 * raw
+
+            # If a speed transition is requested, interpolate the speed based on raw progress.
+            if start_speed is not None and end_speed is not None:
+                clamped_raw = max(0.0, min(1.0, raw))
+
+                # Calculate progress relative to the transition's start point
+                relative_progress = max(0.0, clamped_raw - transition_start_progress)
+
+                # Calculate the progress of the transition itself, over its specified duration.
+                # This value goes from 0.0 to 1.0 as the transition completes.
+                if transition_duration <= 0:
+                    transition_progress = 1.0 if clamped_raw >= transition_start_progress else 0.0
+                else:
+                    transition_progress = min(1.0, relative_progress / transition_duration)
+
+                self.starfield.speed_factor = start_speed + (end_speed - start_speed) * transition_progress
 
             self.starfield.update(dt)  # Update animation with real delta time
             self._draw_splash_screen(message, progress=displayed)
@@ -219,6 +248,10 @@ class Game:
             if 'exc_info' in exception_info:
                 traceback.print_exception(*exception_info['exc_info'])
             raise RuntimeError("Loading failed; see traceback above.")
+
+        # Ensure final speed is set correctly after the loop
+        if end_speed is not None:
+            self.starfield.speed_factor = end_speed
 
         # Draw one final time at 100% to ensure the bar is full
         self._draw_splash_screen(message, progress=1.0)
@@ -317,7 +350,25 @@ class Game:
                     return
                 progress_state['progress'] = progress
 
-        self._run_loading_loop(map_generation_worker, "Interstellar Travel")
+        # Define speeds for the loading sequence narrative
+        hyper_speed = 2500.0
+        normal_speed = 750.0
+
+        # The total slowdown happens over the last 0.2 of the first bar and the first 0.4 of the second.
+        # We need to find the speed at the end of the first bar to serve as the intermediate point.
+        # Total transition "distance" in terms of progress is 0.2 + 0.4 = 0.6
+        # The first bar covers 0.2 / 0.6 = 1/3 of the total speed change.
+        speed_delta = hyper_speed - normal_speed
+        intermediate_speed = hyper_speed - (speed_delta * (1.0 / 3.0))
+
+        # Stage 1: Intergalactic travel. Constant high speed, then decelerates in the last 20%.
+        self._run_loading_loop(
+            map_generation_worker,
+            "Intergalactic travel",
+            start_speed=hyper_speed,
+            end_speed=intermediate_speed,
+            transition_start_progress=0.8,
+            transition_duration=0.2)
 
         self.world_state = WorldState()
         initial_unit = self._spawn_initial_units()
@@ -331,7 +382,14 @@ class Game:
                     return
                 progress_state['progress'] = progress
 
-        self._run_loading_loop(globe_rendering_worker, "Sourcing Planet")
+        # Stage 2: Interstellar travel. Continues decelerating for the first 40%, then constant speed.
+        self._run_loading_loop(
+            globe_rendering_worker,
+            "Interstellar travel",
+            start_speed=intermediate_speed,
+            end_speed=normal_speed,
+            transition_start_progress=0.0,
+            transition_duration=0.4)
         self._load_globe_frames()
 
         # Show the globe popup immediately upon starting a new world
