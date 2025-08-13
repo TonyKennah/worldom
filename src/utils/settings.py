@@ -95,6 +95,7 @@ MAP_WIDTH_TILES = 100
 MAP_HEIGHT_TILES = 100
 
 GRID_LINE_COLOR = (40, 40, 40)
+MAP_LOD_ZOOM_THRESHOLD = 0.2  # Below this zoom level, use a pre-rendered map image
 HIGHLIGHT_COLOR = (255, 255, 0)  # Yellow
 MIN_TILE_PIXELS_FOR_GRID = 4
 

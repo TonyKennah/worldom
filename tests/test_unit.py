@@ -12,8 +12,8 @@ import pygame
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 # pylint: disable=wrong-import-position
-from settings import TILE_SIZE
-from unit import Unit
+from src.utils.settings import TILE_SIZE
+from src.entities.unit import Unit
 
 class TestUnit(unittest.TestCase):
     """Test suite for the Unit class."""
