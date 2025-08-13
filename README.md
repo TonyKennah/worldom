@@ -53,6 +53,8 @@ Make sure you have Python 3 installed on your system.
 ## Suggested Commands
 - **Run the game:** `python main.py`
 - **Install dependencies:** `pip install -r requirements.txt`
+- **Run all tests:** `python -m unittest discover -v tests`
+- **Run a specific test file:** `python -m unittest -v tests/test_unit.py`
 - **Linting:** `pylint --extension-pkg-allow-list=pygame $(git ls-files '*.py')` (Note: This command is from the GitHub Actions workflow and might need to be adapted for local use, especially on Windows, e.g., by replacing `$(git ls-files '*.py')` with a list of Python files).
 
 ## Task Completion

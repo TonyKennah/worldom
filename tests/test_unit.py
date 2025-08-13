@@ -18,6 +18,11 @@ from unit import Unit
 class TestUnit(unittest.TestCase):
     """Test suite for the Unit class."""
 
+    @classmethod
+    def setUpClass(cls):
+        """Initialize Pygame once for all tests in this class."""
+        pygame.init()
+
     def test_unit_initialization(self):
         """Tests that a unit is initialized with the correct default state."""
         tile_pos = (10, 20)
