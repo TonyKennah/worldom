@@ -44,6 +44,11 @@ class Game:
         settings.SCREEN_WIDTH = self.screen.get_width()
         settings.SCREEN_HEIGHT = self.screen.get_height()
 
+        # --- WARM UP LIBRARIES ---
+        # This call triggers the one-time, slow setup of matplotlib/cartopy.
+        globe_renderer.warm_up_rendering_libraries()
+        # --- END WARM UP ---
+
         pygame.display.set_caption("WorldDom")
         self.clock = pygame.time.Clock()
         self.running: bool = True
@@ -182,7 +187,7 @@ class Game:
         self.map = Map(settings.MAP_WIDTH_TILES, settings.MAP_HEIGHT_TILES, seed=map_seed)
         for progress in self.map.generate():
             self._pump_events_during_load()
-            self._draw_splash_screen(message="Travelling to new Galaxy", progress=progress)
+            self._draw_splash_screen(message="Interstellar Travel", progress=progress)
 
         self.world_state = WorldState()
         initial_unit = self._spawn_initial_units()
@@ -191,7 +196,7 @@ class Game:
 
         for progress in globe_renderer.render_map_as_globe(self.map.data, map_seed):
             self._pump_events_during_load()
-            self._draw_splash_screen(message="Finding new Homeworld", progress=progress)
+            self._draw_splash_screen(message="Sourcing Planet", progress=progress)
         self._load_globe_frames()
 
         # Show the globe popup immediately upon starting a new world

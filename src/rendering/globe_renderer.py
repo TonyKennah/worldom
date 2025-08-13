@@ -13,6 +13,29 @@ from matplotlib.colors import ListedColormap
 
 import src.utils.settings as settings
 
+def warm_up_rendering_libraries() -> None:
+    """
+    Performs a trivial rendering operation to trigger the one-time
+    initialization cost of matplotlib and cartopy. This avoids a long
+    pause during the first real globe generation.
+    """
+    print("Warming up rendering libraries...")
+    try:
+        # Set a non-GUI backend to be safe. This must be done before
+        # importing pyplot for the first time in some environments.
+        plt.switch_backend('Agg')
+
+        # Create a tiny, temporary figure and axis.
+        fig = plt.figure(figsize=(0.1, 0.1), dpi=10)
+        ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
+        ax.set_global()  # A simple cartopy operation.
+
+        # Immediately close it to free memory.
+        plt.close(fig)
+        print("Rendering libraries are warm.")
+    except Exception as e:
+        # If this fails, it's not critical, but we should log it.
+        print(f"Warning: Failed to warm up rendering libraries: {e}")
 
 def render_map_as_globe(map_data: List[List[str]], map_seed: int) -> Generator[float, None, None]:
     """
