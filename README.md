@@ -7,7 +7,7 @@
 A 2D strategy game prototype created with Python and Pygame, featuring procedural world generation and tile-based unit movement.
 
 ## Project Purpose
-The project is a 2D strategy game prototype named "Worldom," built with Python and Pygame. It features procedural world generation using Perlin noise, a dynamic camera with zoom and pan, a tile-based map, A* pathfinding for unit movement, and basic unit selection and control.
+The project is a 2D strategy game named "World Dom," built with Python and Pygame. It features procedural world generation using Perlin noise, a dynamic camera with zoom and pan, a tile-based map, A* pathfinding for unit movement, and basic unit selection and control.  There are multiple world types from Earth like environments to frozen wastelands, hot lava worlds and hostile surroundings.
 
 ## Features
 
