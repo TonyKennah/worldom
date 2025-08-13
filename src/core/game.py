@@ -182,7 +182,7 @@ class Game:
         self.map = Map(settings.MAP_WIDTH_TILES, settings.MAP_HEIGHT_TILES, seed=map_seed)
         for progress in self.map.generate():
             self._pump_events_during_load()
-            self._draw_splash_screen(message="1/2 Generating 2D Map", progress=progress)
+            self._draw_splash_screen(message="Travelling to new Galaxy", progress=progress)
 
         self.world_state = WorldState()
         initial_unit = self._spawn_initial_units()
@@ -191,8 +191,11 @@ class Game:
 
         for progress in globe_renderer.render_map_as_globe(self.map.data, map_seed):
             self._pump_events_during_load()
-            self._draw_splash_screen(message="2/2 Generating Globe", progress=progress)
+            self._draw_splash_screen(message="Finding new Homeworld", progress=progress)
         self._load_globe_frames()
+
+        # Show the globe popup immediately upon starting a new world
+        self.ui_manager.show_globe_popup = True
 
     def regenerate_map(self) -> None:
         """Regenerates the map and resets the world state."""

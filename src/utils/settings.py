@@ -30,8 +30,8 @@ PLANET_THEMES = {
         "terrains": {
             "ocean": {"name": "Methane Sea", "color": (104, 60, 144), "globe_color": "#683c90", "walkable": False},
             "lake": {"name": "Tar Pit", "color": (40, 40, 40), "globe_color": "#282828", "walkable": False},
-            "grass": {"name": "Crystalline Plains", "color": (200, 200, 220), "globe_color": "#c8c8dc", "walkable": True},
-            "rock": {"name": "Obsidian Spires", "color": (20, 20, 30), "globe_color": "#14141e", "walkable": True},
+            "grass": {"name": "Crystalline Plains", "color": (200, 200, 220), "globe_color": "#c1c1da", "walkable": True},
+            "rock": {"name": "Obsidian Spires", "color": (45, 53, 4), "globe_color": "#2d3504", "walkable": True},
         }
     },
     "phoebe": {
