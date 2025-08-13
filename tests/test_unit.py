@@ -8,12 +8,13 @@ import unittest
 
 import pygame
 
-# This adds the 'src' directory to Python's path to allow for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+# This adds the project's root directory to Python's path.
+# This allows for absolute imports from 'src' to work consistently.
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 # pylint: disable=wrong-import-position
-from settings import TILE_SIZE
-from unit import Unit
+from src.utils.settings import TILE_SIZE
+from src.entities.unit import Unit
 
 class TestUnit(unittest.TestCase):
     """Test suite for the Unit class."""

@@ -122,8 +122,9 @@ class Map:
 
         # populated by generate()
         self.data: List[List[str]] = []
+        self.data: List[List[str]] = [] # Will be populated by the generate() method
+        self.lod_surface: Optional[pygame.Surface] = None
 
-    # --- Noise helpers -------------------------------------------------------
 
     def _fractal_noise(  # pylint: disable=too-many-arguments
         self,
@@ -225,6 +226,22 @@ class Map:
         yield 0.85
         self._fill_large_lakes(self.data)
         yield 1.0
+        self._create_lod_surface()
+
+    def _create_lod_surface(self) -> None:
+        """Creates a pre-rendered surface of the entire map for high-performance drawing when zoomed out."""
+        if self.width <= 0 or self.height <= 0:
+            self.lod_surface = None
+            return
+
+        map_width_pixels = self.width * self.tile_size
+        map_height_pixels = self.height * self.tile_size
+        self.lod_surface = pygame.Surface((map_width_pixels, map_height_pixels))
+        for y, row in enumerate(self.data):
+            for x, terrain_key in enumerate(row):
+                color = settings.TERRAIN_COLORS.get(terrain_key, (0, 0, 0))
+                rect = pygame.Rect(x * self.tile_size, y * self.tile_size, self.tile_size, self.tile_size)
+                pygame.draw.rect(self.lod_surface, color, rect)
 
     # --- Post processing (flood-fills) --------------------------------------
 
@@ -344,6 +361,38 @@ class Map:
         for dx in (-map_w_px, 0, map_w_px):
             for dy in (-map_h_px, 0, map_h_px):
                 instance_rect = pygame.Rect(dx, dy, map_w_px, map_h_px)
+
+        # --- Level of Detail (LOD) ---
+        # If zoomed out far enough, draw the pre-rendered map image for performance.
+        if self.lod_surface and camera.zoom < settings.MAP_LOD_ZOOM_THRESHOLD:
+            for dx in [-map_width_pixels, 0, map_width_pixels]:
+                for dy in [-map_height_pixels, 0, map_height_pixels]:
+                    instance_rect = pygame.Rect(dx, dy, map_width_pixels, map_height_pixels)
+                    if camera.is_world_rect_visible(instance_rect):
+                        screen_rect = camera.apply(instance_rect)
+                        # Scale the pre-rendered LOD surface and blit it to the screen.
+                        scaled_lod_surface = pygame.transform.scale(self.lod_surface, screen_rect.size)
+                        surface.blit(scaled_lod_surface, screen_rect)
+
+            # Draw hover highlight on top of all LOD instances
+            if hovered_tile:
+                for dx in [-map_width_pixels, 0, map_width_pixels]:
+                    for dy in [-map_height_pixels, 0, map_height_pixels]:
+                        # Calculate the world position of the hovered tile for this specific map instance
+                        tile_world_x = hovered_tile[0] * self.tile_size + dx
+                        tile_world_y = hovered_tile[1] * self.tile_size + dy
+                        world_rect = pygame.Rect(tile_world_x, tile_world_y, self.tile_size, self.tile_size)
+
+                        # We only need to draw it if this specific tile is on screen
+                        if camera.is_world_rect_visible(world_rect):
+                            screen_rect = camera.apply(world_rect)
+                            pygame.draw.rect(surface, settings.HIGHLIGHT_COLOR, screen_rect, 2)
+            return # We're done drawing the map for this frame
+
+        # --- High-Detail Drawing (Greedy Meshing) ---
+        for dx in [-map_width_pixels, 0, map_width_pixels]:
+            for dy in [-map_height_pixels, 0, map_height_pixels]:
+                instance_rect = pygame.Rect(dx, dy, map_width_pixels, map_height_pixels)
                 if camera.is_world_rect_visible(instance_rect, margin=self.tile_size):
                     offset = pygame.math.Vector2(dx, dy)
                     self._draw_single_map_instance(surface, camera, hovered_tile, offset)
