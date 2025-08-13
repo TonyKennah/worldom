@@ -40,7 +40,25 @@ PLANET_THEMES = {
             "grass": {"name": "Sand", "color": (168,166,19), "globe_color": "#a8a613", "walkable": True},
             "rock": {"name": "Ammonia Lake", "color": (147,147,192), "globe_color": "#9393c0", "walkable": True},
         }
-    }
+    },
+    "vulcan": {
+        "name": "Vulcan",
+        "terrains": {
+            "ocean": {"name": "Lava Sea", "color": (139, 28, 16), "globe_color": "#8B1C10", "walkable": False},
+            "lake": {"name": "Magma Flow", "color": (255, 100, 0), "globe_color": "#FF6400", "walkable": False},
+            "grass": {"name": "Ash Fields", "color": (80, 80, 80), "globe_color": "#505050", "walkable": True},
+            "rock": {"name": "Basalt Columns", "color": (40, 40, 50), "globe_color": "#282832", "walkable": True},
+        }
+    },
+    "hoth": {
+        "name": "Hoth",
+        "terrains": {
+            "ocean": {"name": "Subglacial Ocean", "color": (20, 40, 80), "globe_color": "#142850", "walkable": False},
+            "lake": {"name": "Brine Pool", "color": (170, 220, 220), "globe_color": "#AADCDC", "walkable": False},
+            "grass": {"name": "Snow Plains", "color": (240, 240, 255), "globe_color": "#F0F0FF", "walkable": True},
+            "rock": {"name": "Glacial Ice", "color": (180, 200, 240), "globe_color": "#B4C8F0", "walkable": True},
+        }
+    },
 }
 
 # --- Active Theme Selection ---

@@ -98,19 +98,33 @@ class UIManager:
 
         # --- Terrain Breakdown ---
         percentages = self.game.map.get_terrain_percentages()
-        breakdown_surfaces = []
+        breakdown_items = []
+        max_text_width = 0
         if percentages:
-            # Sort by percentage (desc) and filter out empty ones
+            # First pass: create surfaces and find max text width for alignment
             sorted_terrain = sorted(percentages.items(), key=lambda item: item[1], reverse=True)
             for terrain, pct in sorted_terrain:
                 if pct > 0:
-                    terrain_name = settings.TERRAIN_DATA.get(terrain, {}).get("name", terrain.capitalize())
-                    text = f"{terrain_name}: {pct:.1f}%"
-                    surface = self.breakdown_font.render(text, True, settings.DEBUG_PANEL_FONT_COLOR)
-                    breakdown_surfaces.append(surface)
+                    terrain_data = settings.TERRAIN_DATA.get(terrain, {})
+                    terrain_name = terrain_data.get("name", terrain.capitalize())
+                    terrain_color = terrain_data.get("color", (128, 128, 128))  # Default grey
 
-        breakdown_height = sum(s.get_height() for s in breakdown_surfaces)
-        breakdown_width = max(s.get_width() for s in breakdown_surfaces) if breakdown_surfaces else 0
+                    text = f"{terrain_name}: {pct:.1f}%"
+                    text_surface = self.breakdown_font.render(text, True, settings.DEBUG_PANEL_FONT_COLOR)
+                    max_text_width = max(max_text_width, text_surface.get_width())
+
+                    swatch_size = text_surface.get_height()
+                    swatch_surface = pygame.Surface((swatch_size, swatch_size))
+                    swatch_surface.fill(terrain_color)
+                    breakdown_items.append((swatch_surface, text_surface))
+
+        breakdown_height = 0
+        breakdown_width = 0
+        if breakdown_items:
+            spacing = 8
+            swatch_size = breakdown_items[0][0].get_height()
+            breakdown_height = sum(item[0].get_height() for item in breakdown_items)
+            breakdown_width = swatch_size + spacing + max_text_width
 
         # --- Speed Controls ---
         speed_down_surface = self.speed_control_font.render(" << ", True, settings.DEBUG_PANEL_FONT_COLOR)
@@ -139,7 +153,7 @@ class UIManager:
         content_width = max(title_rect.width, frame_rect.width, breakdown_width)
         popup_width = content_width + padding
         popup_height = title_rect.height + title_spacing + frame_rect.height + padding
-        if breakdown_surfaces:
+        if breakdown_items:
             popup_height += breakdown_spacing + breakdown_height
         popup_height += speed_control_spacing + speed_controls_height
 
@@ -163,12 +177,23 @@ class UIManager:
 
         # Breakdown
         last_y = frame_rect.bottom
-        if breakdown_surfaces:
+        if breakdown_items:
             current_y = frame_rect.bottom + breakdown_spacing
-            for surface in breakdown_surfaces:
-                breakdown_rect = surface.get_rect(centerx=popup_rect.centerx, top=current_y)
-                self.screen.blit(surface, breakdown_rect)
-                current_y += surface.get_height()
+            spacing = 8
+            swatch_size = breakdown_items[0][0].get_height()
+
+            # Calculate the starting X to center the whole breakdown block
+            total_width = swatch_size + spacing + max_text_width
+            start_x = popup_rect.centerx - (total_width / 2)
+
+            for swatch_surface, text_surface in breakdown_items:
+                # Draw swatch, aligned to the left of the block
+                swatch_rect = swatch_surface.get_rect(left=start_x, top=current_y)
+                self.screen.blit(swatch_surface, swatch_rect)
+                # Draw text, to the right of the swatch
+                text_rect = text_surface.get_rect(left=swatch_rect.right + spacing, centery=swatch_rect.centery)
+                self.screen.blit(text_surface, text_rect)
+                current_y += swatch_surface.get_height()
             last_y = current_y
         
         # Speed Controls
