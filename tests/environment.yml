@@ -1,11 +1,12 @@
-name: environment-name
+name: worldom
 channels:
-  - anaconda
   - conda-forge
   - defaults
 dependencies:
-  - python=3.9.*
-  - pip
+  - python=3.9.*          # keep your original pin, widely compatible with pygame 2.6
+  - pip>=23
+  - numpy>=1.24           # common numeric helper; many pygame examples benefit
+  - pillow>=10            # image loading/saving if you add assets later
   - pip:
-    - pygame==2.6.*
-    - noise==1.2.*
+      - pygame==2.6.*     # SDL2 wheels included; cross-platform friendly
+      - noise==1.2.*      # Perlin/simplex noise (terrain, weather, etc.)
