@@ -354,38 +354,47 @@ class Map:
         if hovered_tile is None and hovered_world_pos is not None:
             hovered_tile = self.world_to_tile(hovered_world_pos)
 
-        # --- Level of Detail (LOD) ---
         map_width_pixels = self.width * self.tile_size
         map_height_pixels = self.height * self.tile_size
+
+        if map_width_pixels <= 0 or map_height_pixels <= 0:
+            return
+
+        # --- Calculate required map instances to fill the screen ---
+        visible_world_rect = camera.get_visible_world_rect()
+        start_instance_x = math.floor(visible_world_rect.left / map_width_pixels)
+        end_instance_x = math.floor(visible_world_rect.right / map_width_pixels)
+        start_instance_y = math.floor(visible_world_rect.top / map_height_pixels)
+        end_instance_y = math.floor(visible_world_rect.bottom / map_height_pixels)
+
+        # --- Level of Detail (LOD) ---
         # If zoomed out far enough, draw the pre-rendered map image for performance.
         if self.lod_surface and camera.zoom < settings.MAP_LOD_ZOOM_THRESHOLD:
-            for dx in [-map_width_pixels, 0, map_width_pixels]:
-                for dy in [-map_height_pixels, 0, map_height_pixels]:
+            for iy in range(start_instance_y, end_instance_y + 1):
+                for ix in range(start_instance_x, end_instance_x + 1):
+                    dx, dy = ix * map_width_pixels, iy * map_height_pixels
                     instance_rect = pygame.Rect(dx, dy, map_width_pixels, map_height_pixels)
-                    if camera.is_world_rect_visible(instance_rect):
-                        screen_rect = camera.apply(instance_rect)
-                        # Scale the pre-rendered LOD surface and blit it to the screen.
-                        scaled_lod_surface = pygame.transform.scale(self.lod_surface, screen_rect.size)
-                        surface.blit(scaled_lod_surface, screen_rect)
+                    screen_rect = camera.apply(instance_rect)
+                    scaled_lod_surface = pygame.transform.scale(self.lod_surface, screen_rect.size)
+                    surface.blit(scaled_lod_surface, screen_rect)
 
             # Draw hover highlight on top of all LOD instances
             if hovered_tile:
-                for dx in [-map_width_pixels, 0, map_width_pixels]:
-                    for dy in [-map_height_pixels, 0, map_height_pixels]:
+                for iy in range(start_instance_y, end_instance_y + 1):
+                    for ix in range(start_instance_x, end_instance_x + 1):
+                        dx, dy = ix * map_width_pixels, iy * map_height_pixels
                         # Calculate the world position of the hovered tile for this specific map instance
                         tile_world_x = hovered_tile[0] * self.tile_size + dx
                         tile_world_y = hovered_tile[1] * self.tile_size + dy
                         world_rect = pygame.Rect(tile_world_x, tile_world_y, self.tile_size, self.tile_size)
-
-                        # We only need to draw it if this specific tile is on screen
-                        if camera.is_world_rect_visible(world_rect):
-                            screen_rect = camera.apply(world_rect)
-                            pygame.draw.rect(surface, settings.HIGHLIGHT_COLOR, screen_rect, 2)
+                        screen_rect = camera.apply(world_rect)
+                        pygame.draw.rect(surface, settings.HIGHLIGHT_COLOR, screen_rect, 2)
             return # We're done drawing the map for this frame
 
         # --- High-Detail Drawing (Greedy Meshing) ---
-        for dx in [-map_width_pixels, 0, map_width_pixels]:
-            for dy in [-map_height_pixels, 0, map_height_pixels]:
+        for iy in range(start_instance_y, end_instance_y + 1):
+            for ix in range(start_instance_x, end_instance_x + 1):
+                dx, dy = ix * map_width_pixels, iy * map_height_pixels
                 instance_rect = pygame.Rect(dx, dy, map_width_pixels, map_height_pixels)
                 if camera.is_world_rect_visible(instance_rect, margin=self.tile_size):
                     offset = pygame.math.Vector2(dx, dy)
