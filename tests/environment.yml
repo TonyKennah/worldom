@@ -2,11 +2,46 @@ name: worldom
 channels:
   - conda-forge
   - defaults
+
+# Helpful runtime defaults (safe on all OSes)
+variables:
+  PYGAME_HIDE_SUPPORT_PROMPT: '1'  # keep console clean
+  MPLBACKEND: 'Agg'                 # headless matplotlib (used for globe prerender)
+  PYTHONUTF8: '1'
+  PYTHONDONTWRITEBYTECODE: '1'
+
 dependencies:
-  - python=3.9.*          # keep your original pin, widely compatible with pygame 2.6
+  # --- Core runtime ---
+  - python=3.9.*              # pygame 2.6 wheels target 3.9 nicely
   - pip>=23
-  - numpy>=1.24           # common numeric helper; many pygame examples benefit
-  - pillow>=10            # image loading/saving if you add assets later
+  - numpy>=1.24,<2.0          # conservative for py3.9; stable ABI for many libs
+  - pillow>=10                # image I/O
+
+  # --- Globe rendering / mapping (used by globe_renderer) ---
+  - matplotlib-base>=3.8      # rendering backend only (no Qt dependency)
+  - cartopy>=0.22             # cartographic transforms for globe
+  - shapely>=2.0              # geometry ops (cartopy dep; pinned explicitly)
+  - pyproj>=3.5               # projection engine (cartopy dep; pinned explicitly)
+
+  # --- Quality-of-life & perf ---
+  - psutil>=5.9               # lightweight perf metrics
+  - typing_extensions>=4.7    # forward-compat typing on 3.9
+  - tqdm>=4.66                # progress bars
+  - rich>=13                  # pretty logging/tracebacks
+
+  # --- Tooling / tests (optional but handy) ---
+  - pytest>=7
+  - pytest-cov>=4
+  - pytest-xdist>=3           # parallel tests
+  - black>=24
+  - isort>=5.12
+  - mypy>=1.8
+  - ruff>=0.5
+  - pre-commit>=3.5
+
+  # --- Everything not on conda, via pip ---
   - pip:
-      - pygame==2.6.*     # SDL2 wheels included; cross-platform friendly
-      - noise==1.2.*      # Perlin/simplex noise (terrain, weather, etc.)
+      - pygame==2.6.*         # SDL2 wheels included; cross‑platform friendly
+      - opensimplex>=0.4,<0.5 # matches code: `from opensimplex import OpenSimplex`
+      - noise==1.2.*          # optional alt noise (kept for experiments)
+      - pyinstaller>=6        # optional: build distributable binaries
