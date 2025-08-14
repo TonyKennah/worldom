@@ -273,7 +273,8 @@ class UIManager:
             if rect.collidepoint(mouse_pos):
                 pygame.draw.rect(self.screen, settings.CONTEXT_MENU_HOVER_BG_COLOR, rect, border_radius=3)
 
-            
+            # Correctly get the label from the sub-menu's options data
+            option_text = sub_menu.options[i]["label"]
             text_surface = self.font.render(
                 option_text, True, settings.CONTEXT_MENU_TEXT_COLOR
             )
@@ -316,7 +317,7 @@ class UIManager:
             if not is_mouse_on_sub_menu:
                 self.close_sub_menu()
 
-    def _open_sub_menu(self, sub_options: List[str], parent_rect: pygame.Rect) -> None:
+    def _open_sub_menu(self, sub_options: List[Dict[str, Any]], parent_rect: pygame.Rect) -> None:
         """Opens a sub-menu next to a parent menu item."""
         context_menu = self.game.world_state.context_menu
         context_menu.sub_menu.active = True
@@ -328,16 +329,18 @@ class UIManager:
 
         # Calculate max width for uniform-sized options
         max_width = 0
-        for option_text in sub_options:
-            text_surface = self.font.render(option_text, True, (0, 0, 0))
+        for option_data in sub_options:
+            text_surface = self.font.render(option_data["label"], True, settings.CONTEXT_MENU_TEXT_COLOR)
             max_width = max(max_width, text_surface.get_width())
         item_width = max_width + padding * 2
 
         # Position sub-menu to the right of the parent
         x = parent_rect.right
         y = parent_rect.top
-        for i, option_text in enumerate(sub_options):
-            text_surface = self.font.render(option_text, True, (0, 0, 0)) # For height
+        for i, option_data in enumerate(sub_options):
+            # Use the label from the dictionary for rendering
+            option_text = option_data["label"]
+            text_surface = self.font.render(option_text, True, settings.CONTEXT_MENU_TEXT_COLOR) # For height
             width = item_width
             height = text_surface.get_height() + padding
             rect = pygame.Rect(x, y + i * height, width, height)
@@ -358,8 +361,6 @@ class UIManager:
         world_state = self.game.world_state
         if not world_state.hovered_tile:
             return
-        
-        print(f"Opening context menu at {screen_pos} for tile {world_state.hovered_tile}")
 
         context_menu = world_state.context_menu
         context_menu.active = True
@@ -416,7 +417,7 @@ class UIManager:
                 option_data = context_menu.options[i]
                 if "sub_options" in option_data:
                     return
-                if option_data["label"] in ["Attack", "MoveTo"]:
+                if option_data["label"] in ["Attack", "Move"]:
                     self.game.issue_move_command_to_target()
                     self.close_context_menu()
                     return

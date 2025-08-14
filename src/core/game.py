@@ -391,7 +391,7 @@ class Game:
         # Configure the context menu options. This was missing, causing the menu
         # to be invisible because it had no items to render.
         self.world_state.context_menu.options = [
-            {"label": "MoveTo"},
+            {"label": "Move"},
             {"label": "Attack"},
             {
                 "label": "Build",

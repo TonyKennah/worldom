@@ -166,7 +166,7 @@ def default_context_menu() -> ContextMenuState:
                 MenuItem("Barracks", id="build_barracks"),
             ],
         ),
-        MenuItem(label="MoveTo", id="move", shortcut="M"),
+        MenuItem(label="Move", id="move", shortcut="M"),
         MenuItem(label="-"),  # separator
         MenuItem(label="Cancel", id="cancel", shortcut="Esc"),
     ]
