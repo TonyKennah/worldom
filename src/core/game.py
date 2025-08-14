@@ -327,12 +327,15 @@ class Game:
             for td in settings.TERRAIN_DATA.values() if td["walkable"]
         )
         if has_bright_walkable_terrain:
-            print("Bright theme detected. Using high-contrast selection colors.")
-            settings.UNIT_SELECTED_COLOR = settings.ALT_SELECTION_COLOR
-            settings.SELECTION_BOX_COLOR = settings.ALT_SELECTION_COLOR
-        else:
+            # For bright themes like "hoth", the alternate selection color was not visible.
+            # We now use the default color, which is assumed to be darker and provide
+            # better contrast against bright terrain.
+            print("Bright theme detected. Using high-contrast (default) selection colors.")
             settings.UNIT_SELECTED_COLOR = settings.DEFAULT_SELECTION_COLOR
             settings.SELECTION_BOX_COLOR = settings.DEFAULT_SELECTION_COLOR
+        else:
+            settings.UNIT_SELECTED_COLOR = settings.ALT_SELECTION_COLOR
+            settings.SELECTION_BOX_COLOR = settings.ALT_SELECTION_COLOR
 
     def _create_new_world(self) -> None:
         """Creates a new map, world state, and globe, showing progress."""
@@ -507,7 +510,9 @@ class Game:
         self.ui_manager.draw_ui()
 
         # Debug panel & overlays
-        self.debug_panel.draw(self)
+        # The DebugPanel appears to have old, redundant code that draws a blinking
+        # highlight on selected units. This is now disabled to prevent visual flickering.
+        # self.debug_panel.draw(self)
 
         # Optional lightweight FPS overlay (toggle in settings)
         if getattr(settings, "SHOW_FPS", False):

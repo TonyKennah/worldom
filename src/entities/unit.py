@@ -100,7 +100,6 @@ class Unit:
         # Appearance
         self.radius_px = float(radius_px)
         self.color = color
-        self.selected_color = UNIT_SELECTED_COLOR
         self.inner_ratio = float(UNIT_INNER_CIRCLE_RATIO)
 
         # Movement/state
@@ -264,11 +263,13 @@ class Unit:
 
         # Selection/hover ring (underlay)
         if self.selected or self.hovered:
-            # Pulsing width for a subtle feedback
-            t = pygame.time.get_ticks() * 0.001 + self._pulse_seed
-            ring_w = UNIT_SELECTION_RING_WIDTH + (1.0 if (math.sin(t * 6.0) > 0.0) else 0.0)
-            ring_color = self.selected_color if self.selected else UNIT_HOVER_COLOR
-            pygame.draw.circle(surface, ring_color, screen_pos, int(radius * 1.15), int(ring_w))
+            # The selection ring width is now constant to prevent a "flickering"
+            # or "pulsing" effect that was distracting.
+            ring_w = UNIT_SELECTION_RING_WIDTH
+            # The unit should always use the global, theme-aware setting for its
+            # selection color, rather than storing its own copy.
+            ring_color = UNIT_SELECTED_COLOR if self.selected else UNIT_HOVER_COLOR
+            pygame.draw.circle(surface, ring_color, screen_pos, int(radius * 1.15), int(max(1, ring_w)))
 
         # Fill + inner circle (classic look)
         pygame.draw.circle(surface, self.color, screen_pos, radius)
