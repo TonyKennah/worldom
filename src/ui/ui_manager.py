@@ -412,7 +412,7 @@ class UIManager:
                 option_data = context_menu.options[i]
                 if "sub_options" in option_data:
                     return
-                if option_data["label"] in ["Attack", "MoveTo"]:
+                if option_data["label"] in ["Attack", "Move"]:
                     self.game.issue_move_command_to_target()
                     self.close_context_menu()
                     return

@@ -328,15 +328,14 @@ class Game:
             for td in settings.TERRAIN_DATA.values() if td["walkable"]
         )
         if has_bright_walkable_terrain:
-            # For bright themes like "hoth", the alternate selection color was not visible.
-            # We now use the default color, which is assumed to be darker and provide
-            # better contrast against bright terrain.
-            print("Bright theme detected. Using high-contrast (default) selection colors.")
-            settings.UNIT_SELECTED_COLOR = settings.DEFAULT_SELECTION_COLOR
-            settings.SELECTION_BOX_COLOR = settings.DEFAULT_SELECTION_COLOR
-        else:
+            # For bright themes like "hoth", use the alternate, high-contrast color.
+            print("Bright theme detected. Using high-contrast (alternate) selection colors.")
             settings.UNIT_SELECTED_COLOR = settings.ALT_SELECTION_COLOR
             settings.SELECTION_BOX_COLOR = settings.ALT_SELECTION_COLOR
+        else:
+            # For normal/dark themes, use the default selection color.
+            settings.UNIT_SELECTED_COLOR = settings.DEFAULT_SELECTION_COLOR
+            settings.SELECTION_BOX_COLOR = settings.DEFAULT_SELECTION_COLOR
 
     def _create_new_world(self) -> None:
         """Creates a new map, world state, and globe, showing progress."""

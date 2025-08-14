@@ -24,9 +24,9 @@ class ContextMenuState:
         self.active: bool = False
         self.pos: Optional[Tuple[int, int]] = None
         self.options: List[Dict[str, Any]] = [
+            {"label": "Move"},
             {"label": "Attack"},
             {"label": "Build", "sub_options": ["Shelter", "Workshop", "Farm", "Barracks"]},
-            {"label": "MoveTo"},
         ]
         self.rects: List[pygame.Rect] = []
         self.target_tile: Optional[Tuple[int, int]] = None
