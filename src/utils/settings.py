@@ -61,6 +61,33 @@ PLANET_THEMES = {
             "rock": {"name": "Glacial Ice", "color": (180, 200, 240), "globe_color": "#B4C8F0", "walkable": True},
         }
     },
+    "arrakis": {
+        "name": "Arrakis",
+        "terrains": {
+            "ocean": {"name": "Deep Desert", "color": (139, 69, 19), "globe_color": "#8B4513", "walkable": False},
+            "lake": {"name": "Salt Flats", "color": (220, 220, 220), "globe_color": "#DCDCDC", "walkable": False},
+            "grass": {"name": "Sand Dunes", "color": (210, 180, 140), "globe_color": "#D2B48C", "walkable": True},
+            "rock": {"name": "Rocky Mesa", "color": (188, 143, 143), "globe_color": "#BC8F8F", "walkable": True},
+        }
+    },
+    "xylos": {
+        "name": "Xylos",
+        "terrains": {
+            "ocean": {"name": "Liquid Light", "color": (40, 100, 120), "globe_color": "#286478", "walkable": False},
+            "lake": {"name": "Geode Pool", "color": (120, 80, 180), "globe_color": "#7850B4", "walkable": False},
+            "grass": {"name": "Shard Plains", "color": (180, 210, 255), "globe_color": "#B4D2FF", "walkable": True},
+            "rock": {"name": "Crystal Spires", "color": (80, 120, 200), "globe_color": "#5078C8", "walkable": True},
+        }
+    },
+    "nocturne": {
+        "name": "Nocturne",
+        "terrains": {
+            "ocean": {"name": "Bioluminescent Sea", "color": (10, 20, 50), "globe_color": "#0A1432", "walkable": False},
+            "lake": {"name": "Glowing Algae", "color": (20, 180, 150), "globe_color": "#14B496", "walkable": False},
+            "grass": {"name": "Luminous Moss", "color": (40, 80, 60), "globe_color": "#28503C", "walkable": True},
+            "rock": {"name": "Glow-Stone Vein", "color": (60, 70, 90), "globe_color": "#3C465A", "walkable": True},
+        }
+    },
 }
 
 # --- Active Theme Selection ---
