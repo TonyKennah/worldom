@@ -105,6 +105,7 @@ class Game:
         # State/debug
         self.current_seed: Optional[int] = None
         self.current_theme_key: Optional[str] = None
+        self.player_unit: Optional[Unit] = None
 
         # Create the initial world
         self._create_new_world()
@@ -388,9 +389,10 @@ class Game:
             map_generation_worker, "Intergalactic boost", speed_profile=profile1)
 
         self.world_state = WorldState()
-        initial_unit = self._spawn_initial_units()
-        if initial_unit:
-            self.camera.position = initial_unit.world_pos.copy()
+        # Store a reference to the first unit created so we can always find it.
+        self.player_unit = self._spawn_initial_units()
+        if self.player_unit:
+            self.camera.position = self.player_unit.world_pos.copy()
 
         # --- Worker function for globe rendering ---
         def globe_rendering_worker(progress_state: Dict[str, float]) -> None:
@@ -415,6 +417,19 @@ class Game:
     # ---------------------
     # Commands / gameplay
     # ---------------------
+    def focus_on_player_unit(self) -> None:
+        """Centers camera on the first unit and zooms to 400%."""
+        if self.player_unit:
+            self.camera.position = self.player_unit.world_pos.copy()
+
+            # To prevent the camera from immediately zooming back out, we must
+            # update both its current state and its target state. This ensures
+            # the camera's internal animation logic remains stable after our
+            # direct manipulation.
+            target_zoom = 4.0
+            self.camera.zoom_state.current = target_zoom
+            self.camera.zoom_state.target = target_zoom
+
     def issue_move_command_to_target(self) -> None:
         """Issues a move command to selected units to the stored target tile."""
         target_tile = self.world_state.context_menu.target_tile

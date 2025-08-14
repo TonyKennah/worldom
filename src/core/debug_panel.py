@@ -14,6 +14,7 @@ class DebugPanel:
         self.exit_link_rect: Optional[pygame.Rect] = None
         self.new_link_rect: Optional[pygame.Rect] = None
         self.show_globe_link_rect: Optional[pygame.Rect] = None
+        self.self_link_rect: Optional[pygame.Rect] = None
 
     def handle_event(self, event: pygame.event.Event) -> Optional[str]:
         """
@@ -27,6 +28,8 @@ class DebugPanel:
                 return "new_map" # Signal to create a new map
             if self.show_globe_link_rect and self.show_globe_link_rect.collidepoint(event.pos):
                 return "show_globe" # Signal to show the globe
+            if self.self_link_rect and self.self_link_rect.collidepoint(event.pos):
+                return "focus_on_player"
         return None
 
     def _draw_main_info(self, game: Game) -> None:
@@ -97,6 +100,14 @@ class DebugPanel:
         topright = (self.new_link_rect.left - spacing, 0)
         self.show_globe_link_rect = self._draw_link(game, "Show Globe", topright)
 
+    def _draw_self_link(self, game: Game) -> None:
+        """Draws the clickable 'Self' link."""
+        if not self.show_globe_link_rect:
+            return
+        spacing = 5
+        topright = (self.show_globe_link_rect.left - spacing, 0)
+        self.self_link_rect = self._draw_link(game, "Self", topright)
+
     def draw(self, game: Game) -> None:
         """Renders the complete debug panel by calling its helper methods."""
         panel_rect = pygame.Rect(0, 0, settings.SCREEN_WIDTH, settings.DEBUG_PANEL_HEIGHT)
@@ -107,3 +118,4 @@ class DebugPanel:
         self._draw_exit_link(game)
         self._draw_new_link(game)
         self._draw_show_globe_link(game)
+        self._draw_self_link(game)

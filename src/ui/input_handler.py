@@ -55,6 +55,9 @@ class InputHandler:
             if action == "show_globe":
                 self.game.ui_manager.show_globe_popup = True
                 continue
+            if action == "focus_on_player":
+                self.game.focus_on_player_unit()
+                continue
 
             self._handle_mouse_events(event)
 
