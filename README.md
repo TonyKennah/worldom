@@ -27,11 +27,14 @@ The project is a 2D strategy game named "World Dom" built with Python and Pygame
 ## Code Style
 The project follows standard Python conventions (PEP 8). It uses type hints for function signatures and class attributes. Docstrings are used to explain the purpose of modules, classes, and functions. The code is organized into classes and methods, with a clear separation of concerns between different components (e.g., `Game`, `Camera`, `Map`, `Unit`). The project uses a `src` layout to separate source code from other files.
 
-## Code Standards
+## Coding Standards
 There are no coding standards, just make sure things work before createing a PR and try to stick to these basics:
 - ⚠️ 1000 line code files - not good
 - ❤️ 300 - 400 lines is acceptable
 - ❤️ methods at 50 lines is already too big
+- put classes in their own file no matter how small they are
+- organise classes into appropriate folders / modules
+- Enjoy
 
 ## Getting Started
 
