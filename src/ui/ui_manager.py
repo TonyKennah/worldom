@@ -30,6 +30,7 @@ class UIManager:
         self.popup_title_font = pygame.font.SysFont("Arial", 24, bold=True)
         self.breakdown_font = pygame.font.SysFont("Arial", 18)
         self.speed_control_font = pygame.font.SysFont("Arial", 16, bold=True)
+        self.font = pygame.font.SysFont("Arial", settings.CONTEXT_MENU_FONT_SIZE)
 
     def update(self, dt: float) -> None:
         """Updates UI components, like animations."""
@@ -242,7 +243,7 @@ class UIManager:
                 pygame.draw.rect(self.screen, settings.CONTEXT_MENU_HOVER_BG_COLOR, rect, border_radius=3)
 
             option_text = context_menu.options[i]["label"]
-            text_surface = context_menu.font.render(
+            text_surface = self.font.render(
                 option_text, True, settings.CONTEXT_MENU_TEXT_COLOR)
 
             # Center the text vertically within its rect
@@ -273,7 +274,7 @@ class UIManager:
                 pygame.draw.rect(self.screen, settings.CONTEXT_MENU_HOVER_BG_COLOR, rect, border_radius=3)
 
             option_text = sub_menu.options[i]
-            text_surface = self.game.world_state.context_menu.font.render(
+            text_surface = self.font.render(
                 option_text, True, settings.CONTEXT_MENU_TEXT_COLOR
             )
 
@@ -328,7 +329,7 @@ class UIManager:
         # Calculate max width for uniform-sized options
         max_width = 0
         for option_text in sub_options:
-            text_surface = context_menu.font.render(option_text, True, (0, 0, 0))
+            text_surface = self.font.render(option_text, True, (0, 0, 0))
             max_width = max(max_width, text_surface.get_width())
         item_width = max_width + padding * 2
 
@@ -336,7 +337,7 @@ class UIManager:
         x = parent_rect.right
         y = parent_rect.top
         for i, option_text in enumerate(sub_options):
-            text_surface = context_menu.font.render(option_text, True, (0, 0, 0)) # For height
+            text_surface = self.font.render(option_text, True, (0, 0, 0)) # For height
             width = item_width
             height = text_surface.get_height() + padding
             rect = pygame.Rect(x, y + i * height, width, height)
@@ -357,6 +358,8 @@ class UIManager:
         world_state = self.game.world_state
         if not world_state.hovered_tile:
             return
+        
+        print(f"Opening context menu at {screen_pos} for tile {world_state.hovered_tile}")
 
         context_menu = world_state.context_menu
         context_menu.active = True
@@ -369,7 +372,7 @@ class UIManager:
         # Calculate max width for uniform-sized options
         max_width = 0
         for option_data in context_menu.options:
-            text_surface = context_menu.font.render(option_data["label"], True, (0, 0, 0))
+            text_surface = self.font.render(option_data["label"], True, (0, 0, 0))
             max_width = max(max_width, text_surface.get_width())
         item_width = max_width + padding * 2
 
@@ -377,7 +380,8 @@ class UIManager:
         x, y = screen_pos
         for i, option_data in enumerate(context_menu.options):
             option_text = option_data["label"]
-            text_surface = context_menu.font.render(option_text, True, (0, 0, 0))
+            #text_surface = context_menu.font.render(option_text, True, (0, 0, 0))
+            text_surface = self.font.render(option_data["label"], True, (0, 0, 0))
             width = item_width
             height = text_surface.get_height() + padding
             rect = pygame.Rect(x, y + i * height, width, height)

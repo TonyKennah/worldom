@@ -18,6 +18,13 @@ class InputHandler:
     def __init__(self, game: Game) -> None:
         """Initializes the InputHandler."""
         self.game = game
+        # Action dispatch table for cleaner handling of UI commands
+        self.actions = {
+            "exit": lambda: setattr(self.game, 'running', False),
+            "new_map": self.game.regenerate_map,
+            "show_globe": lambda: setattr(self.game.ui_manager, 'show_globe_popup', True),
+            "focus_on_player": self.game.focus_on_player_unit,
+        }
 
     def handle_events(self, events: List[pygame.event.Event]) -> None:
         """Processes a list of events from the main game loop."""
@@ -46,17 +53,8 @@ class InputHandler:
 
             # Let the debug panel handle its events first
             action = self.game.debug_panel.handle_event(event)
-            if action == "exit":
-                self.game.running = False
-                continue # Event was handled, stop processing it
-            if action == "new_map":
-                self.game.regenerate_map()
-                continue
-            if action == "show_globe":
-                self.game.ui_manager.show_globe_popup = True
-                continue
-            if action == "focus_on_player":
-                self.game.focus_on_player_unit()
+            if action in self.actions:
+                self.actions[action]()
                 continue
 
             self._handle_mouse_events(event)
@@ -104,10 +102,8 @@ class InputHandler:
                 self.game.world_state.left_mouse_down_screen_pos = event.pos
                 self.game.world_state.left_mouse_down_world_pos = self.game.camera.screen_to_world(event.pos)
         elif event.button == 3:  # Right-click
-            if self.game.world_state.context_menu.active:
-                self.game.ui_manager.close_context_menu()
-            else:
-                self.game.world_state.right_mouse_down_pos = event.pos
+            # On right-down, we only record the position to check for a click vs. drag later.
+            self.game.world_state.right_mouse_down_pos = event.pos
 
     def _handle_mouse_button_up(self, event: pygame.event.Event) -> None:
         """Handles mouse button up events."""
@@ -130,7 +126,11 @@ class InputHandler:
     def _handle_right_mouse_up(self, event: pygame.event.Event) -> None:
         """Handles right mouse button up events (click vs. drag)."""
         if self._is_click(self.game.world_state.right_mouse_down_pos, event.pos):
-            if self.game.world_state.selected_units:
+            # If the menu is already active, a right-click should close it.
+            if self.game.world_state.context_menu.active:
+                self.game.ui_manager.close_context_menu()
+            # Otherwise, if units are selected, open the menu.
+            elif self.game.world_state.selected_units:
                 self.game.ui_manager.open_context_menu(event.pos)
 
         self.game.world_state.right_mouse_down_pos = None

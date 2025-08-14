@@ -388,6 +388,13 @@ class Game:
             map_generation_worker, "Intergalactic boost", speed_profile=profile1)
 
         self.world_state = WorldState()
+        # Configure the context menu options. This was missing, causing the menu
+        # to be invisible because it had no items to render.
+        self.world_state.context_menu.options = [
+            {"label": "MoveTo"},
+            {"label": "Attack"},
+            {"label": "Build", "sub_options": ["Outpost", "Turret", "Mine"]},
+        ]
         # Store a reference to the first unit created so we can always find it.
         self.player_unit = self._spawn_initial_units()
         if self.player_unit:
