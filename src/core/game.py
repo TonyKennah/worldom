@@ -441,14 +441,10 @@ class Game:
             self.camera.zoom_state.current = target_zoom
             self.camera.zoom_state.target = target_zoom
 
-    def issue_move_command_to_target(self) -> None:
-        """Issues a move command to selected units to the stored target tile."""
-        target_tile = self.world_state.context_menu.target_tile
-        if not self.world_state.selected_units or not target_tile:
-            return
-
+    def _issue_move_command_for_tile(self, end_tile: Tuple[int, int]) -> None:
+        """Shared logic to find a path and issue a move command to a tile."""
         # If the target tile isn't walkable, try to snap to nearest walkable
-        end = tuple(target_tile)
+        end = tuple(end_tile)
         if not self.map.is_walkable(end):
             nearest = None
             if hasattr(self.map, "find_nearest_walkable"):
@@ -467,6 +463,19 @@ class Game:
                 unit.set_path(path)
             else:
                 print("No path found.")
+
+    def issue_move_command_to_target(self) -> None:
+        """Issues a move command to selected units to the stored target tile."""
+        target_tile = self.world_state.context_menu.target_tile
+        if not self.world_state.selected_units or not target_tile:
+            return
+        self._issue_move_command_for_tile(target_tile)
+
+    def issue_move_command_to_tile(self, target_tile: Tuple[int, int]) -> None:
+        """Issues a move command to selected units to a specific tile."""
+        if not self.world_state.selected_units:
+            return
+        self._issue_move_command_for_tile(target_tile)
 
     # ---------------------
     # Main loop

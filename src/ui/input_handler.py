@@ -112,10 +112,48 @@ class InputHandler:
         elif event.button == 3:  # Right-click up
             self._handle_right_mouse_up(event)
 
+    def _clear_all_selections(self) -> None:
+        """
+        Clears the current selection. This is a helper to ensure that both the
+        WorldState list and the individual unit flags are kept in sync.
+        """
+        for unit in self.game.world_state.selected_units:
+            unit.selected = False
+        self.game.world_state.selected_units.clear()
+
     def _handle_left_mouse_up(self, event: pygame.event.Event) -> None:
         """Handles left mouse button up events (click vs. drag)."""
         if self._is_click(self.game.world_state.left_mouse_down_screen_pos, event.pos):
-            self.game.selection_manager.handle_left_click_selection(event.pos)
+            # Find if a unit was clicked by iterating in reverse draw order (top-most first)
+            clicked_unit = None
+            map_w_px = self.game.map.width * settings.TILE_SIZE
+            map_h_px = self.game.map.height * settings.TILE_SIZE
+            for unit in reversed(self.game.world_state.units):
+                if unit.hit_test_screen_point(event.pos, self.game.camera, map_w_px, map_h_px):
+                    clicked_unit = unit
+                    break
+
+            # If a unit was clicked, decide whether to select or deselect.
+            if clicked_unit:
+                if clicked_unit.selected:
+                    self._clear_all_selections()
+                else:
+                    self.game.selection_manager.handle_left_click_selection(event.pos)
+            # If empty ground was clicked...
+            else:
+                # ...and units are selected, it's a move command.
+                if self.game.world_state.selected_units:
+                    world_pos = self.game.camera.screen_to_world(event.pos)
+                    map_width_pixels = self.game.map.width * self.game.map.tile_size
+                    map_height_pixels = self.game.map.height * self.game.map.tile_size
+                    wrapped_x = world_pos.x % map_width_pixels
+                    wrapped_y = world_pos.y % map_height_pixels
+                    tile_col = int(wrapped_x // self.game.map.tile_size)
+                    tile_row = int(wrapped_y // self.game.map.tile_size)
+                    self.game.issue_move_command_to_tile((tile_col, tile_row))
+                # If no units are selected and the user clicks on empty terrain,
+                # no action is taken. This is more explicit than the previous
+                # no-op call to the selection manager.
         elif self.game.world_state.selection_box:  # It's a drag
             self.game.selection_manager.handle_drag_selection(self.game.world_state.selection_box)
 
