@@ -8,8 +8,8 @@ import math
 import random
 import pygame
 
-from image_cache import ScaledImageCache
-from assets import load_images
+from src.ui.image_cache import ScaledImageCache
+from src.ui.assets import load_images
 
 Color = Tuple[int, int, int]
 
