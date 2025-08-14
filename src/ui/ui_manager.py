@@ -12,6 +12,7 @@ import src.utils.settings as settings
 if TYPE_CHECKING:
     from src.core.game import Game
 
+
 class UIManager:
     """Manages the drawing and state of all UI components."""
 
@@ -25,13 +26,29 @@ class UIManager:
         self.globe_frame_index: int = 0
         self.globe_animation_timer: float = 0.0
         self.globe_animation_speed_index: int = settings.GLOBE_ANIMATION_DEFAULT_SPEED_INDEX
+
+        # Click targets inside the globe popup
         self.globe_speed_down_rect: Optional[pygame.Rect] = None
         self.globe_speed_up_rect: Optional[pygame.Rect] = None
+        self.globe_toggle_rect: Optional[pygame.Rect] = None  # NEW: pause/play toggle
+        self.globe_popup_rect: Optional[pygame.Rect] = None   # NEW: whole popup bounds
+
+        # Fonts
         self.popup_title_font = pygame.font.SysFont("Arial", 24, bold=True)
         self.breakdown_font = pygame.font.SysFont("Arial", 18)
         self.speed_control_font = pygame.font.SysFont("Arial", 16, bold=True)
         self.font = pygame.font.SysFont("Arial", settings.CONTEXT_MENU_FONT_SIZE)
 
+        # --- Minimap State (NEW UI element) ---
+        self.show_minimap: bool = True
+        self.minimap_surface: Optional[pygame.Surface] = None
+        self.minimap_rect: Optional[pygame.Rect] = None
+        self._minimap_tile_px: int = 1
+        self._minimap_margin: int = 12
+
+    # -------------------------------------------------------------------------
+    # UPDATE
+    # -------------------------------------------------------------------------
     def update(self, dt: float) -> None:
         """Updates UI components, like animations."""
         if self.show_globe_popup:
@@ -41,7 +58,7 @@ class UIManager:
         """Cycles through the globe animation frames based on a timer."""
         if not self.game.globe_frames:
             return
-        
+
         frame_duration = settings.GLOBE_ANIMATION_SPEEDS[self.globe_animation_speed_index]
         if math.isinf(frame_duration):
             return  # Animation is paused
@@ -60,6 +77,9 @@ class UIManager:
         """Decreases the globe's rotation speed."""
         self.globe_animation_speed_index = max(self.globe_animation_speed_index - 1, 0)
 
+    # -------------------------------------------------------------------------
+    # DRAW
+    # -------------------------------------------------------------------------
     def draw_ui(self) -> None:
         """Draws all UI elements, called once per frame."""
         # Draw selection box
@@ -67,11 +87,15 @@ class UIManager:
             pygame.draw.rect(self.screen, settings.SELECTION_BOX_COLOR,
                              self.game.world_state.selection_box, settings.SELECTION_BOX_BORDER_WIDTH)
 
-        # Draw globe popup if active
+        # Minimap (NEW)
+        if self.show_minimap and self.minimap_surface:
+            self.draw_minimap()
+
+        # Globe popup if active
         if self.show_globe_popup:
             self.draw_globe_popup()
 
-        # Draw context menu if active
+        # Context menu if active
         if self.game.world_state.context_menu.active:
             self.draw_context_menu()
             if self.game.world_state.context_menu.sub_menu.active:
@@ -135,22 +159,26 @@ class UIManager:
         current_duration = settings.GLOBE_ANIMATION_SPEEDS[self.globe_animation_speed_index]
         if math.isinf(current_duration):
             speed_text = "Speed: Paused"
+            toggle_label = "▶"  # play
         else:
             speed_multiplier = default_duration / current_duration if current_duration > 0 else 0.0
             speed_text = f"Speed: {speed_multiplier:.1f}x"
+            toggle_label = "⏸"  # pause
         speed_display_surface = self.breakdown_font.render(speed_text, True, settings.DEBUG_PANEL_FONT_COLOR)
+        toggle_surface = self.speed_control_font.render(f" {toggle_label} ", True, settings.DEBUG_PANEL_FONT_COLOR)
 
         speed_controls_height = max(
             speed_down_surface.get_height(),
             speed_display_surface.get_height(),
-            speed_up_surface.get_height()
+            speed_up_surface.get_height(),
+            toggle_surface.get_height(),
         )
 
         # --- Popup container ---
         padding = 40
         title_spacing = 20  # Space between title and globe
-        breakdown_spacing = 20 # Space between globe and breakdown
-        speed_control_spacing = 15 # Space between breakdown and speed controls
+        breakdown_spacing = 20  # Space between globe and breakdown
+        speed_control_spacing = 15  # Space between breakdown and speed controls
         content_width = max(title_rect.width, frame_rect.width, breakdown_width)
         popup_width = content_width + padding
         popup_height = title_rect.height + title_spacing + frame_rect.height + padding
@@ -160,6 +188,7 @@ class UIManager:
 
         popup_rect = pygame.Rect(0, 0, popup_width, popup_height)
         popup_rect.center = (settings.SCREEN_WIDTH // 2, settings.SCREEN_HEIGHT // 2)
+        self.globe_popup_rect = popup_rect.copy()  # NEW: store for hit-testing
 
         # Draw popup background and border
         pygame.draw.rect(self.screen, (40, 40, 60), popup_rect, border_radius=10)
@@ -196,32 +225,72 @@ class UIManager:
                 self.screen.blit(text_surface, text_rect)
                 current_y += swatch_surface.get_height()
             last_y = current_y
-        
+
         # Speed Controls
         controls_y = last_y + speed_control_spacing
         spacing_between_controls = 10
 
-        # Position speed display text in the center
-        speed_display_rect = speed_display_surface.get_rect(
-            centerx=popup_rect.centerx,
-            top=controls_y
-        )
+        # Center speed text
+        speed_display_rect = speed_display_surface.get_rect(centerx=popup_rect.centerx, top=controls_y)
         self.screen.blit(speed_display_surface, speed_display_rect)
 
-        # Position speed down button to the left and store its rect for input handling
+        # Left/right arrows
         self.globe_speed_down_rect = speed_down_surface.get_rect(
-            right=speed_display_rect.left - spacing_between_controls,
-            centery=speed_display_rect.centery
+            right=speed_display_rect.left - spacing_between_controls, centery=speed_display_rect.centery
+        )
+        self.globe_speed_up_rect = speed_up_surface.get_rect(
+            left=speed_display_rect.right + spacing_between_controls, centery=speed_display_rect.centery
         )
         self.screen.blit(speed_down_surface, self.globe_speed_down_rect)
-
-        # Position speed up button to the right and store its rect for input handling
-        self.globe_speed_up_rect = speed_up_surface.get_rect(
-            left=speed_display_rect.right + spacing_between_controls,
-            centery=speed_display_rect.centery
-        )
         self.screen.blit(speed_up_surface, self.globe_speed_up_rect)
 
+        # Pause/Play toggle (NEW)
+        self.globe_toggle_rect = toggle_surface.get_rect(
+            left=self.globe_speed_up_rect.right + spacing_between_controls,
+            centery=speed_display_rect.centery
+        )
+        self.screen.blit(toggle_surface, self.globe_toggle_rect)
+
+    # --------------------------- NEW: MINIMAP --------------------------------
+    def draw_minimap(self) -> None:
+        """Draw a small minimap with camera center and hovered-tile markers."""
+        if not self.minimap_surface or not self.minimap_rect:
+            return
+
+        # Panel background
+        panel_rect = self.minimap_rect.inflate(12, 12)
+        panel_rect.bottomright = (settings.SCREEN_WIDTH - self._minimap_margin,
+                                  settings.SCREEN_HEIGHT - self._minimap_margin)
+        pygame.draw.rect(self.screen, (25, 25, 30), panel_rect, border_radius=6)
+        pygame.draw.rect(self.screen, (160, 160, 175), panel_rect, width=1, border_radius=6)
+
+        # Minimap image
+        dst = self.minimap_rect.copy()
+        dst.bottomright = panel_rect.bottomright
+        self.screen.blit(self.minimap_surface, dst)
+
+        # Camera center marker
+        cam = self.game.camera
+        mpw = self.game.map.width * self.game.map.tile_size
+        mph = self.game.map.height * self.game.map.tile_size
+        cx = int((cam.position.x % mpw) // self.game.map.tile_size) % self.game.map.width
+        cy = int((cam.position.y % mph) // self.game.map.tile_size) % self.game.map.height
+        px = dst.left + cx * self._minimap_tile_px
+        py = dst.top + cy * self._minimap_tile_px
+        pygame.draw.rect(self.screen, (255, 255, 255), (px - 1, py - 1, 3, 3))
+
+        # Hovered tile marker
+        if self.game.world_state.hovered_tile:
+            hx, hy = self.game.world_state.hovered_tile
+            hx %= self.game.map.width
+            hy %= self.game.map.height
+            hx_px = dst.left + hx * self._minimap_tile_px
+            hy_px = dst.top + hy * self._minimap_tile_px
+            pygame.draw.rect(self.screen, (120, 200, 255), (hx_px - 2, hy_px - 2, 5, 5), width=1)
+
+    # -------------------------------------------------------------------------
+    # CONTEXT MENU (existing)
+    # -------------------------------------------------------------------------
     def draw_context_menu(self) -> None:
         """Renders the context menu on the screen as a single panel."""
         context_menu = self.game.world_state.context_menu
@@ -340,7 +409,7 @@ class UIManager:
         for i, option_data in enumerate(sub_options):
             # Use the label from the dictionary for rendering
             option_text = option_data["label"]
-            text_surface = self.font.render(option_text, True, settings.CONTEXT_MENU_TEXT_COLOR) # For height
+            text_surface = self.font.render(option_text, True, settings.CONTEXT_MENU_TEXT_COLOR)  # For height
             width = item_width
             height = text_surface.get_height() + padding
             rect = pygame.Rect(x, y + i * height, width, height)
@@ -381,8 +450,7 @@ class UIManager:
         x, y = screen_pos
         for i, option_data in enumerate(context_menu.options):
             option_text = option_data["label"]
-            #text_surface = context_menu.font.render(option_text, True, (0, 0, 0))
-            text_surface = self.font.render(option_data["label"], True, (0, 0, 0))
+            text_surface = self.font.render(option_text, True, (0, 0, 0))  # For height
             width = item_width
             height = text_surface.get_height() + padding
             rect = pygame.Rect(x, y + i * height, width, height)
@@ -423,3 +491,116 @@ class UIManager:
                     return
 
         self.close_context_menu()
+
+    # -------------------------------------------------------------------------
+    # NEW FUNCTION #1: on_world_changed
+    # -------------------------------------------------------------------------
+    def on_world_changed(self) -> None:
+        """
+        Rebuilds UI caches that depend on world data.
+        - Rebuilds the minimap surface from map tiles.
+        - Resets globe animation state.
+        Call this after creating/regenerating the world.
+        """
+        # Reset globe animation
+        self.globe_frame_index = 0
+        self.globe_animation_timer = 0
+
+        # Build minimap
+        w_tiles = self.game.map.width
+        h_tiles = self.game.map.height
+        max_size = getattr(settings, "MINIMAP_MAX_SIZE", 220)
+
+        # Per-tile pixel scale that fits within max_size box
+        self._minimap_tile_px = max(1, min(max_size // max(1, w_tiles), max_size // max(1, h_tiles)))
+        surf_w = max(1, w_tiles * self._minimap_tile_px)
+        surf_h = max(1, h_tiles * self._minimap_tile_px)
+
+        minimap = pygame.Surface((surf_w, surf_h))
+        # Draw tiles (tiny rectangles)
+        ts = self._minimap_tile_px
+        for ty in range(h_tiles):
+            row = self.game.map.data[ty]
+            for tx in range(w_tiles):
+                terrain = row[tx]
+                color = settings.TERRAIN_COLORS.get(terrain, (80, 80, 80))
+                if ts == 1:
+                    minimap.set_at((tx, ty), color)
+                else:
+                    minimap.fill(color, pygame.Rect(tx * ts, ty * ts, ts, ts))
+
+        self.minimap_surface = minimap.convert()
+        self.minimap_rect = minimap.get_rect()
+        # Position cached rect will be adjusted on draw; keep a default corner placement
+        self.minimap_rect.bottomright = (settings.SCREEN_WIDTH - self._minimap_margin,
+                                         settings.SCREEN_HEIGHT - self._minimap_margin)
+
+    # -------------------------------------------------------------------------
+    # NEW FUNCTION #2: handle_event
+    # -------------------------------------------------------------------------
+    def handle_event(self, event: pygame.event.Event) -> bool:
+        """
+        Allows the UI manager to consume UI-specific events.
+        Returns True if the event was handled.
+        - Globe popup: speed controls, pause/play, click outside to close, wheel to change speed.
+        - Toggle minimap visibility (M).
+        """
+        if event.type == pygame.KEYDOWN:
+            # Toggle minimap visibility
+            if event.key == pygame.K_m:
+                self.show_minimap = not self.show_minimap
+                return True
+
+        if self.show_globe_popup:
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                mx, my = event.pos
+                # Click on controls
+                if self.globe_speed_down_rect and self.globe_speed_down_rect.collidepoint(mx, my):
+                    self.decrease_globe_speed()
+                    return True
+                if self.globe_speed_up_rect and self.globe_speed_up_rect.collidepoint(mx, my):
+                    self.increase_globe_speed()
+                    return True
+                if self.globe_toggle_rect and self.globe_toggle_rect.collidepoint(mx, my):
+                    # Toggle pause/play by snapping to the speed index with inf or to default
+                    speeds = settings.GLOBE_ANIMATION_SPEEDS
+                    paused_index = next((i for i, d in enumerate(speeds) if math.isinf(d)), None)
+                    if math.isinf(speeds[self.globe_animation_speed_index]):
+                        # currently paused -> go back to default
+                        self.globe_animation_speed_index = settings.GLOBE_ANIMATION_DEFAULT_SPEED_INDEX
+                    elif paused_index is not None:
+                        self.globe_animation_speed_index = paused_index
+                    return True
+                # Click outside popup closes it
+                if self.globe_popup_rect and not self.globe_popup_rect.collidepoint(mx, my):
+                    self.show_globe_popup = False
+                    return True
+
+            if event.type == pygame.MOUSEWHEEL:
+                # Wheel up -> faster, down -> slower
+                if event.y > 0:
+                    self.increase_globe_speed()
+                elif event.y < 0:
+                    self.decrease_globe_speed()
+                return True
+
+        return False
+
+    # -------------------------------------------------------------------------
+    # NEW FUNCTION #3: save_current_globe_frame
+    # -------------------------------------------------------------------------
+    def save_current_globe_frame(self, path: Optional[str] = None) -> Optional[str]:
+        """
+        Saves the current globe frame to disk and returns the path (or None on failure).
+        Useful for debugging or sharing a snapshot of the generated world.
+        """
+        if not self.game.globe_frames:
+            return None
+        surf = self.game.globe_frames[self.globe_frame_index]
+        if path is None:
+            path = f"globe_snapshot_{pygame.time.get_ticks()}.png"
+        try:
+            pygame.image.save(surf, path)
+            return path
+        except Exception:
+            return None
