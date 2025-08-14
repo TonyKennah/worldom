@@ -273,7 +273,7 @@ class UIManager:
             if rect.collidepoint(mouse_pos):
                 pygame.draw.rect(self.screen, settings.CONTEXT_MENU_HOVER_BG_COLOR, rect, border_radius=3)
 
-            option_text = sub_menu.options[i]
+            
             text_surface = self.font.render(
                 option_text, True, settings.CONTEXT_MENU_TEXT_COLOR
             )

@@ -393,7 +393,12 @@ class Game:
         self.world_state.context_menu.options = [
             {"label": "MoveTo"},
             {"label": "Attack"},
-            {"label": "Build", "sub_options": ["Outpost", "Turret", "Mine"]},
+            {
+                "label": "Build",
+                # Sub-options should follow the same dict structure as main options
+                # for consistency and to fix the rendering TypeError.
+                "sub_options": [{"label": "Outpost"}, {"label": "Turret"}, {"label": "Mine"}],
+            },
         ]
         # Store a reference to the first unit created so we can always find it.
         self.player_unit = self._spawn_initial_units()
