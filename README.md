@@ -156,6 +156,34 @@ worldom/
 *   **`src/world/world_state.py`**:
     *   **`WorldState` class**: A data class to hold the current state of all game entities.
 
+
+
+Here are the Python files under C:\prj\WorldDom\src and their line counts:
+
+   - C:\prj\WorldDom\src\core\camera.py: 813 lines
+   - C:\prj\WorldDom\src\core\camera_debug.py: 481 lines
+   - C:\prj\WorldDom\src\core\debug_panel.py: 118 lines
+   - C:\prj\WorldDom\src\core\game.py: 611 lines
+   - C:\prj\WorldDom\src\core\map.py: 788 lines
+   - C:\prj\WorldDom\src\entities\unit.py: 406 lines
+   - C:\prj\WorldDom\src\redundant\spatial_hash.py: 363 lines
+   - C:\prj\WorldDom\src\rendering\globe_frames.py: 50 lines
+   - C:\prj\WorldDom\src\rendering\globe_renderer.py: 101 lines
+   - C:\prj\WorldDom\src\ui\context_menu.py: 30 lines
+   - C:\prj\WorldDom\src\ui\input_handler.py: 151 lines
+   - C:\prj\WorldDom\src\ui\selection_manager.py: 54 lines
+   - C:\prj\WorldDom\src\ui\starfield.py: 129 lines
+   - C:\prj\WorldDom\src\ui\ui_manager.py: 359 lines
+   - C:\prj\WorldDom\src\utils\camera_types.py: 23 lines
+   - C:\prj\WorldDom\src\utils\camera_utils.py: 221 lines
+   - C:\prj\WorldDom\src\utils\env_check.py: 80 lines
+   - C:\prj\WorldDom\src\utils\settings.py: 149 lines
+   - C:\prj\WorldDom\src\utils\spatial_hash.py: 121 lines
+   - C:\prj\WorldDom\src\world\commands.py: 56 lines
+   - C:\prj\WorldDom\src\world\world_state.py: 30 lines
+
+
+
 ### Example Map 
 Fully zoomed out for debug purposes
 
