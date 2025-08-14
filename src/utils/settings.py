@@ -88,6 +88,42 @@ PLANET_THEMES = {
             "rock": {"name": "Glow-Stone Vein", "color": (60, 70, 90), "globe_color": "#3C465A", "walkable": True},
         }
     },
+    "pandora": {
+        "name": "Pandora",
+        "terrains": {
+            "ocean": {"name": "Glowing Sea", "color": (20, 0, 60), "globe_color": "#14003C", "walkable": False},
+            "lake": {"name": "Sacred River", "color": (0, 200, 220), "globe_color": "#00C8DC", "walkable": False},
+            "grass": {"name": "Bioluminescent Jungle", "color": (10, 60, 40), "globe_color": "#0A3C28", "walkable": True},
+            "rock": {"name": "Floating Mountains", "color": (70, 90, 80), "globe_color": "#465A50", "walkable": True},
+        }
+    },
+    "cybertron": {
+        "name": "Cybertron",
+        "terrains": {
+            "ocean": {"name": "Energon Ocean", "color": (100, 0, 180), "globe_color": "#6400B4", "walkable": False},
+            "lake": {"name": "Coolant Reservoir", "color": (150, 200, 255), "globe_color": "#96C8FF", "walkable": False},
+            "grass": {"name": "Metallic Plains", "color": (100, 105, 110), "globe_color": "#64696E", "walkable": True},
+            "rock": {"name": "City Spires", "color": (60, 65, 70), "globe_color": "#3C4146", "walkable": True},
+        }
+    },
+    "aetheria": {
+        "name": "Aetheria",
+        "terrains": {
+            "ocean": {"name": "Maelstrom Core", "color": (20, 10, 30), "globe_color": "#140A1E", "walkable": False},
+            "lake": {"name": "Static Pool", "color": (180, 220, 255), "globe_color": "#B4DCFF", "walkable": False},
+            "grass": {"name": "Cloud Sea", "color": (210, 215, 220), "globe_color": "#D2D7DC", "walkable": True},
+            "rock": {"name": "Storm Wall", "color": (100, 105, 120), "globe_color": "#646978", "walkable": True},
+        }
+    },
+    "simulacra": {
+        "name": "The Simulacrum",
+        "terrains": {
+            "ocean": {"name": "Static Void", "color": (20, 10, 30), "globe_color": "#140A1E", "walkable": False},
+            "lake": {"name": "Data Stream", "color": (0, 255, 100), "globe_color": "#00FF64", "walkable": False},
+            "grass": {"name": "Corrupted Grid", "color": (0, 150, 200), "globe_color": "#0096C8", "walkable": True},
+            "rock": {"name": "Glitched Geometry", "color": (255, 0, 150), "globe_color": "#FF0096", "walkable": True},
+        }
+    },
 }
 
 # --- Active Theme Selection ---
