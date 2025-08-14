@@ -2,7 +2,7 @@
 # Enhanced 3D “warp speed” starfield with galaxies, twinkle, warp bursts,
 # resizing support, and cached scaled sprites for performance.
 from __future__ import annotations
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Optional, Tuple
 import math
 import random
