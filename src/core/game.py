@@ -385,7 +385,7 @@ class Game:
 
         # Stage 1: Intergalactic travel with its complex speed profile.
         self._run_loading_loop(
-            map_generation_worker, "Intergalactic travel", speed_profile=profile1)
+            map_generation_worker, "Intergalactic boost", speed_profile=profile1)
 
         self.world_state = WorldState()
         initial_unit = self._spawn_initial_units()
@@ -401,7 +401,7 @@ class Game:
 
         # Stage 2: Interstellar travel, with its own deceleration profile.
         self._run_loading_loop(
-            globe_rendering_worker, "Interstellar travel", speed_profile=profile2)
+            globe_rendering_worker, "Interstellar slow down", speed_profile=profile2)
         self._load_globe_frames()
 
         # Show the globe popup immediately upon starting a new world
@@ -510,9 +510,9 @@ class Game:
         self.ui_manager.draw_ui()
 
         # Debug panel & overlays
-        # The DebugPanel appears to have old, redundant code that draws a blinking
-        # highlight on selected units. This is now disabled to prevent visual flickering.
-        # self.debug_panel.draw(self)
+        # The root cause of a previous visual glitch was fixed, so it is now
+        # safe to re-enable the debug panel.
+        self.debug_panel.draw(self)
 
         # Optional lightweight FPS overlay (toggle in settings)
         if getattr(settings, "SHOW_FPS", False):
