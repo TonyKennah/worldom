@@ -34,6 +34,7 @@ There are no coding standards, just make sure things work before createing a PR 
 - ❤️ methods at 50 lines is already too big
 - put classes in their own file no matter how small they are
 - organise classes into appropriate folders / modules
+- please resolve merge conflicts on PRs
 - Enjoy
 
 ## Getting Started
