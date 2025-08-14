@@ -4,7 +4,7 @@ Handles the rendering and state of all UI elements in the game.
 """
 from __future__ import annotations
 import math
-from typing import List, Optional, Tuple, TYPE_CHECKING, Any
+from typing import List, Optional, Tuple, Dict, TYPE_CHECKING, Any
 
 import pygame
 import src.utils.settings as settings
