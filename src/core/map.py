@@ -42,9 +42,9 @@ class VisibleArea:
 @dataclass(frozen=True)
 class PathOptions:
     """A* configuration."""
-    allow_diagonals: bool = False
+    allow_diagonals: bool = True
     avoid_corner_cut: bool = True  # if diagonals, disallow squeezing through corners
-    jitter: float = 0.0            # [0..0.5] small random per-step cost for path variety
+    jitter: float = 0.3            # [0..0.5] small random per-step cost for path variety
     costs: Optional[Mapping[str, float]] = None  # terrain move cost (>=1)
     max_iterations: Optional[int] = None         # safety cap for very large maps
 

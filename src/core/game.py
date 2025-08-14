@@ -173,22 +173,21 @@ class Game:
         self,
         target_func,
         message: str,
-        start_speed: Optional[float] = None,
-        end_speed: Optional[float] = None,
-        transition_start_progress: float = 0.0,
-        transition_duration: float = 1.0,
+        speed_profile: Optional[List[Tuple[float, float]]] = None,
     ) -> None:
         """
         Runs a smooth animation loop on the main thread while a worker
-        thread performs a long-running task. Captures worker exceptions and
-        can smoothly transition the starfield speed.
+        thread performs a long-running task. Captures worker exceptions.
+
+        The speed_profile is a list of (progress, speed) tuples, e.g.,
+        [(0.0, 100), (0.5, 200), (1.0, 100)].
         """
         progress_state: Dict[str, Any] = {'progress': 0.0, 'cancel': False, 'error': None}
         exception_info: Dict[str, Any] = {}
 
         # Set initial speed if provided for the transition
-        if start_speed is not None:
-            self.starfield.speed_factor = start_speed
+        if speed_profile:
+            self.starfield.speed_factor = speed_profile[0][1]
 
         # Wrap the target so we can capture exceptions in the worker thread
         def worker_wrapper():
@@ -213,21 +212,25 @@ class Game:
             raw = float(progress_state.get('progress', 0.0))
             displayed = 0.9 * displayed + 0.1 * raw
 
-            # If a speed transition is requested, interpolate the speed based on raw progress.
-            if start_speed is not None and end_speed is not None:
+            # If a speed profile is provided, interpolate the speed based on raw progress.
+            if speed_profile:
                 clamped_raw = max(0.0, min(1.0, raw))
-
-                # Calculate progress relative to the transition's start point
-                relative_progress = max(0.0, clamped_raw - transition_start_progress)
-
-                # Calculate the progress of the transition itself, over its specified duration.
-                # This value goes from 0.0 to 1.0 as the transition completes.
-                if transition_duration <= 0:
-                    transition_progress = 1.0 if clamped_raw >= transition_start_progress else 0.0
-                else:
-                    transition_progress = min(1.0, relative_progress / transition_duration)
-
-                self.starfield.speed_factor = start_speed + (end_speed - start_speed) * transition_progress
+                # Find the segment of the profile the current progress is in
+                start_kf = speed_profile[0]
+                end_kf = speed_profile[-1]
+                for i in range(len(speed_profile) - 1):
+                    if speed_profile[i][0] <= clamped_raw <= speed_profile[i+1][0]:
+                        start_kf = speed_profile[i]
+                        end_kf = speed_profile[i+1]
+                        break
+                # Interpolate speed within the current segment
+                segment_duration = end_kf[0] - start_kf[0]
+                if segment_duration > 0:
+                    progress_in_segment = (clamped_raw - start_kf[0]) / segment_duration
+                    current_speed = start_kf[1] + (end_kf[1] - start_kf[1]) * progress_in_segment
+                    self.starfield.speed_factor = current_speed
+                else:  # Handle zero-duration segments (instant change)
+                    self.starfield.speed_factor = end_kf[1]
 
             self.starfield.update(dt)  # Update animation with real delta time
             self._draw_splash_screen(message, progress=displayed)
@@ -250,8 +253,8 @@ class Game:
             raise RuntimeError("Loading failed; see traceback above.")
 
         # Ensure final speed is set correctly after the loop
-        if end_speed is not None:
-            self.starfield.speed_factor = end_speed
+        if speed_profile:
+            self.starfield.speed_factor = speed_profile[-1][1]
 
         # Draw one final time at 100% to ensure the bar is full
         self._draw_splash_screen(message, progress=1.0)
@@ -353,22 +356,33 @@ class Game:
         # Define speeds for the loading sequence narrative
         hyper_speed = 2500.0
         normal_speed = 750.0
+        final_speed = normal_speed / 2.0
 
-        # The total slowdown happens over the last 0.2 of the first bar and the first 0.4 of the second.
-        # We need to find the speed at the end of the first bar to serve as the intermediate point.
-        # Total transition "distance" in terms of progress is 0.2 + 0.4 = 0.6
-        # The first bar covers 0.2 / 0.6 = 1/3 of the total speed change.
-        speed_delta = hyper_speed - normal_speed
-        intermediate_speed = hyper_speed - (speed_delta * (1.0 / 3.0))
+        # --- Calculate intermediate speed for the seamless transition ---
+        # The deceleration from hyper_speed to normal_speed happens over a total progress of 0.75
+        # (0.25 from bar 1, 0.5 from bar 2). We need to find the speed at the end of bar 1.
+        decel_duration_total = 0.25 + 0.5
+        decel_duration_bar1 = 0.25
+        decel_progress_bar1 = decel_duration_bar1 / decel_duration_total
+        speed_delta_total = hyper_speed - normal_speed
+        intermediate_speed = hyper_speed - (speed_delta_total * decel_progress_bar1)
 
-        # Stage 1: Intergalactic travel. Constant high speed, then decelerates in the last 20%.
+        # --- Define Speed Profiles ---
+        profile1 = [
+            (0.0, normal_speed),      # Start at normal speed
+            (0.25, normal_speed),     # Hold until 25%, then start accelerating
+            (0.75, hyper_speed),      # Reach hyper speed at 75%, then start decelerating
+            (1.0, intermediate_speed) # End at the calculated intermediate speed
+        ]
+        profile2 = [
+            (0.0, intermediate_speed), # Start where the last bar left off
+            (0.5, normal_speed),       # Decelerate to normal speed by 50%
+            (1.0, final_speed)         # Decelerate to final speed by 100%
+        ]
+
+        # Stage 1: Intergalactic travel with its complex speed profile.
         self._run_loading_loop(
-            map_generation_worker,
-            "Intergalactic travel",
-            start_speed=hyper_speed,
-            end_speed=intermediate_speed,
-            transition_start_progress=0.8,
-            transition_duration=0.2)
+            map_generation_worker, "Intergalactic travel", speed_profile=profile1)
 
         self.world_state = WorldState()
         initial_unit = self._spawn_initial_units()
@@ -382,14 +396,9 @@ class Game:
                     return
                 progress_state['progress'] = progress
 
-        # Stage 2: Interstellar travel. Continues decelerating for the first 40%, then constant speed.
+        # Stage 2: Interstellar travel, with its own deceleration profile.
         self._run_loading_loop(
-            globe_rendering_worker,
-            "Interstellar travel",
-            start_speed=intermediate_speed,
-            end_speed=normal_speed,
-            transition_start_progress=0.0,
-            transition_duration=0.4)
+            globe_rendering_worker, "Interstellar travel", speed_profile=profile2)
         self._load_globe_frames()
 
         # Show the globe popup immediately upon starting a new world
