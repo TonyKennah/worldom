@@ -10,14 +10,14 @@ from typing import TYPE_CHECKING, Callable, Deque, Iterable, List, Optional, Tup
 
 import pygame
 
-from src.utils.settings import (
-    TILE_SIZE,
-    UNIT_RADIUS,
-    UNIT_MOVES_PER_SECOND,
-    UNIT_COLOR,
-    UNIT_SELECTED_COLOR,
-    UNIT_INNER_CIRCLE_RATIO,
-)
+import src.utils.settings as settings
+
+# For convenience, we can still alias some constants that are not expected to change at runtime.
+TILE_SIZE = settings.TILE_SIZE
+UNIT_RADIUS = settings.UNIT_RADIUS
+UNIT_MOVES_PER_SECOND = settings.UNIT_MOVES_PER_SECOND
+UNIT_COLOR = settings.UNIT_COLOR
+UNIT_INNER_CIRCLE_RATIO = settings.UNIT_INNER_CIRCLE_RATIO
 
 # Optional settings with sensible fallbacks (no changes required in your settings.py)
 try:
@@ -268,7 +268,7 @@ class Unit:
             ring_w = UNIT_SELECTION_RING_WIDTH
             # The unit should always use the global, theme-aware setting for its
             # selection color, rather than storing its own copy.
-            ring_color = UNIT_SELECTED_COLOR if self.selected else UNIT_HOVER_COLOR
+            ring_color = settings.UNIT_SELECTED_COLOR if self.selected else UNIT_HOVER_COLOR
             pygame.draw.circle(surface, ring_color, screen_pos, int(radius * 1.15), int(max(1, ring_w)))
 
         # Fill + inner circle (classic look)
