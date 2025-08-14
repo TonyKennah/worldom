@@ -168,7 +168,7 @@ worldom/
 
 
 
-Here are the Python files under C:\prj\WorldDom\src and their line counts:
+Here are the Python files under WorldDom\src and their line counts:
 
    - src\core\camera.py: 813 lines
    - src\core\map.py: 788 lines
