@@ -316,8 +316,16 @@ class Game:
         settings.TERRAIN_TYPES = list(theme["terrains"].keys())
         settings.TERRAIN_DATA = theme["terrains"]
         settings.TERRAIN_COLORS = {key: data["color"] for key, data in settings.TERRAIN_DATA.items()}
-        settings.WALKABLE_TERRAINS = {key for key, data in settings.TERRAIN_DATA.items() if data["walkable"]}
-        settings.GLOBE_TERRAIN_COLORS = [data["globe_color"] for data in settings.TERRAIN_DATA.values()]
+        settings.WALKABLE_TERRAINS = {key for key, data in settings.TERRAIN_DATA.items() if data.get("walkable")}
+
+        # Robustly parse globe colors into (r, g, b, a) tuples.
+        # This handles various formats (hex, names, RGB, RGBA) and ensures
+        # all consumers receive a consistent RGBA format.
+        globe_colors = []
+        for data in settings.TERRAIN_DATA.values():
+            c = pygame.Color(data["globe_color"])
+            globe_colors.append((c.r, c.g, c.b, c.a))
+        settings.GLOBE_TERRAIN_COLORS = globe_colors
 
         self.current_theme_key = theme_key
         print(f"Selected theme: {theme['name']} ({theme_key})")

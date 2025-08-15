@@ -79,9 +79,13 @@ def warm_up_rendering_libraries() -> None:
 
 # --------------------------------- Utilities / cache ----------------------------------
 def _hash_colors(colors: Sequence[Tuple[int, int, int]]) -> str:
+    """
+    Creates a stable hash from a list of RGB or RGBA colors.
+    Ignores the alpha channel for hashing.
+    """
     h = hashlib.sha256()
-    for r, g, b in colors:
-        h.update(bytes([int(r) & 0xFF, int(g) & 0xFF, int(b) & 0xFF]))
+    for color_tuple in colors:
+        r, g, b = color_tuple[:3]  # Use only the first 3 components (RGB)
     return h.hexdigest()
 
 
@@ -190,8 +194,10 @@ def render_single_globe_frame(
         ax.set_global()
 
         # Base ocean (index 0 expected to be ocean color)
-        ocean_color = settings.GLOBE_TERRAIN_COLORS[0]
-        ax.add_feature(cfeature.OCEAN, zorder=0, facecolor=ocean_color)
+        # Matplotlib expects colors as floats in [0, 1] range.
+        ocean_color_int = settings.GLOBE_TERRAIN_COLORS[0]
+        ocean_color_float = [c / 255.0 for c in ocean_color_int]
+        ax.add_feature(cfeature.OCEAN, zorder=0, facecolor=ocean_color_float)
 
         # Terrain texture
         ax.pcolormesh(
@@ -241,7 +247,10 @@ def render_map_as_globe(map_data: List[List[str]], map_seed: int) -> Generator[f
 
     # Prepare numerical grid & palette
     numerical_data = build_numerical_grid(map_data)
-    color_map = ListedColormap(settings.GLOBE_TERRAIN_COLORS)
+    # Matplotlib expects colors as floats in [0, 1] range.
+    # Convert the RGBA integer colors from settings.
+    float_colors = [[c / 255.0 for c in color] for color in settings.GLOBE_TERRAIN_COLORS]
+    color_map = ListedColormap(float_colors)
 
     # Compute cache key
     meta = GlobeMeta(

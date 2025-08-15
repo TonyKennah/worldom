@@ -31,8 +31,8 @@ import pygame
 import src.utils.settings as settings
 
 # Local helper modules (new)
-from noise_adapter import Noise4
-from path_debug import PathDebug
+from .noise_adapter import Noise4
+from .path_debug import PathDebug
 
 if TYPE_CHECKING:
     from src.core.camera import Camera  # camera.apply, zoom_state.current expected
