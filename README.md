@@ -53,6 +53,10 @@ Traceback (most recent call last):
 RuntimeError: Loading failed; see traceback above.
 
 ALL DEVELOPERS FROZEN AS NONE CAN CHECK IF THINGS ARE WORKING
+
+BROKEN: Rollback Commit a4865ea PENDING
+BROKEN: Rollback Commit a4865ea PENDING
+BROKEN: Rollback Commit a4865ea PENDING
 BROKEN: Rollback Commit a4865ea PENDING
 
 
