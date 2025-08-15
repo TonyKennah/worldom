@@ -52,6 +52,7 @@ Traceback (most recent call last):
     raise RuntimeError("Loading failed; see traceback above.")
 RuntimeError: Loading failed; see traceback above.
 
+ALL DEVELOPERS FROZEN AS NONE CAN CHECK IF THINGS ARE WORKING
 BROKEN: Rollback Commit a4865ea PENDING
 
 
