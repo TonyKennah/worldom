@@ -125,6 +125,7 @@ There are no coding standards, just make sure things work before createing a PR 
 - just make sure things work
 - just make sure things work
 - just make sure things work
+- the worst thing anyone can do is break the game so it doesnt work
 - Enjoy
 
 ## Getting Started
