@@ -7,9 +7,16 @@ Additions:
 - Faster flood-fills (deque)
 - Diagonal-aware A* with octile heuristic
 - Terrain move-costs, jitter, corner-cutting guard, iteration cap (PathOptions)
+- Weighted, admissible heuristic w.r.t. min terrain cost
+- Proper diagonal vs orthogonal step costs (√2 vs 1), optional custom weights
+- Path simplification (collinearity) with toroidal awareness
+- Optional pathfinding debug capture (closed/open/costs/came_from), view via overlay
 - Nearest-walkable helper
+- LOS (line-of-sight) helper (toroidal, Bresenham-style)
 - World/tile conversion helpers and optional hover by world-pos
-- Small rendering and meshing tweaks
+- Robust LOD drawing; fixed camera zoom property; smoothscale option
+- Export helpers (to Surface / PNG)
+- Noise backend adapter (OpenSimplex → python-noise fallback) via noise_adapter.py
 """
 from __future__ import annotations
 
@@ -18,17 +25,21 @@ import math
 import random
 from collections import deque
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, Generator, Iterable, List, Mapping, Optional, Tuple
+from typing import Dict, Iterable, List, Mapping, Optional, Tuple, TYPE_CHECKING
 
 import pygame
-from opensimplex import OpenSimplex
 import src.utils.settings as settings
 
+# Local helper modules (new)
+from noise_adapter import Noise4
+from path_debug import PathDebug
+
 if TYPE_CHECKING:
-    from src.core.camera import Camera
+    from src.core.camera import Camera  # camera.apply, zoom_state.current expected
 
-
-# --- Data containers ---------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Data containers
+# -----------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class VisibleArea:
@@ -41,13 +52,17 @@ class VisibleArea:
 
 @dataclass(frozen=True)
 class PathOptions:
-    """A* configuration."""
+    """A* configuration (sane defaults remain backwards-compatible)."""
     allow_diagonals: bool = True
-    avoid_corner_cut: bool = True  # if diagonals, disallow squeezing through corners
-    jitter: float = 0.3            # [0..0.5] small random per-step cost for path variety
-    costs: Optional[Mapping[str, float]] = None  # terrain move cost (>=1)
-    max_iterations: Optional[int] = None         # safety cap for very large maps
-
+    avoid_corner_cut: bool = True      # disallow squeezing through blocked corners
+    jitter: float = 0.3                # [0..0.5] small random per-step cost for variety
+    costs: Optional[Mapping[str, float]] = None  # terrain move cost (>= 1)
+    max_iterations: Optional[int] = None         # safety cap
+    heuristic_weight: float = 1.0      # Weighted A*; keep 1.0 for A*
+    orth_cost: float = 1.0             # orthogonal step cost base
+    diag_cost: float = math.sqrt(2.0)  # diagonal step cost base
+    simplify_path: bool = True         # run collinearity simplifier
+    capture_debug: bool = False        # capture debug info (see PathDebug)
 
 class AStarState:
     """Helper state for A* pathfinding."""
@@ -57,11 +72,12 @@ class AStarState:
         self.came_from: Dict[Tuple[int, int], Optional[Tuple[int, int]]] = {start_node: None}
         self.g_cost: Dict[Tuple[int, int], float] = {start_node: 0.0}
         self.closed: set[Tuple[int, int]] = set()
+        self.open: set[Tuple[int, int]] = {start_node}
 
+# -----------------------------------------------------------------------------
+# Map Generation Constants (earth-like procedural flavor)
+# -----------------------------------------------------------------------------
 
-# --- Map Generation Constants -----------------------------------------------
-
-# Earth-like procedural generation
 ELEVATION_SCALE = 1.5
 ELEVATION_OCTAVES = 4
 ELEVATION_PERSISTENCE = 0.5
@@ -84,18 +100,26 @@ LAKE_THRESHOLD = -0.3     # remaining land below -> lake
 
 LAKE_SIZE_LIMIT = 40      # lakes larger than this are filled to grass
 
-
-# --- Utilities ---------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Utilities
+# -----------------------------------------------------------------------------
 
 def _wrap_idx(i: int, size: int) -> int:
     return i % size
 
-
 def _toroidal_delta(a: int, b: int, size: int) -> int:
-    """Shortest signed delta (toroidal)."""
+    """Shortest *unsigned* delta (for heuristic)."""
     d = abs(a - b)
     return min(d, size - d)
 
+def _toroidal_step_delta(a: int, b: int, size: int) -> int:
+    """Step delta in {-1,0,1} across a toroidal axis."""
+    d = b - a
+    if d > 1:
+        d -= size
+    elif d < -1:
+        d += size
+    return max(-1, min(1, d))
 
 def _octile(dx: int, dy: int) -> float:
     """Octile distance for diagonal grids with cost(orth)=1, cost(diag)=sqrt(2)."""
@@ -103,8 +127,9 @@ def _octile(dx: int, dy: int) -> float:
     dmax = max(dx, dy)
     return (dmax - dmin) + math.sqrt(2.0) * dmin
 
-
-# --- Map ---------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Map
+# -----------------------------------------------------------------------------
 
 class Map:
     """
@@ -112,30 +137,33 @@ class Map:
     """
 
     def __init__(self, width: int, height: int, seed: Optional[int] = None) -> None:
-        self.width = width
-        self.height = height
+        self.width = int(width)
+        self.height = int(height)
         self.tile_size = settings.TILE_SIZE
         self.terrain_types = settings.TERRAIN_TYPES
 
-        self.seed = seed if seed is not None else random.randint(0, 1_000_000)
+        self.seed = int(seed if seed is not None else random.randint(0, 1_000_000))
         self.rng = random.Random(self.seed)  # deterministic per-map RNG
 
-        # populated by generate()
+        # Populated by generate() or load
         self.data: List[List[str]] = []
-        self.data: List[List[str]] = [] # Will be populated by the generate() method
         self.lod_surface: Optional[pygame.Surface] = None
 
+        # Optional path debug info (last search)
+        self.last_path_debug: Optional[PathDebug] = None
 
-    def _fractal_noise(  # pylint: disable=too-many-arguments
+    # ---- Noise helpers (via noise_adapter.Noise4) ---------------------------
+
+    def _fractal_noise(
         self,
-        gen: OpenSimplex,
+        gen: Noise4,
         x: float, y: float, z: float, w: float,
         *,
         octaves: int,
         persistence: float,
         lacunarity: float
     ) -> float:
-        """Generates fractal noise using an OpenSimplex generator, normalized to [-1, 1]."""
+        """Generates fractal noise (normalized to [-1, 1])."""
         total = 0.0
         frequency = 1.0
         amplitude = 1.0
@@ -147,7 +175,7 @@ class Map:
             frequency *= lacunarity
         return total / max_value if max_value > 0 else 0.0
 
-    def _get_elevation_noise(self, gen: OpenSimplex, angle_x: float, angle_y: float) -> float:
+    def _get_elevation_noise(self, gen: Noise4, angle_x: float, angle_y: float) -> float:
         ex = math.cos(angle_x) * ELEVATION_SCALE
         ey = math.sin(angle_x) * ELEVATION_SCALE
         ez = math.cos(angle_y) * ELEVATION_SCALE
@@ -159,7 +187,7 @@ class Map:
             lacunarity=ELEVATION_LACUNARITY
         )
 
-    def _get_mountain_noise(self, gen: OpenSimplex, angle_x: float, angle_y: float) -> float:
+    def _get_mountain_noise(self, gen: Noise4, angle_x: float, angle_y: float) -> float:
         mx = math.cos(angle_x) * MOUNTAIN_SCALE
         my = math.sin(angle_x) * MOUNTAIN_SCALE
         mz = math.cos(angle_y) * MOUNTAIN_SCALE
@@ -171,7 +199,7 @@ class Map:
             lacunarity=MOUNTAIN_LACUNARITY
         )
 
-    def _get_lake_noise(self, gen: OpenSimplex, angle_x: float, angle_y: float) -> float:
+    def _get_lake_noise(self, gen: Noise4, angle_x: float, angle_y: float) -> float:
         lx = math.cos(angle_x) * LAKE_SCALE
         ly = math.sin(angle_x) * LAKE_SCALE
         lz = math.cos(angle_y) * LAKE_SCALE
@@ -183,16 +211,16 @@ class Map:
             lacunarity=LAKE_LACUNARITY
         )
 
-    # --- Generation ----------------------------------------------------------
+    # ---- Generation ---------------------------------------------------------
 
-    def generate(self) -> Generator[float, None, None]:
+    def generate(self):
         """
         Generates terrain. Yields progress in [0..1].
         """
-        # seeded, reproducible generators
-        e_gen = OpenSimplex(seed=self.rng.randint(0, 10_000))
-        m_gen = OpenSimplex(seed=self.rng.randint(0, 10_000))
-        l_gen = OpenSimplex(seed=self.rng.randint(0, 10_000))
+        # Seeded, reproducible generators (OpenSimplex or python-noise fallback)
+        e_gen = Noise4(self.rng.randint(0, 10_000))
+        m_gen = Noise4(self.rng.randint(0, 10_000))
+        l_gen = Noise4(self.rng.randint(0, 10_000))
 
         self.data = [["" for _ in range(self.width)] for _ in range(self.height)]
 
@@ -221,12 +249,18 @@ class Map:
             if (y + 1) % 4 == 0 or (y + 1) == self.height:
                 yield 0.7 * ((y + 1) / self.height)  # first phase up to 70%
 
-        # Post-processing phases
+        # Post processing
         self._convert_inland_oceans_to_lakes(self.data)
         yield 0.85
         self._fill_large_lakes(self.data)
         yield 1.0
         self._create_lod_surface()
+
+    def reseed_and_regenerate(self, seed: Optional[int] = None):
+        """Convenience: reseed RNG and regenerate."""
+        self.seed = int(seed if seed is not None else random.randint(0, 1_000_000))
+        self.rng = random.Random(self.seed)
+        yield from self.generate()
 
     def _create_lod_surface(self) -> None:
         """Creates a pre-rendered surface of the entire map for high-performance drawing when zoomed out."""
@@ -236,14 +270,15 @@ class Map:
 
         map_width_pixels = self.width * self.tile_size
         map_height_pixels = self.height * self.tile_size
-        self.lod_surface = pygame.Surface((map_width_pixels, map_height_pixels))
+        s = pygame.Surface((map_width_pixels, map_height_pixels))
+        get_color = settings.TERRAIN_COLORS.get
         for y, row in enumerate(self.data):
             for x, terrain_key in enumerate(row):
-                color = settings.TERRAIN_COLORS.get(terrain_key, (0, 0, 0))
-                rect = pygame.Rect(x * self.tile_size, y * self.tile_size, self.tile_size, self.tile_size)
-                pygame.draw.rect(self.lod_surface, color, rect)
+                pygame.draw.rect(s, get_color(terrain_key, (0, 0, 0)),
+                                 (x * self.tile_size, y * self.tile_size, self.tile_size, self.tile_size))
+        self.lod_surface = s
 
-    # --- Post processing (flood-fills) --------------------------------------
+    # ---- Post processing (flood-fills) -------------------------------------
 
     def _flood_fill_collect(
         self,
@@ -305,12 +340,10 @@ class Map:
                         world[by][bx] = "grass"
 
     def _convert_inland_oceans_to_lakes(self, world: List[List[str]]) -> None:
-        """
-        Finds all disconnected bodies of 'ocean' (toroidal), converts all but the largest to 'lake'.
-        """
+        """Finds all disconnected bodies of 'ocean' (toroidal), converts all but the largest to 'lake'."""
         w, h = self.width, self.height
         visited = [[False] * w for _ in range(h)]
-        bodies: List[List[Tuple[int, int]]]= []
+        bodies: List[List[Tuple[int, int]]] = []
 
         for y in range(h):
             for x in range(w):
@@ -340,7 +373,7 @@ class Map:
             for x, y in body:
                 world[y][x] = "lake"
 
-    # --- Rendering -----------------------------------------------------------
+    # ---- Rendering ----------------------------------------------------------
 
     def draw(
         self,
@@ -354,74 +387,57 @@ class Map:
         if hovered_tile is None and hovered_world_pos is not None:
             hovered_tile = self.world_to_tile(hovered_world_pos)
 
-        map_width_pixels = self.width * self.tile_size
-        map_height_pixels = self.height * self.tile_size
-
-        if map_width_pixels <= 0 or map_height_pixels <= 0:
+        map_w_px = self.width * self.tile_size
+        map_h_px = self.height * self.tile_size
+        if map_w_px <= 0 or map_h_px <= 0:
             return
 
-        # --- Calculate required map instances to fill the screen ---
+        # Determine which toroidal instances are needed
         visible_world_rect = camera.get_visible_world_rect()
-        start_instance_x = math.floor(visible_world_rect.left / map_width_pixels)
-        end_instance_x = math.floor(visible_world_rect.right / map_width_pixels)
-        start_instance_y = math.floor(visible_world_rect.top / map_height_pixels)
-        end_instance_y = math.floor(visible_world_rect.bottom / map_height_pixels)
+        start_ix = math.floor(visible_world_rect.left / map_w_px)
+        end_ix   = math.floor(visible_world_rect.right / map_w_px)
+        start_iy = math.floor(visible_world_rect.top / map_h_px)
+        end_iy   = math.floor(visible_world_rect.bottom / map_h_px)
 
-        # --- Level of Detail (LOD) ---
-        # If zoomed out far enough, draw the pre-rendered map image for performance.
-        if self.lod_surface and camera.zoom < settings.MAP_LOD_ZOOM_THRESHOLD:
-            for iy in range(start_instance_y, end_instance_y + 1):
-                for ix in range(start_instance_x, end_instance_x + 1):
-                    dx, dy = ix * map_width_pixels, iy * map_height_pixels
-                    instance_rect = pygame.Rect(dx, dy, map_width_pixels, map_height_pixels)
+        # LOD (zoomed out)
+        zoom = getattr(camera, "zoom_state", None).current if hasattr(camera, "zoom_state") else 1.0
+        if self.lod_surface and zoom < settings.MAP_LOD_ZOOM_THRESHOLD:
+            for iy in range(start_iy, end_iy + 1):
+                for ix in range(start_ix, end_ix + 1):
+                    dx, dy = ix * map_w_px, iy * map_h_px
+                    instance_rect = pygame.Rect(dx, dy, map_w_px, map_h_px)
                     screen_rect = camera.apply(instance_rect)
-                    scaled_lod_surface = pygame.transform.scale(self.lod_surface, screen_rect.size)
-                    surface.blit(scaled_lod_surface, screen_rect)
+                    # Decide scaling method based on size; smoothscale is costlier but nicer
+                    if screen_rect.width > 0 and screen_rect.height > 0:
+                        if screen_rect.width * screen_rect.height < map_w_px * map_h_px:
+                            lod_scaled = pygame.transform.smoothscale(self.lod_surface, screen_rect.size)
+                        else:
+                            lod_scaled = pygame.transform.scale(self.lod_surface, screen_rect.size)
+                        surface.blit(lod_scaled, screen_rect)
 
-            # Draw hover highlight on top of all LOD instances
             if hovered_tile:
-                for iy in range(start_instance_y, end_instance_y + 1):
-                    for ix in range(start_instance_x, end_instance_x + 1):
-                        dx, dy = ix * map_width_pixels, iy * map_height_pixels
-                        # Calculate the world position of the hovered tile for this specific map instance
-                        tile_world_x = hovered_tile[0] * self.tile_size + dx
-                        tile_world_y = hovered_tile[1] * self.tile_size + dy
-                        world_rect = pygame.Rect(tile_world_x, tile_world_y, self.tile_size, self.tile_size)
+                # Draw hover highlight on top of all instances
+                for iy in range(start_iy, end_iy + 1):
+                    for ix in range(start_ix, end_ix + 1):
+                        dx, dy = ix * map_w_px, iy * map_h_px
+                        twx = hovered_tile[0] * self.tile_size + dx
+                        twy = hovered_tile[1] * self.tile_size + dy
+                        world_rect = pygame.Rect(twx, twy, self.tile_size, self.tile_size)
                         screen_rect = camera.apply(world_rect)
                         pygame.draw.rect(surface, settings.HIGHLIGHT_COLOR, screen_rect, 2)
-            return # We're done drawing the map for this frame
+            return
 
-        # --- High-Detail Drawing (Greedy Meshing) ---
-        for iy in range(start_instance_y, end_instance_y + 1):
-            for ix in range(start_instance_x, end_instance_x + 1):
-                dx, dy = ix * map_width_pixels, iy * map_height_pixels
-                instance_rect = pygame.Rect(dx, dy, map_width_pixels, map_height_pixels)
+        # High-detail greedy meshing
+        for iy in range(start_iy, end_iy + 1):
+            for ix in range(start_ix, end_ix + 1):
+                dx, dy = ix * map_w_px, iy * map_h_px
+                instance_rect = pygame.Rect(dx, dy, map_w_px, map_h_px)
                 if camera.is_world_rect_visible(instance_rect, margin=self.tile_size):
                     offset = pygame.math.Vector2(dx, dy)
                     self._draw_single_map_instance(surface, camera, hovered_tile, offset)
 
-    def _draw_single_map_instance(
-        self,
-        surface: pygame.Surface,
-        camera: Camera,
-        hovered_tile: Optional[Tuple[int, int]],
-        offset: pygame.math.Vector2  # pylint: disable=c-extension-no-member
-    ) -> None:
-        visible_area = self._calculate_visible_area(camera, offset)
-
-        self._draw_terrain(surface, camera, area=visible_area, offset=offset)
-
-        # Grid if zoomed in enough
-        scaled_tile = self.tile_size * camera.zoom_state.current
-        if scaled_tile >= settings.MIN_TILE_PIXELS_FOR_GRID:
-            self._draw_grid_lines(surface, camera, visible_area, offset)
-
-        # Hover highlight last
-        if hovered_tile:
-            self._draw_hover_highlight(surface, camera, visible_area, offset, hovered_tile)
-
     def _calculate_visible_area(
-        self, camera: Camera, offset: pygame.math.Vector2  # pylint: disable=c-extension-no-member
+        self, camera: Camera, offset: pygame.math.Vector2
     ) -> VisibleArea:
         top_left_world = camera.screen_to_world((0, 0)) - offset
         bottom_right_world = camera.screen_to_world((settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT)) - offset
@@ -432,13 +448,32 @@ class Map:
         end_row = math.ceil(bottom_right_world.y / self.tile_size)
         return VisibleArea(start_row, end_row, start_col, end_col)
 
-    def _draw_terrain(  # pylint: disable=too-many-arguments,too-many-locals
+    def _draw_single_map_instance(
+        self,
+        surface: pygame.Surface,
+        camera: Camera,
+        hovered_tile: Optional[Tuple[int, int]],
+        offset: pygame.math.Vector2
+    ) -> None:
+        area = self._calculate_visible_area(camera, offset)
+        self._draw_terrain(surface, camera, area=area, offset=offset)
+
+        # Grid (zoom threshold)
+        scaled_tile = self.tile_size * (camera.zoom_state.current if hasattr(camera, "zoom_state") else 1.0)
+        if scaled_tile >= settings.MIN_TILE_PIXELS_FOR_GRID:
+            self._draw_grid_lines(surface, camera, area, offset)
+
+        # Hover highlight
+        if hovered_tile:
+            self._draw_hover_highlight(surface, camera, area, offset, hovered_tile)
+
+    def _draw_terrain(
         self,
         surface: pygame.Surface,
         camera: Camera,
         *,
         area: VisibleArea,
-        offset: pygame.math.Vector2  # pylint: disable=c-extension-no-member
+        offset: pygame.math.Vector2
     ) -> None:
         """Greedy meshing renderer for large solid rectangles."""
         rows = area.end_row - area.start_row
@@ -447,6 +482,7 @@ class Map:
             return
 
         visited = [[False for _ in range(cols)] for _ in range(rows)]
+        get_color = settings.TERRAIN_COLORS.get
 
         for y in range(area.start_row, area.end_row):
             map_y = _wrap_idx(y, self.height)
@@ -457,7 +493,7 @@ class Map:
 
                 map_x = _wrap_idx(x, self.width)
                 terrain = self.data[map_y][map_x]
-                color = settings.TERRAIN_COLORS[terrain]
+                color = get_color(terrain, (0, 0, 0))
 
                 # Expand width
                 width = 1
@@ -517,7 +553,7 @@ class Map:
         surface: pygame.Surface,
         camera: Camera,
         area: VisibleArea,
-        offset: pygame.math.Vector2  # pylint: disable=c-extension-no-member
+        offset: pygame.math.Vector2
     ) -> None:
         for col in range(area.start_col, area.end_col):
             world_x = col * self.tile_size + offset.x
@@ -529,7 +565,7 @@ class Map:
         surface: pygame.Surface,
         camera: Camera,
         area: VisibleArea,
-        offset: pygame.math.Vector2  # pylint: disable=c-extension-no-member
+        offset: pygame.math.Vector2
     ) -> None:
         for row in range(area.start_row, area.end_row):
             world_y = row * self.tile_size + offset.y
@@ -541,12 +577,18 @@ class Map:
         surface: pygame.Surface,
         camera: Camera,
         area: VisibleArea,
-        offset: pygame.math.Vector2  # pylint: disable=c-extension-no-member
+        offset: pygame.math.Vector2
     ) -> None:
         self._draw_vertical_grid_lines(surface, camera, area, offset)
         self._draw_horizontal_grid_lines(surface, camera, area, offset)
 
-    # --- Tile helpers --------------------------------------------------------
+    # ---- Tile & world helpers ----------------------------------------------
+
+    def tile_center_world(self, tile: Tuple[int, int]) -> pygame.math.Vector2:
+        """World-space center for a tile (wrapped)."""
+        x = _wrap_idx(tile[0], self.width) * self.tile_size + self.tile_size * 0.5
+        y = _wrap_idx(tile[1], self.height) * self.tile_size + self.tile_size * 0.5
+        return pygame.math.Vector2(x, y)
 
     def is_walkable(self, tile_pos: Tuple[int, int]) -> bool:
         """Tile walkability based on terrain."""
@@ -563,15 +605,48 @@ class Map:
         ty = _wrap_idx(int(math.floor(world_pos.y / self.tile_size)), self.height)
         return tx, ty
 
-    # --- Pathfinding ---------------------------------------------------------
+    # ---- Line of Sight (toroidal) ------------------------------------------
 
-    def _heuristic(self, a: Tuple[int, int], b: Tuple[int, int], *, diagonals: bool) -> float:
-        """Toroidal heuristic: Manhattan (4-way) or Octile (8-way)."""
+    def line_of_sight(self, a: Tuple[int, int], b: Tuple[int, int]) -> bool:
+        """
+        Bresenham-style LOS on a toroidal grid; returns True if all tiles along the
+        shortest toroidal line are walkable.
+        """
+        ax, ay = _wrap_idx(a[0], self.width), _wrap_idx(a[1], self.height)
+        bx, by = _wrap_idx(b[0], self.width), _wrap_idx(b[1], self.height)
+
+        x, y = ax, ay
+        dx = _toroidal_step_delta(ax, bx, self.width)
+        dy = _toroidal_step_delta(ay, by, self.height)
+        sx = 1 if dx > 0 else (-1 if dx < 0 else 0)
+        sy = 1 if dy > 0 else (-1 if dy < 0 else 0)
+        dx = abs(dx)
+        dy = abs(dy)
+
+        err = dx - dy
+        while True:
+            if not self.is_walkable((x, y)):
+                return False
+            if x == bx and y == by:
+                break
+            e2 = 2 * err
+            if e2 > -dy:
+                err -= dy
+                x = _wrap_idx(x + sx, self.width)
+            if e2 < dx:
+                err += dx
+                y = _wrap_idx(y + sy, self.height)
+        return True
+
+    # ---- Pathfinding --------------------------------------------------------
+
+    def _heuristic(self, a: Tuple[int, int], b: Tuple[int, int], *, diagonals: bool, min_step_cost: float) -> float:
+        """Toroidal heuristic: Manhattan (4-way) or Octile (8-way), scaled by min step cost to remain admissible."""
         dx = _toroidal_delta(a[0], b[0], self.width)
         dy = _toroidal_delta(a[1], b[1], self.height)
         if diagonals:
-            return float(_octile(dx, dy))
-        return float(dx + dy)
+            return float(_octile(dx, dy)) * min_step_cost
+        return float(dx + dy) * min_step_cost
 
     def _neighbors(
         self,
@@ -579,38 +654,78 @@ class Map:
         *,
         diagonals: bool,
         avoid_corner_cut: bool
-    ) -> Iterable[Tuple[int, int]]:
+    ) -> Iterable[Tuple[Tuple[int, int], bool]]:
+        """Yields (neighbor_tile, is_diagonal)."""
         x, y = node
         w, h = self.width, self.height
 
-        # Cardinal moves
-        n4 = [
-            ((_wrap_idx(x + 1, w), y), (1, 0)),
-            ((_wrap_idx(x - 1, w), y), (-1, 0)),
-            ((x, _wrap_idx(y + 1, h)), (0, 1)),
-            ((x, _wrap_idx(y - 1, h)), (0, -1)),
-        ]
-        for nb, _ in n4:
-            yield nb
+        # Cardinals
+        for nb in ((_wrap_idx(x + 1, w), y),
+                   (_wrap_idx(x - 1, w), y),
+                   (x, _wrap_idx(y + 1, h)),
+                   (x, _wrap_idx(y - 1, h))):
+            yield nb, False
 
         if not diagonals:
             return
 
-        # Diagonals
+        # Diagonals (+ corner-cut guard)
         diag = [
-            ((_wrap_idx(x + 1, w), _wrap_idx(y + 1, h)), (1, 1), ( (x+1, y), (x, y+1) )),
-            ((_wrap_idx(x - 1, w), _wrap_idx(y + 1, h)), (-1,1), ( (x-1, y), (x, y+1) )),
-            ((_wrap_idx(x + 1, w), _wrap_idx(y - 1, h)), (1,-1), ( (x+1, y), (x, y-1) )),
-            ((_wrap_idx(x - 1, w), _wrap_idx(y - 1, h)), (-1,-1), ( (x-1, y), (x, y-1) )),
+            ((_wrap_idx(x + 1, w), _wrap_idx(y + 1, h)), (x + 1, y), (x, y + 1)),
+            ((_wrap_idx(x - 1, w), _wrap_idx(y + 1, h)), (x - 1, y), (x, y + 1)),
+            ((_wrap_idx(x + 1, w), _wrap_idx(y - 1, h)), (x + 1, y), (x, y - 1)),
+            ((_wrap_idx(x - 1, w), _wrap_idx(y - 1, h)), (x - 1, y), (x, y - 1)),
         ]
-
-        for (nx, ny), _, blockers in diag:
+        for nb, bl_a, bl_b in diag:
             if avoid_corner_cut:
-                # If both orthogonal neighbors are unwalkable, block the diagonal
-                if not (self.is_walkable((_wrap_idx(blockers[0][0], w), _wrap_idx(blockers[0][1], h))) or
-                        self.is_walkable((_wrap_idx(blockers[1][0], w), _wrap_idx(blockers[1][1], h)))):
+                if not (self.is_walkable((_wrap_idx(bl_a[0], w), _wrap_idx(bl_a[1], h))) or
+                        self.is_walkable((_wrap_idx(bl_b[0], w), _wrap_idx(bl_b[1], h)))):
                     continue
-            yield (nx, ny)
+            yield nb, True
+
+    def _step_cost(
+        self,
+        to_node: Tuple[int, int],
+        *,
+        is_diag: bool,
+        costs: Optional[Mapping[str, float]],
+        jitter: float,
+        orth_cost: float,
+        diag_cost: float
+    ) -> float:
+        """Base step cost with terrain multiplier and small jitter; diag vs orth aware."""
+        terrain = self.get_tile(to_node)
+        base = diag_cost if is_diag else orth_cost
+        if costs is not None:
+            base *= float(costs.get(terrain, 1.0))
+        if jitter > 0.0:
+            base += self.rng.uniform(0.0, min(0.5, float(jitter)))
+        return base
+
+    @staticmethod
+    def _simplify_path_toroidal(path: List[Tuple[int, int]], w: int, h: int) -> List[Tuple[int, int]]:
+        """Drops collinear points; respects toroidal step deltas so wrap steps work."""
+        if len(path) <= 2:
+            return path
+        out = [path[0]]
+        prev = path[0]
+        dxp = dyp = None
+        for i in range(1, len(path)):
+            cur = path[i]
+            dx = _toroidal_step_delta(prev[0], cur[0], w)
+            dy = _toroidal_step_delta(prev[1], cur[1], h)
+            if dxp is None:
+                dxp, dyp = dx, dy
+                out.append(cur)
+            else:
+                if dx == dxp and dy == dyp:
+                    # Still collinear; replace last with cur
+                    out[-1] = cur
+                else:
+                    out.append(cur)
+                    dxp, dyp = dx, dy
+            prev = cur
+        return out
 
     def _reconstruct_path(self, came_from: Dict[Tuple[int, int], Optional[Tuple[int, int]]],
                           current: Tuple[int, int]) -> List[Tuple[int, int]]:
@@ -624,27 +739,10 @@ class Map:
         path.reverse()
         return path
 
-    def _step_cost(
-        self,
-        to_node: Tuple[int, int],
-        *,
-        costs: Optional[Mapping[str, float]],
-        jitter: float
-    ) -> float:
-        """Base step cost with optional terrain multiplier and small jitter."""
-        terrain = self.get_tile(to_node)
-        base = 1.0
-        if costs is not None:
-            base *= float(costs.get(terrain, 1.0))
-        if jitter > 0.0:
-            # Deterministic per-map RNG (not per-call). Keep jitter bounded.
-            base += self.rng.uniform(0.0, min(0.5, float(jitter)))
-        return base
-
     def find_path(
         self,
-        start_tile: pygame.math.Vector2,  # pylint: disable=c-extension-no-member
-        end_tile: pygame.math.Vector2,    # pylint: disable=c-extension-no-member
+        start_tile: pygame.math.Vector2,
+        end_tile: pygame.math.Vector2,
         options: Optional[PathOptions] = None
     ) -> Optional[List[Tuple[int, int]]]:
         """
@@ -653,17 +751,29 @@ class Map:
         - Diagonals supported (octile heuristic).
         - Optional terrain costs and small jitter.
         - Optional corner-cutting prevention and iteration cap.
+        - Weighted heuristic (>=1 faster, =1 optimal).
+        - Captures debug info if options.capture_debug is True (see self.last_path_debug).
         """
         opts = options or PathOptions()
         start_node = (int(start_tile.x), int(start_tile.y))
-        end_node = (int(end_tile.x), int(end_tile.y))
+        end_node   = (int(end_tile.x),   int(end_tile.y))
 
         if not self.is_walkable(start_node) or not self.is_walkable(end_node):
             return None
         if start_node == end_node:
             return []
 
+        # Heuristic scaling by min step cost to remain admissible with terrain costs
+        min_terrain = 1.0
+        if opts.costs:
+            try:
+                min_terrain = max(1e-6, min(float(v) for v in opts.costs.values()))
+            except ValueError:
+                min_terrain = 1.0
+        min_step_cost = min_terrain * min(opts.orth_cost, opts.diag_cost)
+
         state = AStarState(start_node)
+        self.last_path_debug = None  # clear previous
 
         iterations = 0
         while state.priority_queue:
@@ -675,24 +785,42 @@ class Map:
             if current in state.closed:
                 continue
             state.closed.add(current)
+            state.open.discard(current)
 
             if current == end_node:
-                return self._reconstruct_path(state.came_from, current)
+                raw_path = self._reconstruct_path(state.came_from, current)
+                path = self._simplify_path_toroidal(raw_path, self.width, self.height) if opts.simplify_path else raw_path
+                if opts.capture_debug:
+                    self.last_path_debug = PathDebug(
+                        start=start_node, goal=end_node, path=path,
+                        closed=set(state.closed), open=set(state.open),
+                        g_cost=dict(state.g_cost), came_from=dict(state.came_from)
+                    )
+                return path
 
-            for nxt in self._neighbors(current, diagonals=opts.allow_diagonals, avoid_corner_cut=opts.avoid_corner_cut):
+            for nxt, is_diag in self._neighbors(current, diagonals=opts.allow_diagonals, avoid_corner_cut=opts.avoid_corner_cut):
                 if not self.is_walkable(nxt):
                     continue
-                step = self._step_cost(nxt, costs=opts.costs, jitter=opts.jitter)
+                step = self._step_cost(nxt, is_diag=is_diag, costs=opts.costs, jitter=opts.jitter,
+                                       orth_cost=opts.orth_cost, diag_cost=opts.diag_cost)
                 tentative_g = state.g_cost[current] + step
                 if nxt not in state.g_cost or tentative_g < state.g_cost[nxt]:
                     state.g_cost[nxt] = tentative_g
-                    f_cost = tentative_g + self._heuristic(nxt, end_node, diagonals=opts.allow_diagonals)
+                    h = self._heuristic(nxt, end_node, diagonals=opts.allow_diagonals, min_step_cost=min_step_cost)
+                    f_cost = tentative_g + opts.heuristic_weight * h
                     heapq.heappush(state.priority_queue, (f_cost, nxt))
                     state.came_from[nxt] = current
+                    state.open.add(nxt)
 
+        if opts.capture_debug:
+            self.last_path_debug = PathDebug(
+                start=start_node, goal=end_node, path=[],
+                closed=set(state.closed), open=set(state.open),
+                g_cost=dict(state.g_cost), came_from=dict(state.came_from)
+            )
         return None  # no path
 
-    # --- Utilities for gameplay/analytics -----------------------------------
+    # ---- Utilities for gameplay/analytics -----------------------------------
 
     def find_nearest_walkable(
         self,
@@ -700,8 +828,7 @@ class Map:
         max_radius: Optional[int] = None
     ) -> Optional[Tuple[int, int]]:
         """BFS search for the nearest walkable tile from 'start' (toroidal)."""
-        sx, sy = start
-        sx, sy = _wrap_idx(sx, self.width), _wrap_idx(sy, self.height)
+        sx, sy = _wrap_idx(start[0], self.width), _wrap_idx(start[1], self.height)
         if self.is_walkable((sx, sy)):
             return (sx, sy)
 
@@ -731,11 +858,27 @@ class Map:
         if not self.data:
             return {}
         total = self.width * self.height
-        if total <= 0:
-            return {}
         counts: Dict[str, int] = {terrain: 0 for terrain in settings.TERRAIN_TYPES}
         for row in self.data:
             for tile in row:
                 if tile in counts:
                     counts[tile] += 1
         return {terrain: (count / total) * 100.0 for terrain, count in counts.items()}
+
+    # ---- Export helpers ------------------------------------------------------
+
+    def to_surface(self) -> pygame.Surface:
+        """
+        Returns a high-resolution surface for the entire map (same as LOD size).
+        """
+        if self.lod_surface is None:
+            self._create_lod_surface()
+        assert self.lod_surface is not None
+        return self.lod_surface.copy()
+
+    def save_png(self, path: str) -> None:
+        """Save the pre-rendered map image to PNG."""
+        if self.lod_surface is None:
+            self._create_lod_surface()
+        if self.lod_surface is not None:
+            pygame.image.save(self.lod_surface, path)
