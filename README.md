@@ -1,4 +1,26 @@
+python .\main.py
+pygame 2.6.1 (SDL 2.28.4, Python 3.13.5)
+Hello from the pygame community. https://www.pygame.org/contribute.html     
+Traceback (most recent call last):
+  File "C:\prj\WorldDom\main.py", line 12, in <module>
+    from src.core.game import Game  # pylint: disable=wrong-import-position 
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\prj\WorldDom\src\core\game.py", line 29, in <module>
+    from src.core.map import Map
+  File "C:\prj\WorldDom\src\core\map.py", line 34, in <module>
+    from noise_adapter import Noise4
+ModuleNotFoundError: No module named 'noise_adapter'
+
+
+
+
+
+
+
 # WorldDom  🚀 👽 (ination) 🔫
+
+
+
 
 [![Pylint Status](https://github.com/TonyKennah/worldom/actions/workflows/pylint.yml/badge.svg)](https://github.com/TonyKennah/worldom/actions/workflows/pylint.yml)
 
