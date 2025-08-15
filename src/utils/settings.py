@@ -11,14 +11,13 @@ GLOBE_ANIMATION_DEFAULT_SPEED_INDEX = 3  # Default to 1x speed (0.04)
 
 # --- Globe Generation Settings ---
 GLOBE_NUM_FRAMES = 60  # A good compromise for speed vs. smoothness
-GLOBE_IMAGE_SIZE_PIXELS = 250 # Smaller images render faster
+GLOBE_IMAGE_SIZE_PIXELS = 250  # Smaller images render faster
 
 # --- Planet Theme Settings ---
 PLANET_THEMES = {
     "earth": {
         "name": "Earth",
         "terrains": {
-            # logical_name: {display_name, color, globe_color, is_walkable}
             "ocean": {"name": "Ocean", "color": (30, 70, 130), "globe_color": "#4d73a8", "walkable": False},
             "lake": {"name": "Lake", "color": (80, 140, 200), "globe_color": "#6495ED", "walkable": False},
             "grass": {"name": "Grass", "color": (50, 150, 50), "globe_color": "#669966", "walkable": True},
@@ -37,10 +36,10 @@ PLANET_THEMES = {
     "phoebe": {
         "name": "Phoebe",
         "terrains": {
-            "ocean": {"name": "Dimethyl Sulfide Sea", "color": (5,36,65), "globe_color": "#052441", "walkable": False},
-            "lake": {"name": "Colbalt Crystal", "color": (73,243,206), "globe_color": "#49F3CE", "walkable": False},
-            "grass": {"name": "Sand", "color": (168,166,19), "globe_color": "#a8a613", "walkable": True},
-            "rock": {"name": "Ammonia Lake", "color": (147,147,192), "globe_color": "#9393c0", "walkable": True},
+            "ocean": {"name": "Dimethyl Sulfide Sea", "color": (5, 36, 65), "globe_color": "#052441", "walkable": False},
+            "lake": {"name": "Colbalt Crystal", "color": (73, 243, 206), "globe_color": "#49F3CE", "walkable": False},
+            "grass": {"name": "Sand", "color": (168, 166, 19), "globe_color": "#a8a613", "walkable": True},
+            "rock": {"name": "Ammonia Lake", "color": (147, 147, 192), "globe_color": "#9393c0", "walkable": True},
         }
     },
     "vulcan": {
@@ -148,9 +147,9 @@ FPS = 60
 BG_COLOR = (0, 0, 0)  # Black, for the void outside the map
 
 # --- Camera Settings ---
-CAMERA_SPEED = 500  # pixels per second for keyboard panning
-EDGE_SCROLL_SPEED = 350 # pixels per second for edge scrolling
-EDGE_SCROLL_BOUNDARY = 60 # pixels from the edge to start scrolling
+CAMERA_SPEED = 500          # pixels per second for keyboard panning
+EDGE_SCROLL_SPEED = 350     # pixels per second for edge scrolling
+EDGE_SCROLL_BOUNDARY = 60   # pixels from the edge to start scrolling
 
 # --- Map Settings ---
 TILE_SIZE = 32
@@ -164,22 +163,19 @@ MIN_TILE_PIXELS_FOR_GRID = 4
 
 # --- Unit Settings ---
 UNIT_COLOR = (255, 0, 0)  # Red
-# The color of the selection indicator for a unit. Set dynamically based on theme.
-UNIT_SELECTED_COLOR = (255, 255, 255)
+UNIT_SELECTED_COLOR = (255, 255, 255)  # Set dynamically based on theme.
 UNIT_RADIUS = TILE_SIZE // 3
-UNIT_MOVES_PER_SECOND = 3.0 # How many tiles the unit moves in one second.
-UNIT_INNER_CIRCLE_RATIO = 0.8 # For drawing the selected unit
+UNIT_MOVES_PER_SECOND = 3.0  # How many tiles the unit moves in one second.
+UNIT_INNER_CIRCLE_RATIO = 0.8  # For drawing the selected unit
 
 # --- UI Settings ---
-# The color of the selection box. Set dynamically based on theme.
-SELECTION_BOX_COLOR = (255, 255, 255)
+SELECTION_BOX_COLOR = (255, 255, 255)  # Set dynamically based on theme.
 SELECTION_BOX_BORDER_WIDTH = 1
 
 # --- Dynamic Color Settings ---
-# These are used by the game to choose selection colors based on the world theme.
-DEFAULT_SELECTION_COLOR = (255, 255, 0)    # Yellow, for most themes
+DEFAULT_SELECTION_COLOR = (255, 255, 0)  # Yellow, for most themes
 ALT_SELECTION_COLOR = (0, 0, 0)          # Black, for themes with bright terrain
-BRIGHT_TERRAIN_THRESHOLD = 220            # Avg RGB value to trigger alt color
+BRIGHT_TERRAIN_THRESHOLD = 220           # Avg RGB value to trigger alt color
 
 # Debug Panel
 DEBUG_PANEL_HEIGHT = 30
@@ -195,3 +191,35 @@ CONTEXT_MENU_HOVER_BG_COLOR = (60, 60, 80)
 CONTEXT_MENU_TEXT_COLOR = (240, 240, 240)
 CONTEXT_MENU_FONT_SIZE = 16
 CONTEXT_MENU_PADDING = 8
+
+# ---------------------------------------------------------------------------
+# NEW: Input / Key Bindings
+# Centralized, human-readable bindings. Multi-bind & combos allowed (e.g. "CTRL+F12").
+# Use with input/keymap.py to query actions by polling or events.
+# ---------------------------------------------------------------------------
+
+# Action -> list of bindings
+KEY_BINDINGS = {
+    # System / UI
+    "TOGGLE_PAUSE":    ["P", "ESCAPE"],
+    "OPEN_MENU":       ["MOUSE2", "SHIFT+F10"],  # right-click or Shift+F10
+    "SCREENSHOT":      ["CTRL+F12"],
+
+    # Player / World
+    "PRIMARY_FIRE":    ["SPACE", "MOUSE1"],
+    "SECONDARY_FIRE":  ["F", "MOUSE3"],
+
+    # Camera movement (supports WASD and arrows)
+    "MOVE_UP":         ["W", "UP"],
+    "MOVE_DOWN":       ["S", "DOWN"],
+    "MOVE_LEFT":       ["A", "LEFT"],
+    "MOVE_RIGHT":      ["D", "RIGHT"],
+
+    # Camera zoom (wheel or keys)
+    "ZOOM_IN":         ["WHEEL_UP", "="],
+    "ZOOM_OUT":        ["WHEEL_DOWN", "-"],
+}
+
+# Optional: simple input tuning
+INPUT_REPEAT_DELAY_MS = 260
+INPUT_REPEAT_INTERVAL_MS = 38
