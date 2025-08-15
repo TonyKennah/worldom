@@ -106,6 +106,16 @@ There are no coding standards, just make sure things work before createing a PR 
 - put classes in their own file no matter how small they are
 - organise classes into appropriate folders / modules
 - please resolve merge conflicts on PRs
+- just make sure things work
+- just make sure things work
+- just make sure things work
+- just make sure things work
+- just make sure things work
+- just make sure things work
+- just make sure things work
+- just make sure things work
+- just make sure things work
+- just make sure things work
 - Enjoy
 
 ## Getting Started
