@@ -4,6 +4,8 @@
 
 [![Build Status](https://github.com/TonyKennah/worldom/actions/workflows/python-package-conda.yml/badge.svg)](https://github.com/TonyKennah/worldom/actions/workflows/python-package-conda.yml)
 
+Another day of no development on this because of issues.
+
 A 2D strategy game prototype created with Python and Pygame, featuring procedural world generation and tile-based unit movement.
 
 ## Project Purpose
