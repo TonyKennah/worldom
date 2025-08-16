@@ -54,7 +54,7 @@ class VisibleArea:
 class PathOptions:
     """A* configuration (sane defaults remain backwards-compatible)."""
     allow_diagonals: bool = True
-    avoid_corner_cut: bool = True      # disallow squeezing through blocked corners
+    avoid_corner_cut: bool = True      # disallow squeezing through blocked corners (requires both adjacents walkable)
     jitter: float = 0.3                # [0..0.5] small random per-step cost for variety
     costs: Optional[Mapping[str, float]] = None  # terrain move cost (>= 1)
     max_iterations: Optional[int] = None         # safety cap
@@ -63,6 +63,7 @@ class PathOptions:
     diag_cost: float = math.sqrt(2.0)  # diagonal step cost base
     simplify_path: bool = True         # run collinearity simplifier
     capture_debug: bool = False        # capture debug info (see PathDebug)
+
 
 class AStarState:
     """Helper state for A* pathfinding."""
@@ -113,13 +114,25 @@ def _toroidal_delta(a: int, b: int, size: int) -> int:
     return min(d, size - d)
 
 def _toroidal_step_delta(a: int, b: int, size: int) -> int:
-    """Step delta in {-1,0,1} across a toroidal axis."""
+    """Step delta in {-1,0,1} across a toroidal axis (direction only)."""
     d = b - a
     if d > 1:
         d -= size
     elif d < -1:
         d += size
     return max(-1, min(1, d))
+
+def _toroidal_dir_and_dist(a: int, b: int, size: int) -> Tuple[int, int]:
+    """
+    Return (step_dir, distance) along the shortest toroidal path from a to b.
+    step_dir in {-1,0,1}, distance >= 0 (integer).
+    """
+    raw = b - a
+    ad = abs(raw)
+    if ad <= size - ad:  # direct is shorter or equal
+        return (0 if raw == 0 else (1 if raw > 0 else -1)), ad
+    # wrap is shorter
+    return (-1 if raw > 0 else (1 if raw < 0 else 0)), size - ad
 
 def _octile(dx: int, dy: int) -> float:
     """Octile distance for diagonal grids with cost(orth)=1, cost(diag)=sqrt(2)."""
@@ -272,10 +285,13 @@ class Map:
         map_height_pixels = self.height * self.tile_size
         s = pygame.Surface((map_width_pixels, map_height_pixels))
         get_color = settings.TERRAIN_COLORS.get
+        tw = self.tile_size
+        # Tight loop: avoid repeated attribute lookups where possible
         for y, row in enumerate(self.data):
+            sy = y * tw
             for x, terrain_key in enumerate(row):
                 pygame.draw.rect(s, get_color(terrain_key, (0, 0, 0)),
-                                 (x * self.tile_size, y * self.tile_size, self.tile_size, self.tile_size))
+                                 (x * tw, sy, tw, tw))
         self.lod_surface = s
 
     # ---- Post processing (flood-fills) -------------------------------------
@@ -399,21 +415,42 @@ class Map:
         start_iy = math.floor(visible_world_rect.top / map_h_px)
         end_iy   = math.floor(visible_world_rect.bottom / map_h_px)
 
-        # LOD (zoomed out)
-        zoom = getattr(camera, "zoom_state", None).current if hasattr(camera, "zoom_state") else 1.0
+        # Read zoom robustly (supports both Camera.zoom or Camera.zoom_state.current)
+        zoom = getattr(camera, "zoom", None)
+        if zoom is None:
+            zoom = camera.zoom_state.current if hasattr(camera, "zoom_state") else 1.0
+
+        # LOD (zoomed out) — draw only the visible sub-rect of each toroidal instance (big win)
         if self.lod_surface and zoom < settings.MAP_LOD_ZOOM_THRESHOLD:
             for iy in range(start_iy, end_iy + 1):
                 for ix in range(start_ix, end_ix + 1):
                     dx, dy = ix * map_w_px, iy * map_h_px
-                    instance_rect = pygame.Rect(dx, dy, map_w_px, map_h_px)
-                    screen_rect = camera.apply(instance_rect)
-                    # Decide scaling method based on size; smoothscale is costlier but nicer
-                    if screen_rect.width > 0 and screen_rect.height > 0:
-                        if screen_rect.width * screen_rect.height < map_w_px * map_h_px:
-                            lod_scaled = pygame.transform.smoothscale(self.lod_surface, screen_rect.size)
-                        else:
-                            lod_scaled = pygame.transform.scale(self.lod_surface, screen_rect.size)
-                        surface.blit(lod_scaled, screen_rect)
+                    instance_world = pygame.Rect(dx, dy, map_w_px, map_h_px)
+
+                    # Clip the instance to the current viewport to avoid scaling the full map
+                    src_world = instance_world.clip(visible_world_rect)
+                    if src_world.width <= 0 or src_world.height <= 0:
+                        continue
+
+                    # Local (in the LOD surface) source area for this instance
+                    src_local = pygame.Rect(
+                        src_world.x - dx, src_world.y - dy,
+                        src_world.width, src_world.height
+                    )
+
+                    dest_screen = camera.apply(src_world)  # transform world → screen
+                    if dest_screen.width <= 0 or dest_screen.height <= 0:
+                        continue
+
+                    # Scale the clipped region only (saves a ton of work)
+                    subsurf = self.lod_surface.subsurface(src_local)
+                    src_area = src_local.width * src_local.height
+                    dst_area = dest_screen.width * dest_screen.height
+                    if dst_area < src_area:
+                        lod_scaled = pygame.transform.smoothscale(subsurf, dest_screen.size)
+                    else:
+                        lod_scaled = pygame.transform.scale(subsurf, dest_screen.size)
+                    surface.blit(lod_scaled, dest_screen)
 
             if hovered_tile:
                 # Draw hover highlight on top of all instances
@@ -439,8 +476,9 @@ class Map:
     def _calculate_visible_area(
         self, camera: Camera, offset: pygame.math.Vector2
     ) -> VisibleArea:
+        # Use the camera's current window size (not static settings) for correctness on resize
         top_left_world = camera.screen_to_world((0, 0)) - offset
-        bottom_right_world = camera.screen_to_world((settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT)) - offset
+        bottom_right_world = camera.screen_to_world((camera.width, camera.height)) - offset
 
         start_col = math.floor(top_left_world.x / self.tile_size)
         end_col = math.ceil(bottom_right_world.x / self.tile_size)
@@ -459,7 +497,7 @@ class Map:
         self._draw_terrain(surface, camera, area=area, offset=offset)
 
         # Grid (zoom threshold)
-        scaled_tile = self.tile_size * (camera.zoom_state.current if hasattr(camera, "zoom_state") else 1.0)
+        scaled_tile = self.tile_size * (camera.zoom_state.current if hasattr(camera, "zoom_state") else getattr(camera, "zoom", 1.0))
         if scaled_tile >= settings.MIN_TILE_PIXELS_FOR_GRID:
             self._draw_grid_lines(surface, camera, area, offset)
 
@@ -483,34 +521,39 @@ class Map:
 
         visited = [[False for _ in range(cols)] for _ in range(rows)]
         get_color = settings.TERRAIN_COLORS.get
+        ts = self.tile_size
+        data = self.data  # local for speed
 
         for y in range(area.start_row, area.end_row):
             map_y = _wrap_idx(y, self.height)
+            vy = y - area.start_row
+            rowv_base = visited[vy]
             for x in range(area.start_col, area.end_col):
-                vy, vx = y - area.start_row, x - area.start_col
-                if visited[vy][vx]:
+                vx = x - area.start_col
+                if rowv_base[vx]:
                     continue
 
                 map_x = _wrap_idx(x, self.width)
-                terrain = self.data[map_y][map_x]
+                terrain = data[map_y][map_x]
                 color = get_color(terrain, (0, 0, 0))
 
                 # Expand width
                 width = 1
                 while x + width < area.end_col:
                     nx = _wrap_idx(x + width, self.width)
-                    if self.data[map_y][nx] != terrain or visited[vy][vx + width]:
+                    if data[map_y][nx] != terrain or visited[vy][vx + width]:
                         break
                     width += 1
 
                 # Expand height
                 height = 1
                 while y + height < area.end_row:
-                    can_expand = True
                     next_my = _wrap_idx(y + height, self.height)
+                    can_expand = True
+                    vrow_next = visited[vy + height]
                     for i in range(width):
                         cx = x + i
-                        if self.data[next_my][_wrap_idx(cx, self.width)] != terrain or visited[vy + height][vx + i]:
+                        if data[next_my][_wrap_idx(cx, self.width)] != terrain or vrow_next[vx + i]:
                             can_expand = False
                             break
                     if not can_expand:
@@ -519,14 +562,14 @@ class Map:
 
                 # Mark visited
                 for i in range(height):
-                    rowv = visited[vy + i]
+                    vrow = visited[vy + i]
                     for j in range(width):
-                        rowv[vx + j] = True
+                        vrow[vx + j] = True
 
                 # Draw rectangle
-                world_x = x * self.tile_size + offset.x
-                world_y = y * self.tile_size + offset.y
-                world_rect = pygame.Rect(world_x, world_y, self.tile_size * width, self.tile_size * height)
+                world_x = x * ts + offset.x
+                world_y = y * ts + offset.y
+                world_rect = pygame.Rect(world_x, world_y, ts * width, ts * height)
                 screen_rect = camera.apply(world_rect)
                 pygame.draw.rect(surface, color, screen_rect)
 
@@ -539,12 +582,13 @@ class Map:
         hovered_tile: Tuple[int, int]
     ) -> None:
         hx, hy = hovered_tile
+        ts = self.tile_size
         for y in range(area.start_row, area.end_row):
             for x in range(area.start_col, area.end_col):
                 if (_wrap_idx(x, self.width), _wrap_idx(y, self.height)) == (hx, hy):
-                    world_x = x * self.tile_size + offset.x
-                    world_y = y * self.tile_size + offset.y
-                    world_rect = pygame.Rect(world_x, world_y, self.tile_size, self.tile_size)
+                    world_x = x * ts + offset.x
+                    world_y = y * ts + offset.y
+                    world_rect = pygame.Rect(world_x, world_y, ts, ts)
                     screen_rect = camera.apply(world_rect)
                     pygame.draw.rect(surface, settings.HIGHLIGHT_COLOR, screen_rect, 2)
 
@@ -555,10 +599,11 @@ class Map:
         area: VisibleArea,
         offset: pygame.math.Vector2
     ) -> None:
+        surf_w, surf_h = surface.get_width(), surface.get_height()
         for col in range(area.start_col, area.end_col):
             world_x = col * self.tile_size + offset.x
             screen_x = round(camera.world_to_screen(pygame.math.Vector2(world_x, 0)).x)
-            pygame.draw.line(surface, settings.GRID_LINE_COLOR, (screen_x, 0), (screen_x, settings.SCREEN_HEIGHT), 1)
+            pygame.draw.line(surface, settings.GRID_LINE_COLOR, (screen_x, 0), (screen_x, surf_h), 1)
 
     def _draw_horizontal_grid_lines(
         self,
@@ -567,10 +612,11 @@ class Map:
         area: VisibleArea,
         offset: pygame.math.Vector2
     ) -> None:
+        surf_w, surf_h = surface.get_width(), surface.get_height()
         for row in range(area.start_row, area.end_row):
             world_y = row * self.tile_size + offset.y
             screen_y = round(camera.world_to_screen(pygame.math.Vector2(0, world_y)).y)
-            pygame.draw.line(surface, settings.GRID_LINE_COLOR, (0, screen_y), (settings.SCREEN_WIDTH, screen_y), 1)
+            pygame.draw.line(surface, settings.GRID_LINE_COLOR, (0, screen_y), (surf_w, screen_y), 1)
 
     def _draw_grid_lines(
         self,
@@ -615,14 +661,11 @@ class Map:
         ax, ay = _wrap_idx(a[0], self.width), _wrap_idx(a[1], self.height)
         bx, by = _wrap_idx(b[0], self.width), _wrap_idx(b[1], self.height)
 
-        x, y = ax, ay
-        dx = _toroidal_step_delta(ax, bx, self.width)
-        dy = _toroidal_step_delta(ay, by, self.height)
-        sx = 1 if dx > 0 else (-1 if dx < 0 else 0)
-        sy = 1 if dy > 0 else (-1 if dy < 0 else 0)
-        dx = abs(dx)
-        dy = abs(dy)
+        # Determine shortest-direction steps and distances per axis
+        sx, dx = _toroidal_dir_and_dist(ax, bx, self.width)
+        sy, dy = _toroidal_dir_and_dist(ay, by, self.height)
 
+        x, y = ax, ay
         err = dx - dy
         while True:
             if not self.is_walkable((x, y)):
@@ -678,7 +721,8 @@ class Map:
         ]
         for nb, bl_a, bl_b in diag:
             if avoid_corner_cut:
-                if not (self.is_walkable((_wrap_idx(bl_a[0], w), _wrap_idx(bl_a[1], h))) or
+                # Require BOTH adjacent cardinals to be walkable to traverse the diagonal (true corner-cut prevention)
+                if not (self.is_walkable((_wrap_idx(bl_a[0], w), _wrap_idx(bl_a[1], h))) and
                         self.is_walkable((_wrap_idx(bl_b[0], w), _wrap_idx(bl_b[1], h)))):
                     continue
             yield nb, True
@@ -858,7 +902,7 @@ class Map:
         if not self.data:
             return {}
         total = self.width * self.height
-        counts: Dict[str, int] = {terrain: 0 for terrain in settings.TERRAIN_TYPES}
+        counts: Dict[str, int] = {terrain: 0 for terrain in self.terrain_types}
         for row in self.data:
             for tile in row:
                 if tile in counts:
