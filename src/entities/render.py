@@ -1,3 +1,11 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from src.core.camera import Camera  # noqa: F401
+else:
+    Camera = Any  # type: ignore[assignment,misc]
+
 """
 Render helpers for Unit (rings, healthbar, path debug).
 """
