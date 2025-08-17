@@ -1,25 +1,98 @@
-# c:/prj/WorldDom/src/globe_renderer.py
-"""
-Handles the generation of globe animation frames based on map data.
-Adds caching, optional overlays, and utility helpers while preserving
-the original public API and behavior.
-"""
-from __future__ import annotations
+diff --git a/src/rendering/globe_renderer.py b/src/rendering/globe_renderer.py
+index 0000000..0000001 100644
+--- a/src/rendering/globe_renderer.py
++++ b/src/rendering/globe_renderer.py
+@@
+-"""
+-Handles the generation of globe animation frames based on map data.
+-"""
++"""
++Handles the generation of globe animation frames based on map data.
++Fix for Issue #37: avoid drawing real-world coastlines/outlines by not using
++Natural Earth features (OCEAN/LAND). We color the globe via the axes'
++background patch and render only our procedural data.
++"""
+ import os
+ from typing import Generator, List
+ 
+ import cartopy.crs as ccrs
+ import matplotlib.pyplot as plt
+-import cartopy.feature as cfeature
+ import numpy as np
+ from matplotlib.colors import ListedColormap
+ 
+ import src.utils.settings as settings
+ 
+@@ def warm_up_rendering_libraries() -> None:
+         ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
+         ax.set_global()  # A simple cartopy operation.
++        ax.set_axis_off()
+ 
+         # Immediately close it to free memory.
+         plt.close(fig)
+         print("Rendering libraries are warm.")
+     except Exception as e:
+         # If this fails, it's not critical, but we should log it.
+         print(f"Warning: Failed to warm up rendering libraries: {e}")
+ 
+ def render_map_as_globe(map_data: List[List[str]], map_seed: int) -> Generator[float, None, None]:
+@@
+-    for i in range(settings.GLOBE_NUM_FRAMES):
++    for i in range(settings.GLOBE_NUM_FRAMES):
+         longitude = -180 + (360 * i / settings.GLOBE_NUM_FRAMES)
+ 
+         projection = ccrs.Orthographic(central_longitude=longitude, central_latitude=20)
+ 
+-        dpi = settings.GLOBE_IMAGE_SIZE_PIXELS / 5
+-        fig = plt.figure(figsize=(5, 5), dpi=dpi)
+-        ax = fig.add_subplot(1, 1, 1, projection=projection)
++        dpi = settings.GLOBE_IMAGE_SIZE_PIXELS / 5
++        fig = plt.figure(figsize=(5, 5), dpi=dpi, facecolor="none")
++        ax = fig.add_subplot(1, 1, 1, projection=projection)
+         ax.set_global()
++        ax.set_axis_off()  # no ticks/frames
+ 
+-        # --- Paint the map data onto the globe ---
+-        # First, draw a solid ocean color as the base layer.
+-        ax.add_feature(cfeature.OCEAN, zorder=0, facecolor=settings.GLOBE_TERRAIN_COLORS[0])
++        # --- Paint the map data onto the globe ---
++        # Base ocean color without Natural Earth features (prevents real Earth outlines).
++        # Using the axes' background patch colors the sphere region only.
++        ax.background_patch.set_facecolor(settings.GLOBE_TERRAIN_COLORS[0])
++        # Remove any default outline around the globe boundary (ring).
++        if hasattr(ax, "outline_patch"):
++            ax.outline_patch.set_edgecolor("none")
+ 
+         # Then, draw the generated terrain data over the ocean.
+         ax.pcolormesh(
+             lons, lats, numerical_data,
+             transform=ccrs.PlateCarree(),
+-            cmap=color_map,
+-            shading='auto'
++            cmap=color_map,
++            shading="auto",
++            zorder=1
+         )
+ 
+         # --- Save the frame ---
+         filename = os.path.join(frame_dir, f"frame_{str(i).zfill(3)}.png")
+         try:
+             plt.savefig(
+-                filename, dpi=dpi, transparent=True,
++                filename, dpi=dpi, transparent=True,
+                 bbox_inches='tight', pad_inches=0
+             )
+         except Exception as e:
+             print(f"Error saving frame {filename}: {e}")
+         finally:
+             # Close the plot to free up memory
+             plt.close(fig)
+ 
+         # Yield the progress after each frame is saved
+         yield (i + 1) / settings.GLOBE_NUM_FRAMES
+ 
+     print(f"\nDone! All {settings.GLOBE_NUM_FRAMES} frames have been generated.")
 
-import os
-import json
-import shutil
-import hashlib
-from dataclasses import dataclass
-from typing import Dict, Generator, Iterable, List, Optional, Sequence, Tuple
-
-import numpy as np
-import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
-from matplotlib.colors import ListedColormap
-
-import src.utils.settings as settings
 
 # --------------------------------- Defaults / toggles ---------------------------------
 # These reads are defensive, so the module works even if settings doesn't define them.
