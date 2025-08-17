@@ -1,3 +1,21 @@
+diff --git a/src/entities/effects.py b/src/entities/effects.py
+--- a/src/entities/effects.py
++++ b/src/entities/effects.py
+@@
++from __future__ import annotations
++
++# Make the 'Unit' name available to linters/type-checkers without
++# creating a runtime dependency (avoids circular imports).
++from typing import TYPE_CHECKING, Any
++
++if TYPE_CHECKING:
++    # Imported only for static analysis; not executed at runtime.
++    from src.entities.unit import Unit  # noqa: F401
++else:
++    # At runtime, annotations are postponed (see __future__ above),
++    # but some linters still want 'Unit' to be a real name.
++    Unit = Any  # type: ignore[assignment,misc]
+
 """
 Status/visual effects for Units: speed boosts, stuns, dots, flashes, etc.
 """
