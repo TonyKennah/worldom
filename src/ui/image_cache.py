@@ -1,39 +1,44 @@
 # image_cache.py
-# Small LRU-ish cache for scaled pygame surfaces to avoid repeated smoothscale cost.
+# Tiny LRU cache for scaled (thumbnail) versions of pygame surfaces.
 from __future__ import annotations
-from typing import Dict, Tuple
+from collections import OrderedDict
+from typing import Tuple
 import pygame
 
 
 class ScaledImageCache:
-    def __init__(self, max_entries: int = 256) -> None:
-        self._cache: Dict[Tuple[int, int], pygame.Surface] = {}
-        self._order: list[Tuple[int, int]] = []
-        self._max = int(max_entries)
+    """
+    Cache scaled versions of pygame surfaces to avoid repeated transform cost.
+    Keyed by (id(surface), size, smooth_flag).
+    """
 
-    def _touch(self, key: Tuple[int, int]) -> None:
-        try:
-            self._order.remove(key)
-        except ValueError:
-            pass
-        self._order.append(key)
-        if len(self._order) > self._max:
-            # evict oldest
-            old = self._order.pop(0)
-            self._cache.pop(old, None)
+    def __init__(self, capacity: int = 256) -> None:
+        self.capacity = int(max(16, capacity))
+        self._store: "OrderedDict[Tuple[int, int, bool], pygame.Surface]" = OrderedDict()
+
+    def _make_key(self, surf: pygame.Surface, size: int, smooth: bool) -> Tuple[int, int, bool]:
+        return (id(surf), size, bool(smooth))
 
     def get(self, surf: pygame.Surface, size: int, *, smooth: bool = True) -> pygame.Surface:
         size = max(1, int(size))
-        key = (id(surf), size)
-        if key in self._cache:
-            self._touch(key)
-            return self._cache[key]
+        key = self._make_key(surf, size, smooth)
 
-        if smooth and hasattr(pygame.transform, "smoothscale"):
-            scaled = pygame.transform.smoothscale(surf, (size, size))
-        else:
-            scaled = pygame.transform.scale(surf, (size, size))
+        if key in self._store:
+            s = self._store.pop(key)
+            self._store[key] = s  # move to end (MRU)
+            return s
 
-        self._cache[key] = scaled
-        self._touch(key)
+        # create
+        w, h = surf.get_width(), surf.get_height()
+        scale = size / max(w, h)
+        new_size = (max(1, int(w * scale)), max(1, int(h * scale)))
+        scaled = pygame.transform.smoothscale(surf, new_size) if smooth else pygame.transform.scale(surf, new_size)
+
+        # evict if needed
+        if len(self._store) >= self.capacity:
+            self._store.popitem(last=False)
+        self._store[key] = scaled
         return scaled
+
+    def clear(self) -> None:
+        self._store.clear()
