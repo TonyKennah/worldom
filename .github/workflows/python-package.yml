@@ -1,0 +1,69 @@
+name: Python Package (Linux CI)
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ "*" ]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Make pygame safe to import in headless CI
+      SDL_VIDEODRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+      # Avoid encoding surprises that can crash tools
+      PYTHONIOENCODING: utf-8
+      LC_ALL: C.UTF-8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'   # modern, stable for tooling
+          cache: 'pip'
+
+      - name: Install dev tools
+        run: |
+          python -m pip install --upgrade pip
+          # Pin flake8 to a stable version to avoid plugin/API drift
+          pip install flake8==7.1.0 pytest
+          # Only install project requirements if the file exists
+          if [ -f requirements.txt ]; then pip install -r requirements.txt || true; fi
+
+      - name: Lint with flake8 (robust)
+        run: |
+          set -e
+          echo "flake8 version: $(flake8 --version)"
+          # Compute lint targets that actually exist to avoid exit code 2
+          TARGETS=""
+          for path in src worlddom; do
+            [ -d "$path" ] && TARGETS="$TARGETS $path"
+          done
+          # Fallback to repo root if there is no canonical src folder
+          if [ -z "$TARGETS" ]; then TARGETS="."
+          fi
+          echo "Lint targets:$TARGETS"
+
+          # Run flake8. If it returns usage/error (exit 2), retry with a safe fallback.
+          set +e
+          flake8 $TARGETS
+          status=$?
+          if [ $status -eq 2 ]; then
+            echo "::warning::flake8 returned code 2 (usage/config error). Retrying on repository root with defaults."
+            flake8 .
+            status=$?
+          fi
+          exit $status
+
+      - name: Run tests (if any)
+        run: |
+          if [ -d tests ]; then
+            pytest -q --maxfail=1
+          else
+            echo "No tests folder found; skipping pytest."
+          fi
