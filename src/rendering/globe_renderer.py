@@ -30,29 +30,70 @@ def _maybe_set_spawn() -> None:
         pass
 
 
+# src/globe_renderer.py
+import os
+from typing import Generator, List
+
+import cartopy.crs as ccrs
+import matplotlib
+matplotlib.use("Agg")  # Headless-safe
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.colors import ListedColormap
+
+import src.utils.settings as settings
+
 def warm_up_rendering_libraries() -> None:
-    """
-    Performs a trivial rendering operation to trigger the one-time
-    initialization cost of matplotlib and cartopy. This avoids a long
-    pause during the first real globe generation.
-    """
-    print("Warming up rendering libraries...")
     try:
-        # Set a non-GUI backend to be safe. This must be done before
-        # importing pyplot for the first time in some environments.
         plt.switch_backend('Agg')
-
-        # Create a tiny, temporary figure and axis.
         fig = plt.figure(figsize=(0.1, 0.1), dpi=10)
-        ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
-        ax.set_global()  # A simple cartopy operation.
-
-        # Immediately close it to free memory.
+        _ = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
         plt.close(fig)
-        print("Rendering libraries are warm.")
     except Exception as e:
-        # If this fails, it's not critical, but we should log it.
-        print(f"Warning: Failed to warm up rendering libraries: {e}")
+        print(f"Warning: warm-up failed: {e}")
+
+def render_map_as_globe(map_data: List[List[str]], map_seed: int) -> Generator[float, None, None]:
+    # fresh, *no* coastlines/land features – we only draw our synthetic data
+    base_dir = os.path.join("image", "globe_frames")
+    os.makedirs(base_dir, exist_ok=True)
+    for f in os.listdir(base_dir):
+        fp = os.path.join(base_dir, f)
+        if os.path.isfile(fp):
+            try: os.remove(fp)
+            except OSError: pass
+
+    color_map = ListedColormap(settings.GLOBE_TERRAIN_COLORS)
+    terrain_map = {name: i for i, name in enumerate(settings.TERRAIN_TYPES)}
+    data = np.array([[terrain_map.get(cell, 0) for cell in row] for row in map_data])
+
+    h, w = data.shape
+    lons = np.linspace(-180, 180, w)
+    lats = np.linspace(90, -90, h)
+    LONS, LATS = np.meshgrid(lons, lats)
+
+    for i in range(settings.GLOBE_NUM_FRAMES):
+        lon = -180 + (360 * i / settings.GLOBE_NUM_FRAMES)
+        proj = ccrs.Orthographic(central_longitude=lon, central_latitude=20)
+
+        dpi = settings.GLOBE_IMAGE_SIZE_PIXELS / 5
+        fig = plt.figure(figsize=(5, 5), dpi=dpi)
+        ax = fig.add_subplot(1, 1, 1, projection=proj)
+        ax.set_global()
+
+        # Fill with the first terrain color as "ocean" background
+        ax.background_patch.set_facecolor(settings.GLOBE_TERRAIN_COLORS[0])
+
+        # Our synthetic raster
+        ax.pcolormesh(LONS, LATS, data, transform=ccrs.PlateCarree(),
+                      cmap=color_map, shading='auto')
+
+        out = os.path.join(base_dir, f"frame_{i:03d}.png")
+        try:
+            plt.savefig(out, dpi=dpi, transparent=True, bbox_inches='tight', pad_inches=0)
+        finally:
+            plt.close(fig)
+        yield (i + 1) / settings.GLOBE_NUM_FRAMES
+
 
 
 def _render_single_frame(
