@@ -1,21 +1,18 @@
-from __future__ import annotations
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from src.core.camera import Camera  # noqa: F401
-else:
-    Camera = Any  # type: ignore[assignment,misc]
-
 """
 Render helpers for Unit (rings, healthbar, path debug).
 """
 from __future__ import annotations
 
 import math
-from typing import List, Tuple
+from typing import TYPE_CHECKING, Any, List, Tuple
 
 import pygame
 import src.utils.settings as settings
+
+if TYPE_CHECKING:
+    from src.core.camera import Camera  # noqa: F401
+else:
+    Camera = Any  # type: ignore[assignment,misc]
 
 # Optional settings with fallbacks
 try:
