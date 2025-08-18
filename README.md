@@ -203,4 +203,7 @@ Fully zoomed out for debug purposes
 
 ![Example](image/map.jpg "Example Map")
 
+<img width="1280" height="800" alt="image" src="https://github.com/user-attachments/assets/b2598fc7-d23d-4b4b-b62e-b23ecf933bf4" />
+
+
 [![Watch the video](https://img.youtube.com/vi/7C-pfmnbEbI/0.jpg)](https://www.youtube.com/watch?v=7C-pfmnbEbI)
