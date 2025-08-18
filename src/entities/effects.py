@@ -1,20 +1,31 @@
+# src/entities/effects.py
 from __future__ import annotations
-
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
+import pygame
 
 if TYPE_CHECKING:
-    from .unit import Unit
+    from src.entities.unit import Unit
+    from src.core.camera import Camera
 
+class FloatingText:
+    def __init__(self, x: float, y: float, text: str, color=(255,255,255)):
+        self.x, self.y, self.text, self.color = x, y, text, color
+        self.alive = True
+        self.age = 0.0
+        self.ttl = 1.2
 
-class Effect:
-    """Base time-limited effect."""
-    remaining: float
+    def update(self, dt: float) -> None:
+        self.age += dt
+        if self.age >= self.ttl:
+            self.alive = False
+        else:
+            self.y -= dt * 24
 
-    def update(self, unit: "Unit", dt: float) -> bool:
-        self.remaining = max(0.0, self.remaining - dt)
-        return self.remaining <= 0.0  # True -> remove
-
+    def draw(self, surface: pygame.Surface) -> None:
+        # draw with lazy font to avoid import side-effects
+        font = pygame.font.SysFont("Arial", 16)
+        s = font.render(self.text, True, self.color)
+        surface.blit(s, (int(self.x), int(self.y)))
 
 @dataclass
 class SpeedBoost(Effect):
