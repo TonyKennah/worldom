@@ -47,7 +47,6 @@ class Keymap:
         return list(self._warnings)
  
     def is_action_down(self, action: str) -> bool:
-        """Polling: returns True if any binding for the action is 'down' now."""
         """
         Polling: returns True if any *keyboard or mouse button* binding
         for the action is 'down' now. Wheel bindings are event‑only and
@@ -76,7 +75,8 @@ class Keymap:
                     continue
                 idx = b.mouse_button - 1
                 if 0 <= idx < len(mstate) and mstate[idx]:
-
+                    return True
+        return False
 
     def match_event(self, action: str, ev: pygame.event.Event) -> bool:
         """
@@ -89,14 +89,6 @@ class Keymap:
         return any(self._binding_matches_event(b, ev) for b in binds)
 
     def event_to_actions(self, ev: pygame.event.Event) -> List[str]:
-        """Return all actions matched by this event."""
-        out: List[str] = []
-        for action, binds in self._map.items():
-            for b in binds:
-                if _binding_matches_event(b, ev):
-                    out.append(action)
-                    break
-        return out
         """
         Return all actions matched by this event. Uses buckets to avoid
         scanning unrelated bindings.
