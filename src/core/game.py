@@ -122,7 +122,20 @@ class Game:
         self.player_unit: Optional[Unit] = None
 
         # Create the initial world
-        self._create_new_world()
+        map_seed = random.randint(0, 1_000_000)
+        # Prefer a reproducible seed from environment; fall back to random.
+seed_env = os.environ.get("WORLDDOM_SEED")
+if seed_env is not None:
+    try:
+        map_seed = int(seed_env)
+        print(f"[WorldDom] Using map seed from WORLDDOM_SEED={map_seed}")
+    except ValueError:
+        map_seed = random.randint(0, 1_000_000)
+        print(f"[WorldDom] Invalid WORLDDOM_SEED='{seed_env}', using random seed {map_seed}")
+else:
+    map_seed = random.randint(0, 1_000_000)
+    print(f"[WorldDom] Using random map seed {map_seed}")
+
 
     # ---------------------
     # Window / UI helpers
