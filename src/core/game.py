@@ -52,13 +52,13 @@ class Game:
     # ---------------------
     def __init__(self) -> None:
         # Apply Linux performance env tweaks BEFORE initializing pygame/SDL
-try:
-    _linux_early_env_setup()
-except Exception:
-    # Non‑fatal: run with default environment if tweaks fail
-    pass
+        try:
+            _linux_early_env_setup()
+        except Exception:
+            # Non‑fatal: run with default environment if tweaks fail
+            pass
 
-pygame.init()
+        pygame.init()
 
         # Prefer scaled/high-DPI rendering; enable vsync if available
         flags = pygame.FULLSCREEN
@@ -336,9 +336,11 @@ pygame.init()
         # This handles various formats (hex, names, RGB, RGBA) and ensures
         # all consumers receive a consistent RGBA format.
         globe_colors = []
-        for data in settings.TERRAIN_DATA.values():
-            c = pygame.Color(data["globe_color"])
-            globe_colors.append((c.r, c.g, c.b, c.a))
+        # Matplotlib expects colors as floats in [0, 1] range.
+        for terrain_data in settings.TERRAIN_DATA.values():
+            c = pygame.Color(terrain_data["globe_color"])
+            # Normalize to floats for matplotlib compatibility
+            globe_colors.append((c.r / 255.0, c.g / 255.0, c.b / 255.0, c.a / 255.0))
         settings.GLOBE_TERRAIN_COLORS = globe_colors
 
         self.current_theme_key = theme_key
