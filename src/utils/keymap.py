@@ -1,10 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional
-
-from __future__ import annotations
-from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Tuple
+
 import pygame
  
 # ---------------------------------------------------------------------------
@@ -58,23 +55,8 @@ class Keymap:
         """
         binds = self._map.get(action)
         if not binds:
-          return False
-        keys = pygame.key.get_pressed()
-        mouse = pygame.mouse.get_pressed(3)
-        mods = pygame.key.get_mods()
-        for b in binds:
-            if b.kind == "keyboard" and b.key is not None:
-                if not _mods_ok(b, mods):  # type: ignore
-                    continue
-                if keys[b.key]:
-                    return True
-            elif b.kind == "mouse" and b.mouse_button:
-                if not _mods_ok(b, mods):  # type: ignore
-                    continue
-                idx = b.mouse_button - 1
-                if 0 <= idx < len(mouse) and mouse[idx]:
-                    return True
-        return False
+            return False
+
         mods = pygame.key.get_mods()
         kstate = pygame.key.get_pressed()
         # Ask for 5 buttons to include MOUSE4/5; pygame clamps if unsupported
@@ -94,8 +76,7 @@ class Keymap:
                     continue
                 idx = b.mouse_button - 1
                 if 0 <= idx < len(mstate) and mstate[idx]:
-                    return True
-        return False
+
 
     def match_event(self, action: str, ev: pygame.event.Event) -> bool:
         """
@@ -395,4 +376,3 @@ def _mods_ok_for_state(b: Binding, mods: int) -> bool:
     if b.mod_alt   and not (mods & pygame.KMOD_ALT):   return False
     if b.mod_gui   and not (mods & pygame.KMOD_GUI):   return False
     return True
-
