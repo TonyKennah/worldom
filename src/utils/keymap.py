@@ -7,15 +7,6 @@ from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Tuple
 import pygame
  
-@dataclass(frozen=True)
-class Binding:
-    kind: str  # "keyboard" | "mouse" | "wheel"
-    key: Optional[int] = None
-    mouse_button: Optional[int] = None
-    wheel_dir: Optional[str] = None  # "up" | "down"
-    mod_ctrl: bool = False
-    mod_shift: bool = False
-    mod_alt: bool = False
 # ---------------------------------------------------------------------------
 # Data types
 # ---------------------------------------------------------------------------
@@ -28,28 +19,15 @@ class Binding:
     mouse_button: Optional[int] = None # 1..5 supported
     wheel_dir: Optional[str] = None    # "up" | "down" | "left" | "right"
     # Modifiers
-   mod_ctrl: bool = False
+    mod_ctrl: bool = False
     mod_shift: bool = False
     mod_alt: bool = False
     mod_gui: bool = False              # NEW: Cmd/Win/Super
 
     def requires_mods(self) -> Tuple[bool, bool, bool, bool]:
         return self.mod_ctrl, self.mod_shift, self.mod_alt, self.mod_gui
- 
- 
- class Keymap:
-    def __init__(self, bindings: Dict[str, Iterable[str]]) -> None:
-        parsed: Dict[str, List[Binding]] = {}
-        for action, exprs in bindings.items():
-            lst: List[Binding] = []
-            for e in exprs:
-                b = _parse_binding(e)
-                if b:
-                    lst.append(b)
-            parsed[action] = lst
-        self._map = parsed
-    """Holds action→bindings and provides polling & event matching APIs."""
 
+class Keymap:
     def __init__(self, bindings: Dict[str, Iterable[str]]) -> None:
         self._warnings: List[str] = []
         parsed: Dict[str, List[Binding]] = {}
@@ -71,7 +49,7 @@ class Binding:
         """Any parse warnings collected at construction or after set_bindings/add_binding."""
         return list(self._warnings)
  
-     def is_action_down(self, action: str) -> bool:
+    def is_action_down(self, action: str) -> bool:
         """Polling: returns True if any binding for the action is 'down' now."""
         """
         Polling: returns True if any *keyboard or mouse button* binding
@@ -321,7 +299,7 @@ def _tokenize(expr: str) -> List[str]:
 
 def _parse_binding(expr: str) -> Optional[Binding]:
     """Return a Binding or None if not understood."""
-   toks = _tokenize(expr)
+    toks = _tokenize(expr)
     if not toks:
         return None
 
