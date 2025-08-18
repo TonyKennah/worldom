@@ -1,11 +1,15 @@
 # src/entities/effects.py
+# --- begin: flake8/type-hint forward reference fix ---
 from __future__ import annotations
-from typing import TYPE_CHECKING, Optional, Tuple
-import pygame
 
-if TYPE_CHECKING:
-    from src.entities.unit import Unit
-    from src.core.camera import Camera
+from typing import TYPE_CHECKING
+
+# Make forward-referenced types visible to flake8 without causing runtime imports
+if TYPE_CHECKING:  # pragma: no cover
+    from src.entities.unit import Unit      # noqa: F401
+    from src.core.camera import Camera      # noqa: F401
+# --- end: flake8/type-hint forward reference fix ---
+
 
 class FloatingText:
     def __init__(self, x: float, y: float, text: str, color=(255,255,255)):
