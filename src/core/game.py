@@ -13,16 +13,24 @@ Upgrades:
 """
 from __future__ import annotations
 
+from __future__ import annotations
+
+import logging
 import os
+import platform
 import random
 import threading
 import sys
-import traceback
-from pathlib import Path
-from typing import List, Optional, Tuple, Dict, Any
+from typing import List, Optional, Tuple
 
 import pygame
 import src.utils.settings as settings
+
+# Create a module-level logger
+logger = logging.getLogger(__name__)
+if not logger.handlers:
+    # Default to INFO if the app didn't configure logging yet
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 from src.core.camera import Camera
 import src.rendering.globe_renderer as globe_renderer
@@ -45,7 +53,35 @@ from src.utils.linux_tweaks import (
 
 # --- Game Class ---
 class Game:
+   def _is_ci_headless() -> bool:
+    """
+    Detect CI/headless environments where no display/audio is available.
+    GitHub Actions exposes GITHUB_ACTIONS=1 on Linux runners.
+    """
+    return (
+        os.environ.get("GITHUB_ACTIONS") == "true"
+        or os.environ.get("CI") == "true"
+        or os.environ.get("PYGAME_HEADLESS") == "1"
+    )
+
+
+def _prepare_headless_pygame() -> None:
+    """
+    If we're on Linux and in a headless environment, select dummy drivers
+    so pygame.init()/display.set_mode() won't error out.
+    Safe to call multiple times (idempotent).
+    """
+    if platform.system().lower() == "linux" and _is_ci_headless():
+        os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+        os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+        
+    class Game:
     """The main game class, orchestrating all game components."""
+    def __init__(self) -> None:
+        _prepare_headless_pygame()  # <-- add this
+        pygame.init()
+        ...
+
 
     # ---------------------
     # Lifecycle / init
@@ -65,8 +101,11 @@ class Game:
         # The SCALED flag makes everything appear larger on high-DPI monitors.
         # Commenting this block out will make the game render at the native resolution,
         # making UI elements and text appear smaller (less "zoomed in").
-        # try:
-        #     flags |= pygame.SCALED
+       # when building flags:
+    flags = pygame.RESIZABLE
+    flags |= getattr(pygame, "MAXIMIZED", 0)
+    self.screen = pygame.display.set_mode((0, 0), flags)
+
         # except AttributeError:
         #     pass
 
