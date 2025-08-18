@@ -1,9 +1,70 @@
-# .github/workflows/python-conda.yml (within jobs.build)
-env:
-  MPLBACKEND: Agg
-  PYTHONUNBUFFERED: "1"
-  PYGAME_HIDE_SUPPORT_PROMPT: "1"
-  SDL_VIDEODRIVER: "dummy"
-  SDL_AUDIODRIVER: "dummy"
-  PROJ_NETWORK: "OFF"    # avoids network access when cartopy/proj is present
-  CARTOPY_USER_BACKGROUNDS: ""  # avoids unexpected file lookups
+name: Python Package (Linux CI)
+
+on:
+  push:
+    paths-ignore:
+      - "README*"
+      - "**/*.md"
+  pull_request:
+    paths-ignore:
+      - "README*"
+      - "**/*.md"
+
+# Avoid duplicate runs per branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux-ci:
+    name: Lint & Smoke Test (Ubuntu)
+    runs-on: ubuntu-latest
+    env:
+      # Headless-friendly env so pygame can init during smoke test
+      SDL_VIDEODRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+      XDG_RUNTIME_DIR: /tmp
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Core libs commonly used in WorldDom plus linter & test runner
+          pip install "pygame==2.6.*" numpy pillow flake8 pytest
+
+      - name: Lint with flake8
+        run: |
+          # Honor a repo .flake8 if present; otherwise use a sensible default
+          if [ ! -f .flake8 ]; then
+            cat > .flake8 <<'EOF'
+            [flake8]
+            ignore = E203,W503,E731
+            max-line-length = 100
+            exclude = .git,__pycache__,.venv,venv,build,dist
+            EOF
+          fi
+          flake8
+
+      - name: Import smoke test
+        run: |
+          python - <<'PY'
+          # Quick headless smoke test to catch obvious import/runtime errors
+          import pygame
+          pygame.display.init()
+          pygame.display.set_mode((1,1))
+          try:
+              from src.core.game import Game
+              print("Game import OK")
+          except Exception as e:
+              raise SystemExit(f"Import failed: {e}")
+          PY
