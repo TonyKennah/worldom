@@ -1,0 +1,17 @@
+# tests/environment.yml
+name: worlddom-test
+channels: [conda-forge]
+dependencies:
+  - python=3.10
+  - numpy
+  - pillow
+  - pip
+  - pip:
+      - pygame==2.6.*
+  - cartopy
+  - matplotlib-base
+  - shapely
+  - proj
+  - proj-data
+  - geos
+  - setuptools
