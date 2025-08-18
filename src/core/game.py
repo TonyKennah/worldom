@@ -35,6 +35,13 @@ from src.ui.selection_manager import SelectionManager
 from src.ui.ui_manager import UIManager
 from src.ui.starfield import Starfield
 
+from src.utils.linux_tweaks import (
+    early_env_setup as _linux_early_env_setup,
+    recommended_display_flags as _linux_display_flags,
+    is_linux as _is_linux,
+)
+
+
 
 # --- Game Class ---
 class Game:
