@@ -44,7 +44,14 @@ class Game:
     # Lifecycle / init
     # ---------------------
     def __init__(self) -> None:
-        pygame.init()
+        # Apply Linux performance env tweaks BEFORE initializing pygame/SDL
+try:
+    _linux_early_env_setup()
+except Exception:
+    # Non‑fatal: run with default environment if tweaks fail
+    pass
+
+pygame.init()
 
         # Prefer scaled/high-DPI rendering; enable vsync if available
         flags = pygame.FULLSCREEN
