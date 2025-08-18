@@ -1,20 +1,35 @@
+# src/entities/effects.py
+# --- begin: flake8/type-hint forward reference fix ---
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from .unit import Unit
+# Make forward-referenced types visible to flake8 without causing runtime imports
+if TYPE_CHECKING:  # pragma: no cover
+    from src.entities.unit import Unit      # noqa: F401
+    from src.core.camera import Camera      # noqa: F401
+# --- end: flake8/type-hint forward reference fix ---
 
 
-class Effect:
-    """Base time-limited effect."""
-    remaining: float
+class FloatingText:
+    def __init__(self, x: float, y: float, text: str, color=(255,255,255)):
+        self.x, self.y, self.text, self.color = x, y, text, color
+        self.alive = True
+        self.age = 0.0
+        self.ttl = 1.2
 
-    def update(self, unit: "Unit", dt: float) -> bool:
-        self.remaining = max(0.0, self.remaining - dt)
-        return self.remaining <= 0.0  # True -> remove
+    def update(self, dt: float) -> None:
+        self.age += dt
+        if self.age >= self.ttl:
+            self.alive = False
+        else:
+            self.y -= dt * 24
 
+    def draw(self, surface: pygame.Surface) -> None:
+        # draw with lazy font to avoid import side-effects
+        font = pygame.font.SysFont("Arial", 16)
+        s = font.render(self.text, True, self.color)
+        surface.blit(s, (int(self.x), int(self.y)))
 
 @dataclass
 class SpeedBoost(Effect):
