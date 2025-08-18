@@ -29,47 +29,40 @@ PLANET_THEMES = {
         "terrains": {
             "ocean": {"name": "Methane Sea", "color": (104, 60, 144), "globe_color": "#683c90", "walkable": False},
             "lake": {"name": "Tar Pit", "color": (40, 40, 40), "globe_color": "#282828", "walkable": False},
-            "grass": {"name": "Crystalline Plains", "color": (200, 200, 220), "globe_color": "#c1c1da", "walkable": True},
-            "rock": {"name": "Obsidian Spires", "color": (45, 53, 4), "globe_color": "#2d3504", "walkable": True},
-        }
-    },
-    "phoebe": {
-        "name": "Phoebe",
-        "terrains": {
-            "ocean": {"name": "Dimethyl Sulfide Sea", "color": (5, 36, 65), "globe_color": "#052441", "walkable": False},
-            "lake": {"name": "Colbalt Crystal", "color": (73, 243, 206), "globe_color": "#49F3CE", "walkable": False},
-            "grass": {"name": "Sand", "color": (168, 166, 19), "globe_color": "#a8a613", "walkable": True},
-            "rock": {"name": "Ammonia Lake", "color": (147, 147, 192), "globe_color": "#9393c0", "walkable": True},
-        }
-    },
-    "vulcan": {
-        "name": "Vulcan",
-        "terrains": {
-            "ocean": {"name": "Lava Sea", "color": (139, 28, 16), "globe_color": "#8B1C10", "walkable": False},
-            "lake": {"name": "Magma Flow", "color": (255, 100, 0), "globe_color": "#FF6400", "walkable": False},
-            "grass": {"name": "Ash Fields", "color": (80, 80, 80), "globe_color": "#505050", "walkable": True},
-            "rock": {"name": "Basalt Columns", "color": (40, 40, 50), "globe_color": "#282832", "walkable": True},
-        }
-    },
-    "hoth": {
-        "name": "Hoth",
-        "terrains": {
-            "ocean": {"name": "Subglacial Ocean", "color": (20, 40, 80), "globe_color": "#142850", "walkable": False},
-            "lake": {"name": "Brine Pool", "color": (170, 220, 220), "globe_color": "#AADCDC", "walkable": False},
-            "grass": {"name": "Snow Plains", "color": (240, 240, 255), "globe_color": "#F0F0FF", "walkable": True},
-            "rock": {"name": "Glacial Ice", "color": (180, 200, 240), "globe_color": "#B4C8F0", "walkable": True},
-        }
-    },
-    "arrakis": {
-        "name": "Arrakis",
-        "terrains": {
-            "ocean": {"name": "Deep Desert", "color": (139, 69, 19), "globe_color": "#8B4513", "walkable": False},
-            "lake": {"name": "Salt Flats", "color": (220, 220, 220), "globe_color": "#DCDCDC", "walkable": False},
-            "grass": {"name": "Sand Dunes", "color": (210, 180, 140), "globe_color": "#D2B48C", "walkable": True},
-            "rock": {"name": "Rocky Mesa", "color": (188, 143, 143), "globe_color": "#BC8F8F", "walkable": True},
-        }
-    },
-    "xylos": {
+  wvF SDV.JUCBqwkGVwqluyvbawlHBQvw:hbVqw:BIYHqvw
+  ]#qve
+  beqWBQev
+  GQE
+  BWE
+  WBEBWEBewQBeBWeBQebeqbeqQBEqbeqbe
+  quit
+  vwe
+  gfw
+  and
+  BaseExceptioneb
+  nextaent
+  enumerateB
+  BaseException
+  NameErrorner
+  NameErrorNER
+  NameErrorNEA
+  NERO'Msbe'OINVA;NBv:iuBEvbs:iUs dJbes#
+  \enumerateARNT
+  MAP_HEIGHT_TILES
+  ,
+  7,
+  .7I
+  R,7
+  WALKABLE_TERRAINSM5W
+  ,W7
+  5,WM
+  ,W5Y
+  7W,
+  5WYM
+  WALKABLE_TERRAINSM
+  6MAQ;OI43HN;uibQ;IVeuqb'oniQEB
+  nwr
+  NameErrornwrn';ibwE;vwi;ubevbwe'
         "name": "Xylos",
         "terrains": {
             "ocean": {"name": "Liquid Light", "color": (40, 100, 120), "globe_color": "#286478", "walkable": False},

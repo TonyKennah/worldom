@@ -483,153 +483,26 @@ class Camera:
         # 1) Handle zoom inputs first so mappings are correct this frame
         input_happened = self._handle_mouse_input(events)
 
-        # 2) Update zoom value and per-frame caches
-        zoom_changed = self.zoom_state.update(dt)
-        self._z = self.zoom_state.current
-        self._inv_z = 1.0 / max(self._z, _EPS)
-        self._frame_shake = self._shake_offset()  # single stable read per frame
-
-        # 3) If we are mouse-anchoring zoom, keep the anchor world point stationary during easing
-        if self._zoom_anchor_world is not None and self._zoom_anchor_screen_vec is not None:
-            desired_position = self._zoom_anchor_world - (self._zoom_anchor_screen_vec * self._inv_z)
-            self.position.update(desired_position)
-            if not zoom_changed or self.zoom_state.at_target:
-                # Clear the anchor once we've reached the target
-                self._zoom_anchor_world = None
-                self._zoom_anchor_screen_vec = None
-
-        # 4) Movement inputs
-        keys = pygame.key.get_pressed()
-        move_keyboard = self._keyboard_move_vector(keys) if self.keyboard_enabled else pygame.Vector2()
-        move_edge = self._edge_scroll_vector(edge_scroll_exclusion_zone) if self.edge_scroll_enabled else pygame.Vector2()
-
-        # Mouse drag panning modifies position directly (not affected by inertia)
-        if self.drag_enabled:
-            if self._handle_drag(events):
-                input_happened = True
-
-        # Determine the target velocity based on inputs.
-        speed_mult = self._speed_modifier(keys)
-        target_velocity = pygame.Vector2(0, 0)
-
-        if move_keyboard.length_squared() > 0:
-            move_keyboard.normalize_ip()
-            target_velocity += move_keyboard * self.accel_keyboard * self._inv_z * speed_mult
-            input_happened = True
-        if move_edge.length_squared() > 0:
-            move_edge.normalize_ip()
-            target_velocity += move_edge * self.accel_edge * self._inv_z * speed_mult
-            input_happened = True
-
-        # Clamp max speed (safety)
-        if target_velocity.length() > self.max_speed:
-            target_velocity.scale_to_length(self.max_speed)
-
-        # 5) Apply tween pan if active (overrides velocity)
-        if self._pan_active:
-            if self.cancel_pan_on_input and input_happened:
-                self.cancel_pan()
-            else:
-                self._update_pan(dt)
-                target_velocity.update(0, 0)
-
-        # 6) Integrate
-        if self.inertia_enabled:
-            accel = (target_velocity - self.velocity) * self.drag
-            self.velocity += accel * dt
-            if self.velocity.length() > self.max_speed:
-                self.velocity.scale_to_length(self.max_speed)
-            self.position += self.velocity * dt
-        else:
-            self.position += target_velocity * dt
-
-        # 7) Optional follow after inputs (soft corrective)
-        if follow_target is not None:
-            self.follow(follow_target, dt)
-
-        # 8) Apply wrapping/clamping
-        self._apply_bounds(map_width_pixels, map_height_pixels)
-
-        # 9) Decay shake
-        if self._trauma > 0.0:
-            self._trauma = max(0.0, self._trauma - self._trauma_decay * dt)
-
-    # -------------------------
-    # Internal helpers
-    # -------------------------
-
-    def _speed_modifier(self, keys: Sequence[bool]) -> float:
-        mult = 1.0
-        if keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]:
-            mult *= self.shift_speed_mult
-        if keys[pygame.K_LALT] or keys[pygame.K_RALT]:
-            mult *= self.alt_speed_mult
-        return mult
-
-    def _keyboard_move_vector(self, keys: Sequence[bool]) -> pygame.Vector2:
-        """WASD/Arrows movement vector (unscaled)."""
-        v = pygame.Vector2(0, 0)
-        if keys[pygame.K_w] or keys[pygame.K_UP]:
-            v.y -= 1
-        if keys[pygame.K_s] or keys[pygame.K_DOWN]:
-            v.y += 1
-        if keys[pygame.K_a] or keys[pygame.K_LEFT]:
-            v.x -= 1
-        if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
-            v.x += 1
-        return v
-
-    def _edge_scroll_vector(self, exclusion_zone: Optional[pygame.Rect] = None) -> pygame.Vector2:
-        """
-        Edge-scroll vector (unscaled).
-        Gated off while dragging or while a mouse button is held (to avoid fighting with selection/drag).
-        """
-        if not pygame.mouse.get_focused():
-            return pygame.Vector2(0, 0)
-
-        pressed = pygame.mouse.get_pressed(num_buttons=5)
-        if self._dragging or any(pressed):
-            return pygame.Vector2(0, 0)
-
-        mx, my = pygame.mouse.get_pos()
-        mouse_pos = (mx, my)
-        v = pygame.Vector2(0, 0)
-
-        # If the mouse is inside a defined exclusion zone (like over UI buttons),
-        # disable edge scrolling to prevent accidental camera movement.
-        if exclusion_zone and exclusion_zone.collidepoint(mouse_pos):
-            return v
-
-        # Horizontal (outside debug panel height)
-        if my >= DEBUG_PANEL_HEIGHT:
-            if mx < EDGE_SCROLL_BOUNDARY:
-                v.x -= 1
-            elif mx > self.width - EDGE_SCROLL_BOUNDARY:
-                v.x += 1
-
-        # Vertical (top area's start is just below debug panel)
-        if DEBUG_PANEL_HEIGHT <= my < DEBUG_PANEL_HEIGHT + EDGE_SCROLL_BOUNDARY:
-            v.y -= 1
-        elif my > self.height - EDGE_SCROLL_BOUNDARY:
-            v.y += 1
-
-        return v
-
-    def _handle_drag(self, events: Sequence[pygame.event.Event]) -> bool:
-        """Middle-mouse drag panning, or ALT + LMB if enabled. Returns True if drag input occurred."""
-        happened = False
-        alt_held = bool(pygame.key.get_mods() & pygame.KMOD_ALT)
-        for e in events:
-            if e.type == pygame.MOUSEBUTTONDOWN:
-                if e.button == self.drag_button or (self.drag_with_alt_left and e.button == pygame.BUTTON_LEFT and alt_held):
-                    self._dragging = True
-                    self._last_mouse = pygame.Vector2(pygame.mouse.get_pos())
-                    self.velocity.update(0, 0)  # freeze inertia while dragging
-                    happened = True
-            elif e.type == pygame.MOUSEBUTTONUP:
-                if e.button == self.drag_button or e.button == pygame.BUTTON_LEFT:
-                    self._dragging = False
-                    happened = True
+       .\evjbh\sveoiulbvwEK:JbSVBE:KJBWE\rbs
+    \srb
+    \e
+    NameError\NameErrornr\
+    ne\r\
+        screen_center \s\
+    \
+    screen_centerw
+    w
+    wbe
+    is_world_rect_visibleseb
+    \screen_centerb
+    is_world_rect_visiblevwe
+    varsbt
+    eg
+    bts
+    b
+    breakr
+    BaseExceptionGroupbre
+    
 
         if self._dragging:
             cur = pygame.Vector2(pygame.mouse.get_pos())
