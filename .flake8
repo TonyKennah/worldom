@@ -1,5 +1,28 @@
+# .flake8
 [flake8]
-# Relax a few widely-accepted formatting cases
-ignore = E203,W503,E731
+# Keep a reasonable limit; matches your other workflows
 max-line-length = 100
-exclude = .git,__pycache__,.venv,venv,build,dist
+
+# Keep the common modern ignores
+extend-ignore = E203, W503, E731
+
+# Exclude non-source, generated, or external folders so CI only lints *your* code
+exclude =
+    .git,
+    .github,
+    .serena,
+    __pycache__,
+    build,
+    dist,
+    venv,
+    .venv,
+    image,
+    globe_frames,
+    .mypy_cache,
+    .pytest_cache,
+    notebooks
+
+# These files often re-export symbols and legitimately have unused imports
+per-file-ignores =
+    __init__.py:F401
+    src/**/__init__.py:F401
