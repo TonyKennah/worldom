@@ -1,0 +1,9 @@
+# .github/workflows/python-conda.yml (within jobs.build)
+env:
+  MPLBACKEND: Agg
+  PYTHONUNBUFFERED: "1"
+  PYGAME_HIDE_SUPPORT_PROMPT: "1"
+  SDL_VIDEODRIVER: "dummy"
+  SDL_AUDIODRIVER: "dummy"
+  PROJ_NETWORK: "OFF"    # avoids network access when cartopy/proj is present
+  CARTOPY_USER_BACKGROUNDS: ""  # avoids unexpected file lookups
