@@ -1,7 +1,17 @@
 """
 Render helpers for Unit (rings, healthbar, path debug).
 """
+# --- begin: flake8/type-hint forward reference fix ---
 from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+# Make forward-referenced types visible to flake8 without causing runtime imports
+if TYPE_CHECKING:  # pragma: no cover
+    from src.core.camera import Camera      # noqa: F401
+    from src.entities.unit import Unit      # noqa: F401
+# --- end: flake8/type-hint forward reference fix ---
+
 
 import math
 from typing import TYPE_CHECKING, Any, List, Tuple
