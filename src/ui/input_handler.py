@@ -5,7 +5,21 @@ Handles all user input, such as mouse and keyboard events.
 from __future__ import annotations
 from typing import List, Optional, Tuple, TYPE_CHECKING
 
+# src/ui/input_handler.py (inside handle_events loop)
 import pygame
+
+# ... within the event loop:
+if event.type == pygame.KEYDOWN:
+    if event.key == pygame.K_F1 or (event.key == pygame.K_SLASH and (pygame.key.get_mods() & pygame.KMOD_SHIFT)):
+        # F1 or '?' toggles the in-game help overlay
+        self.game.ui_manager.toggle_help_overlay()
+        return  # consume if you want this to stop further handling
+
+    # Optional: ESC closes help if open (without quitting)
+    if event.key == pygame.K_ESCAPE and self.game.ui_manager.help_overlay.visible:
+        self.game.ui_manager.toggle_help_overlay()
+        return
+
 
 import src.utils.settings as settings
 
