@@ -5,6 +5,7 @@ Handles the rendering and state of all UI elements in the game.
 from __future__ import annotations
 import math
 from typing import List, Optional, Tuple, Dict, TYPE_CHECKING, Any
+from src.ui.help_overlay import HelpOverlay
 
 import pygame
 import src.utils.settings as settings
@@ -20,6 +21,7 @@ class UIManager:
         """Initializes the UI Manager."""
         self.game = game
         self.screen = game.screen
+        self.help_overlay = HelpOverlay()
 
         # --- Globe Animation State ---
         self.show_globe_popup: bool = False
@@ -45,7 +47,9 @@ class UIManager:
         self.minimap_rect: Optional[pygame.Rect] = None
         self._minimap_tile_px: int = 1
         self._minimap_margin: int = 12
-
+def toggle_help_overlay(self) -> None:
+    self.help_overlay.toggle()
+    
     # -------------------------------------------------------------------------
     # UPDATE
     # -------------------------------------------------------------------------
@@ -250,6 +254,9 @@ class UIManager:
             centery=speed_display_rect.centery
         )
         self.screen.blit(toggle_surface, self.globe_toggle_rect)
+
+    if self.help_overlay.visible:
+    self.help_overlay.draw(self.screen, settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT)
 
     # --------------------------- NEW: MINIMAP --------------------------------
     def draw_minimap(self) -> None:
