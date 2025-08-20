@@ -23,6 +23,10 @@ from typing import List, Optional, Tuple, Dict, Any
 
 import pygame
 import src.utils.settings as settings
+from src.utils.profiler import Profiler      # NEW
+from src.ui.toast import ToastManager        # NEW
+from src.utils.screenshot import save_screenshot  # NEW
+from src.utils.event_bus import bus          # NEW
 
 from src.core.camera import Camera
 import src.rendering.globe_renderer as globe_renderer
@@ -123,6 +127,46 @@ class Game:
 
         # Create the initial world
         self._create_new_world()
+
+    class Game:
+    def __init__(self, *args, **kwargs):
+        # ... your existing init ...
+        self.profiler = Profiler()           # NEW
+        self.show_profiler = False           # NEW
+        self.toasts = ToastManager()         # NEW
+
+        # Example bus usage: any system can emit toasts without tight coupling
+        bus.on("toast", lambda p: self.toasts.add(str(p.get("text", "")), float(p.get("duration", 2.25))))
+
+    def handle_event(self, event: pygame.event.Event) -> None:
+        # ... your existing input handling ...
+
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_F3:                 # NEW: toggle profiler overlay
+                self.show_profiler = not self.show_profiler
+                self.toasts.add(f"Profiler {'ON' if self.show_profiler else 'OFF'}", 1.6)
+
+            if event.key == pygame.K_F12:                # NEW: save screenshot
+                path = save_screenshot(self.screen)
+                self.toasts.add(f"Saved: {os.path.basename(path)}", 2.5)
+
+    def run_frame(self, dt: float) -> None:
+        # If your loop structure names differ, adapt lines below accordingly.
+        self.profiler.frame_start()                      # NEW
+
+        with self.profiler.section("update"):            # NEW
+            self.update(dt)                              # existing
+
+        with self.profiler.section("draw"):              # NEW
+            self.draw()                                  # existing
+
+            # Overlays (toasts + optional profiler)
+            self.toasts.draw(self.screen)                # NEW
+            if self.show_profiler:
+                self.profiler.draw(self.screen)          # NEW
+
+        self.profiler.frame_end()                        # NEW
+        pygame.display.flip()                            # existing
 
     # ---------------------
     # Window / UI helpers
