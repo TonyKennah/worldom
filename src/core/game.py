@@ -38,6 +38,9 @@ from src.ui.input_handler import InputHandler
 from src.ui.selection_manager import SelectionManager
 from src.ui.ui_manager import UIManager
 from src.ui.starfield import Starfield
+from src.gameplay.capture_points import CapturePointManager, CapturePoint
+from src.gameplay.resources import ResourcePool
+from src.ui.minimap import MiniMap
 
 from src.utils.linux_tweaks import (
     early_env_setup as _linux_early_env_setup,
@@ -167,6 +170,21 @@ class Game:
 
         self.profiler.frame_end()                        # NEW
         pygame.display.flip()                            # existing
+# Resources / economy
+self.resources = ResourcePool()
+
+# Capture points (example positions; adjust to your map):
+self.capture_points = CapturePointManager(
+    [
+        CapturePoint("Village A", (512, 512), 140, income_per_sec=8),
+        CapturePoint("Forest Outpost", (1280, 768), 120, income_per_sec=6),
+        CapturePoint("Cliff Beacon", (1820, 340), 150, income_per_sec=10),
+    ],
+    resource_pool=self.resources
+)
+
+# Minimap
+self.minimap = MiniMap(anchor="topright")
 
     # ---------------------
     # Window / UI helpers
