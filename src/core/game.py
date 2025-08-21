@@ -212,6 +212,33 @@ self.minimap = MiniMap(anchor="topright")
     # ---------------------
     # Splash / loading
     # ---------------------
+    def main():
+    # Safe init (works in CI/headless too)
+    safe_pygame_init()
+
+    # Create window + clock via helper
+    import src.utils.settings as settings
+    screen, clock = create_window((settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT), "WorldDom")
+
+    # ---- Loading screen with preloading ----
+    loader = LoadingScreen(screen, clock, title="WorldDom")
+    resources = loader.run_preload(ASSET_MANIFEST)
+    # Optional: hand off to your Game instance if it can accept it
+    # (This is additive—if your Game doesn't use it yet, it won't break anything.)
+    try:
+        game = Game(resources=resources)  # add resources=None default in your Game.__init__
+    except TypeError:
+        game = Game()
+
+    # Frame watchdog to monitor hitches
+    hitch = LongFrameWatchdog()
+
+    # --- Your existing game loop can use `clock` and `screen` as before ---
+    game.run(screen=screen, clock=clock, watchdog=hitch)  # or adapt to your method signature
+
+if __name__ == "__main__":
+    raise SystemExit(run_with_crash_report(main))
+
     def _draw_splash_screen(self, message: str, progress: Optional[float] = None) -> None:
         """
         Draws a loading screen. Animation updates should happen before calling this.
