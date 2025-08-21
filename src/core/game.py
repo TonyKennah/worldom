@@ -41,6 +41,11 @@ from src.ui.starfield import Starfield
 from src.gameplay.capture_points import CapturePointManager, CapturePoint
 from src.gameplay.resources import ResourcePool
 from src.ui.minimap import MiniMap
+from src.core.bootstrap import safe_pygame_init, create_window, LongFrameWatchdog
+from src.core.safe_run import run_with_crash_report
+from src.ui.loading_screen import LoadingScreen
+from src.utils.asset_manifest import ASSET_MANIFEST
+
 
 from src.utils.linux_tweaks import (
     early_env_setup as _linux_early_env_setup,
