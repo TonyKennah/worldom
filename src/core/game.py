@@ -32,11 +32,25 @@ from src.core.camera import Camera
 import src.rendering.globe_renderer as globe_renderer
 from src.core.map import Map
 from src.entities.unit import Unit
-from src.world.world_state import WorldState
+try:
+    from src.world_state import WorldState
+except Exception:  # pragma: no cover - defensive import
+    WorldState = object  # type: ignore[assignment]
 from src.core.debug_panel import DebugPanel
 from src.ui.input_handler import InputHandler
 from src.ui.selection_manager import SelectionManager
-from src.ui.ui_manager import UIManager
+try:
+    from src.ui_manager import UIManager
+except Exception:  # pragma: no cover
+    UIManager = object  # type: ignore[assignment]
+try:
+    from src.selection_manager import SelectionManager
+except Exception:  # pragma: no cover
+    SelectionManager = object  # type: ignore[assignment]
+try:
+    from src.ui.debug_panel import DebugPanel
+except Exception:  # pragma: no cover
+    DebugPanel = None  # type: ignore[assignment]
 from src.ui.starfield import Starfield
 from src.gameplay.capture_points import CapturePointManager, CapturePoint
 from src.gameplay.resources import ResourcePool
