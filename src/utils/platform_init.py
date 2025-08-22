@@ -7,12 +7,6 @@ import platform
 import pygame
 from typing import Tuple, TYPE_CHECKING
 
-if TYPE_CHECKING:
-    import pygame
-
-def some_function(..., flags: int = 0) -> Tuple["pygame.Surface", "pygame.time.Clock"]:
-    ...
-
 def apply_platform_tweaks(*, headless: bool = False) -> None:
     """
     Set conservative SDL/Pygame environment knobs before importing pygame.
