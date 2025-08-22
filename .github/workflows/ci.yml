@@ -8,10 +8,11 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      PYGAME_HIDE_SUPPORT_PROMPT: "1"
-      SDL_VIDEODRIVER: "dummy"
-      SDL_AUDIODRIVER: "dummy"
-      CI: "true"
+  PYGAME_HIDE_SUPPORT_PROMPT: "1"
+  SDL_VIDEODRIVER: dummy
+  # Avoid locale surprises that can break string tests
+  LC_ALL: C.UTF-8
+  LANG: C.UTF-8
     steps:
       - uses: actions/checkout@v4
 
