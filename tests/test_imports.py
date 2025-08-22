@@ -2,11 +2,10 @@
 """
 Smoke test that every Python module under `src/` imports successfully.
 
-Key details:
-- We add the project *root* to sys.path so `import src.*` resolves.
-- We import the `src` package first, then walk using `src.__path__`
-  and the `prefix="src."` to generate fully-qualified module names.
-- Pygame is run headless to avoid requiring a window or audio device in CI.
+- Runs pygame headless (no window/audio) for CI stability.
+- Adds project root to sys.path so `import src.*` works.
+- Walks modules under the logical `src` package; if that import fails,
+  falls back to the physical `src/` path.
 """
 
 from __future__ import annotations
@@ -17,12 +16,12 @@ import importlib
 import pkgutil
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
 
 
 def test_import_all_modules_headless() -> None:
-    # Run pygame headless in CI or environments without a display/audio device.
+    # Headless env for pygame
     os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
     os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
     os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
@@ -31,23 +30,25 @@ def test_import_all_modules_headless() -> None:
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
 
-    # Import the `src` package to get its package path for walking.
+    # Prefer walking the *package* path of `src` (namespace package support).
+    paths: list[str]
     try:
         src_pkg = importlib.import_module("src")
-    except Exception as e:  # noqa: BLE001
-        raise AssertionError(f"Failed to import package 'src': {type(e).__name__}({e})")
+        # Convert namespace/package path to a list[str] for pkgutil
+        paths = [str(p) for p in list(src_pkg.__path__)]  # type: ignore[attr-defined]
+    except Exception:
+        # Fallback: walk the physical src/ directory
+        paths = [str(SRC)]
 
-    # Discover and import all modules below src/, using fully qualified names `src.*`.
     failures: list[tuple[str, Exception]] = []
-    for mod in pkgutil.walk_packages(src_pkg.__path__, prefix="src."):
+    for mod in pkgutil.walk_packages(paths, prefix="src."):
         name = mod.name
-        # Skip weird dunders if any show up
-        leaf = name.rsplit(".", 1)[-1]
-        if leaf in {"__init__", "__main__"}:
+        # Skip dunder-only entries
+        if name.rsplit(".", 1)[-1] in {"__init__", "__main__"}:
             continue
         try:
             importlib.import_module(name)
-        except Exception as e:  # noqa: BLE001 - aggregate all failures
+        except Exception as e:  # noqa: BLE001
             failures.append((name, e))
 
     if failures:
