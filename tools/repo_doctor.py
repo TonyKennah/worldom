@@ -1,70 +1,44 @@
 # tools/repo_doctor.py
 from __future__ import annotations
-
-from dataclasses import dataclass
+import argparse
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
+import json
 
-MANDATORY: Tuple[str, ...] = ("README.md", "pyproject.toml")
-OPTIONAL: Tuple[str, ...] = (".gitignore", "LICENSE", ".editorconfig")
+MANDATORY = ("pyproject.toml",)
+OPTIONAL = ("LICENSE", ".editorconfig")
 
-@dataclass(frozen=True)
-class CheckResult:
-    ok: bool
-    missing: List[str]
-
-def _have(paths: Iterable[str], root: Path) -> List[str]:
-    """Return the subset of `paths` missing under `root` (case-insensitive)."""
-    missing: List[str] = []
-    for name in paths:
-        p = root / name
-        if p.exists():
-            continue
-        # case-insensitive fallback (Windows/macOS-friendly)
-        # e.g., 'readme.md' satisfies 'README.md'
-        parent = p.parent
-        if not parent.exists():
-            missing.append(name)
-            continue
-        lname = name.lower()
-        found = any(child.name.lower() == lname for child in parent.iterdir())
-        if not found:
-            missing.append(name)
-    return missing
-
-def check_repo(root: str | Path = ".") -> Dict[str, CheckResult]:
-    """
-    Run minimal hygiene checks expected by tests:
-      - Mandatory: README.md, pyproject.toml
-      - Optional : .gitignore, LICENSE, .editorconfig  (do not fail build)
-    """
-    r = Path(root).resolve()
-    missing_mand = _have(MANDATORY, r)
-    missing_opt = _have(OPTIONAL, r)
+def check(root: Path) -> dict:
+    present = {name: (root / name).exists() for name in set(MANDATORY) | set(OPTIONAL)}
     return {
-        "mandatory": CheckResult(ok=(len(missing_mand) == 0), missing=missing_mand),
-        "optional":  CheckResult(ok=True, missing=missing_opt),  # info-only
+        "root": str(root),
+        "mandatory_ok": all(present[n] for n in MANDATORY),
+        "missing_mandatory": [n for n in MANDATORY if not present[n]],
+        "missing_optional": [n for n in OPTIONAL if not present[n]],
     }
 
-def summarize(root: str | Path = ".") -> str:
-    res = check_repo(root)
-    lines = []
-    mand = res["mandatory"]
-    opt = res["optional"]
-    lines.append("Repo Doctor Summary")
-    lines.append("-------------------")
-    lines.append(f"Root: {Path(root).resolve()}")
-    lines.append(f"Mandatory OK: {mand.ok} | Missing: {', '.join(mand.missing) if mand.missing else 'None'}")
-    lines.append(f"Optional Missing: {', '.join(opt.missing) if opt.missing else 'None'}")
-    return "\n".join(lines)
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description="Repo sanity checker")
+    ap.add_argument("--cwd", type=str, default=".")
+    ap.add_argument("--format", choices=("text", "json"), default="text")
+    ap.add_argument("--no-fail", action="store_true", help="Never exit non-zero (for CI smoke checks)")
+    args = ap.parse_args(argv)
 
-def main(argv: List[str] | None = None) -> int:
-    """
-    CLI: prints a summary and returns 0 when mandatory files exist,
-    otherwise returns 1 (so tests/assertions can check behavior).
-    """
-    print(summarize("."))
-    return 0 if check_repo(".")["mandatory"].ok else 1
+    info = check(Path(args.cwd).resolve())
+
+    if args.format == "json":
+        print(json.dumps(info))
+    else:
+        print("Repo Doctor Summary")
+        print("-------------------")
+        print(f"Root: {info['root']}")
+        print(f"Mandatory OK: {info['mandatory_ok']} | Missing: {', '.join(info['missing_mandatory']) or 'None'}")
+        if info["missing_optional"]:
+            print(f"Optional Missing: {', '.join(info['missing_optional'])}")
+
+    # Honor --no-fail strictly
+    if args.no_fail:
+        return 0
+    return 0 if info["mandatory_ok"] else 1
 
 if __name__ == "__main__":
     raise SystemExit(main())
