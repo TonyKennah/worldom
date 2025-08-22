@@ -19,8 +19,6 @@ def test_repo_doctor_cli_json_ok():
     data = json.loads(out)
     assert "python_files" in data and "non_python_files" in data and "root" in data
 
-
-
     script = Path("tools") / "repo_doctor.py"
     assert script.exists(), "tools/repo_doctor.py must exist for CI workflow"
 
