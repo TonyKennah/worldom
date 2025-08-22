@@ -11,17 +11,31 @@ jobs:
       PYGAME_HIDE_SUPPORT_PROMPT: "1"
       SDL_VIDEODRIVER: "dummy"   # headless display for pygame
       SDL_AUDIODRIVER: "dummy"   # silence audio init warnings
+      SDL_RENDER_DRIVER: "software"
       LC_ALL: "C.UTF-8"
       LANG: "C.UTF-8"
+      XDG_RUNTIME_DIR: "/tmp"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Python
+        id: py
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: >-
+            ${{ runner.os }}-pip-${{ steps.py.outputs.python-version }}-
+            ${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ steps.py.outputs.python-version }}-
+            ${{ runner.os }}-pip-
 
       - name: Install system deps (SDL)
         run: |
@@ -36,11 +50,18 @@ jobs:
       - name: Install Python deps
         run: |
           python -m pip install --upgrade pip
+          # Project requirements (if present)
           if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          else
-            pip install pygame noise pytest
+            python -m pip install -r requirements.txt
           fi
+          # Optional dev/test requirements (if present)
+          if [ -f requirements-dev.txt ]; then
+            python -m pip install -r requirements-dev.txt
+          fi
+          # Always ensure the test runner & common libs exist (prevents exit 127)
+          python -m pip install --upgrade pytest
+          # If your repo needs these during CI and they're not in requirements.txt:
+          python -m pip install --upgrade pygame noise
 
       - name: Headless pygame smoke test
         run: |
@@ -54,10 +75,19 @@ jobs:
           pygame.quit()
           PY
 
-      - name: Run tests (if present)
+      - name: Show pip environment
         run: |
-          if [ -d tests ]; then
-            pytest -q
+          python --version
+          python -m pip --version
+          python -c "import sys; print('site-prefix:', sys.prefix)"
+          python -m pip list --format=columns
+
+      - name: Run tests (if present)
+        shell: bash
+        run: |
+          if [ -d tests ] || ls -1 test_*.py *_test.py 2>/dev/null | grep -q .; then
+            # Use module form to avoid PATH issues that can cause exit 127
+            python -m pytest -q
           else
-            echo "No tests/ directory found; skipping."
+            echo "No tests/ directory or test_*.py files found; skipping."
           fi
