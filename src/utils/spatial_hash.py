@@ -1,112 +1,49 @@
-# c:/prj/WorldDom/src/spatial_hash.py
+# src/utils/spatial_hash.py
 from __future__ import annotations
-from typing import Dict, Set, Iterable, Tuple, List
-import math
-import pygame
+from dataclasses import dataclass, field
+from typing import DefaultDict, Dict, Iterable, MutableMapping, Set, Tuple, Any
+from collections import defaultdict
 
-Vec2 = pygame.math.Vector2
-Cell = Tuple[int, int]
+Coord = Tuple[int, int]
+Rect  = Tuple[float, float, float, float]  # x, y, w, h
 
+@dataclass
 class SpatialHash:
-    """
-    A simple spatial hash for fast radius/rect queries over moving units.
+    cell: int = 64
+    _grid: DefaultDict[Coord, Set[Any]] = field(default_factory=lambda: defaultdict(set))
+    _pos: Dict[Any, Tuple[float, float]] = field(default_factory=dict)
 
-    Store (id -> (pos, radius)), and maintain buckets keyed by integer grid cells.
-    """
-    def __init__(self, cell_size: int = 128) -> None:
-        self.cell_size = max(8, int(cell_size))
-        self._id_to_cells: Dict[int, Set[Cell]] = {}
-        self._id_to_data: Dict[int, Tuple[Vec2, float]] = {}
-        self._grid: Dict[Cell, Set[int]] = {}
+    def _key(self, x: float, y: float) -> Coord:
+        return int(x)//self.cell, int(y)//self.cell
 
-    # ---- cell math ----
-    def _cell_coords(self, x: float, y: float) -> Cell:
-        c = self.cell_size
-        return (int(math.floor(x / c)), int(math.floor(y / c)))
+    def insert(self, obj: Any, x: float, y: float) -> None:
+        self._pos[obj] = (x, y)
+        self._grid[self._key(x, y)].add(obj)
 
-    def _cells_for_bounds(self, x0: float, y0: float, x1: float, y1: float) -> Iterable[Cell]:
-        c = self.cell_size
-        min_cx, min_cy = self._cell_coords(x0, y0)
-        max_cx, max_cy = self._cell_coords(x1, y1)
-        for cy in range(min_cy, max_cy + 1):
-            for cx in range(min_cx, max_cx + 1):
-                yield (cx, cy)
+    def move(self, obj: Any, x: float, y: float) -> None:
+        ox, oy = self._pos.get(obj, (None, None))
+        if ox is None:  # new
+            self.insert(obj, x, y); return
+        oldk = self._key(ox, oy)
+        newk = self._key(x, y)
+        if newk != oldk:
+            self._grid[oldk].discard(obj)
+            self._grid[newk].add(obj)
+        self._pos[obj] = (x, y)
 
-    # ---- mutators ----
-    def add(self, obj_id: int, pos: Vec2, radius: float = 16.0) -> None:
-        self._id_to_data[obj_id] = (Vec2(pos), float(radius))
-        self._reindex(obj_id)
+    def remove(self, obj: Any) -> None:
+        ox, oy = self._pos.pop(obj, (None, None))
+        if ox is not None:
+            self._grid[self._key(ox, oy)].discard(obj)
 
-    def update(self, obj_id: int, pos: Vec2, radius: float | None = None) -> None:
-        if obj_id not in self._id_to_data:
-            self.add(obj_id, pos, radius or 16.0)
-            return
-        old_pos, old_rad = self._id_to_data[obj_id]
-        new_rad = float(old_rad if radius is None else radius)
-        # Only reindex if moved across a cell boundary or radius changed
-        self._id_to_data[obj_id] = (Vec2(pos), new_rad)
-        self._reindex(obj_id)
-
-    def remove(self, obj_id: int) -> None:
-        cells = self._id_to_cells.pop(obj_id, set())
-        for cell in cells:
-            bucket = self._grid.get(cell)
-            if bucket:
-                bucket.discard(obj_id)
-                if not bucket:
-                    self._grid.pop(cell, None)
-        self._id_to_data.pop(obj_id, None)
-
-    def clear(self) -> None:
-        self._id_to_cells.clear()
-        self._id_to_data.clear()
-        self._grid.clear()
-
-    # ---- queries ----
-    def query_rect(self, rect: pygame.Rect) -> Iterable[int]:
-        x0, y0 = rect.left, rect.top
-        x1, y1 = rect.right, rect.bottom
-        seen: Set[int] = set()
-        for cell in self._cells_for_bounds(x0, y0, x1, y1):
-            for obj_id in self._grid.get(cell, ()):
-                if obj_id in seen:
-                    continue
-                pos, rad = self._id_to_data[obj_id]
-                if rect.inflate(2 * rad, 2 * rad).collidepoint(pos.x, pos.y):
-                    seen.add(obj_id)
-                    yield obj_id
-
-    def query_radius(self, center: Vec2, radius: float) -> Iterable[int]:
-        r = float(radius)
-        rect = pygame.Rect(int(center.x - r), int(center.y - r), int(2 * r), int(2 * r))
-        rr = r * r
-        for obj_id in self.query_rect(rect):
-            pos, rad = self._id_to_data[obj_id]
-            d2 = (pos.x - center.x) ** 2 + (pos.y - center.y) ** 2
-            if d2 <= (r + rad) ** 2:
-                yield obj_id
-
-    # ---- internals ----
-    def _reindex(self, obj_id: int) -> None:
-        pos, rad = self._id_to_data[obj_id]
-        bounds = (pos.x - rad, pos.y - rad, pos.x + rad, pos.y + rad)
-        new_cells = set(self._cells_for_bounds(*bounds))
-        old_cells = self._id_to_cells.get(obj_id, set())
-
-        # cells to remove
-        for cell in old_cells - new_cells:
-            bucket = self._grid.get(cell)
-            if bucket:
-                bucket.discard(obj_id)
-                if not bucket:
-                    self._grid.pop(cell, None)
-
-        # cells to add
-        for cell in new_cells - old_cells:
-            self._grid.setdefault(cell, set()).add(obj_id)
-
-        self._id_to_cells[obj_id] = new_cells
-
-    # Accessors
-    def get(self, obj_id: int) -> Tuple[Vec2, float] | None:
-        return self._id_to_data.get(obj_id)
+    def query_rect(self, rect: Rect) -> Iterable[Any]:
+        x, y, w, h = rect
+        x0, y0 = int(x)//self.cell, int(y)//self.cell
+        x1, y1 = int(x+w)//self.cell, int(y+h)//self.cell
+        seen: Set[Any] = set()
+        for gx in range(x0, x1+1):
+            for gy in range(y0, y1+1):
+                for obj in self._grid.get((gx, gy), ()):
+                    if obj not in seen:
+                        seen.add(obj)
+                        yield obj
