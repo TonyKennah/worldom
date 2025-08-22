@@ -85,49 +85,32 @@ def toggle_help_overlay(self) -> None:
     # DRAW
     # -------------------------------------------------------------------------
     def draw_ui(self) -> None:
-        """Draws all UI elements, called once per frame."""
-    # Draw selection box
-    if self.game.world_state.selection_box:
+    """Draws all UI elements, called once per frame."""
+    # --- Selection box ---
+    sb = self.game.world_state.selection_box
+    if sb:
         pygame.draw.rect(
             self.screen,
             settings.SELECTION_BOX_COLOR,
-            self.game.world_state.selection_box,
+            sb,
             settings.SELECTION_BOX_BORDER_WIDTH,
         )
 
-    # Draw globe popup if active
+    # --- Globe popup (modal-style overlay) ---
     if self.show_globe_popup:
         self.draw_globe_popup()
 
-    # Draw context menu if active
+    # --- Context menu + sub-menu ---
     if self.game.world_state.context_menu.active:
         self.draw_context_menu()
         if self.game.world_state.context_menu.sub_menu.active:
             self.draw_sub_menu()
 
-    # --- Help overlay (draw last so it sits on top) ---
-    # Guard for missing attribute and only draw when visible.
-    if (
-        getattr(self, "help_overlay", None) is not None
-        and bool(getattr(self.help_overlay, "visible", False))
-    ):
-        # If your overlay has an update method, it's safe to tick it here (optional):
-        if hasattr(self.help_overlay, "update"):
-            try:
-                # Use your game's delta if available; falling back to 0
-                dt = getattr(self.game, "dt", 0.0)
-                self.help_overlay.update(dt)  # type: ignore[attr-defined]
-            except Exception:
-                pass
-
-        # Actual draw call (the line that previously raised the IndentationError)
-        self.help_overlay.draw(
-            self.screen,
-            settings.SCREEN_WIDTH,
-            settings.SCREEN_HEIGHT,
-        )
-
-
+    # --- Help overlay (draw last so it appears on top) ---
+    # Guard against cases where help_overlay isn't present yet
+    if getattr(self, "help_overlay", None) is not None and getattr(self.help_overlay, "visible", False):
+        self.help_overlay.draw(self.screen, settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT)
+        
     def draw_globe_popup(self) -> None:
         """Draws the globe animation popup in the center of the screen."""
         if not self.game.globe_frames:
