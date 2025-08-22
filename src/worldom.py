@@ -1,8 +1,14 @@
 # src/worldom.py
 """
-Placeholder module so `import worldom` used by legacy code does not fail in CI.
+Compatibility shim for legacy `import worldom` usages.
 
-If you have an actual `worldom` package in production, this shim will be
-shadowed by the real package on PYTHONPATH. Keep this minimal.
+This module lets files like `src/core/map_io.py` import successfully in
+environments (e.g., CI) where a real `worldom` package is not installed.
+If your production setup provides a real package on PYTHONPATH, that package
+will take precedence and shadow this shim.
+
+Keep this minimal: it’s only intended to satisfy imports at discovery time.
 """
+
 __all__ = []
+__version__ = "0.0.0-ci-shim"
