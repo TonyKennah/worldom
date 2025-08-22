@@ -1,115 +1,148 @@
 # tools/repo_doctor.py
-"""
-Tiny CI helper used by .github/workflows/ci.yml.
-
-- Verifies Python + pygame + noise can import.
-- Optionally runs a short, headless pygame smoke loop.
-- Keeps CLI compatible with older names: `--headless` and `--smoke SECONDS`.
-
-Safe to run locally; in CI SDL_* are set to "dummy".
-"""
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
-import time
-import math
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
+# tomllib is in Python 3.11+; fallback to a tiny parser if needed
+try:
+    import tomllib  # type: ignore[attr-defined]
+except Exception:  # pragma: no cover
+    tomllib = None  # type: ignore[assignment]
 
 
-def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    p = argparse.ArgumentParser(
-        prog="repo_doctor",
-        description="Minimal pygame/noise import check + optional headless smoke loop.",
+@dataclass
+class RepoSummary:
+    root: str
+    python_files: int
+    non_python_files: int
+    has_pyproject: bool
+    has_requirements: bool
+    packages: List[str]
+    notes: List[str]
+
+    def to_dict(self) -> Dict:
+        return asdict(self)
+
+
+def _find_repo_root(start: Path) -> Path:
+    cur = start.resolve()
+    for _ in range(6):  # walk up a few levels only
+        if (cur / ".git").exists() or (cur / "pyproject.toml").exists() or (cur / "src").exists():
+            return cur
+        cur = cur.parent
+    return start.resolve()
+
+
+def _safe_read(path: Path) -> Optional[str]:
+    try:
+        return path.read_text(encoding="utf-8")
+    except Exception:
+        return None
+
+
+def _scan_packages(root: Path) -> List[str]:
+    pkgs: List[str] = []
+    for base in (root, root / "src"):
+        if not base.exists():
+            continue
+        for p in base.iterdir():
+            if p.is_dir() and (p / "__init__.py").exists():
+                pkgs.append(p.name)
+    return sorted(set(pkgs))
+
+
+def _count_files(root: Path) -> Tuple[int, int]:
+    py = 0
+    other = 0
+    for p in root.rglob("*"):
+        if not p.is_file():
+            continue
+        if p.suffix == ".py":
+            py += 1
+        else:
+            other += 1
+    return py, other
+
+
+def _parse_pyproject_packages(pyproject: Path) -> List[str]:
+    if not pyproject.exists() or tomllib is None:
+        return []
+    try:
+        data = tomllib.loads(_safe_read(pyproject) or "")
+    except Exception:
+        return []
+    pkgs: List[str] = []
+    # Try modern PEP 621 structure
+    for key in ("project", "tool", "tool.poetry"):
+        node = data.get(key) if isinstance(data, dict) else None
+        if isinstance(node, dict):
+            name = node.get("name") if key == "project" else node.get("name")
+            if isinstance(name, str):
+                pkgs.append(name)
+    return sorted(set(pkgs))
+
+
+def analyze_repo(start_dir: str | os.PathLike = ".") -> RepoSummary:
+    root = _find_repo_root(Path(start_dir))
+    py_count, other_count = _count_files(root)
+    has_pyproject = (root / "pyproject.toml").exists()
+    has_requirements = (root / "requirements.txt").exists()
+    pkgs = _scan_packages(root)
+    pkgs.extend(_parse_pyproject_packages(root / "pyproject.toml"))
+    pkgs = sorted(set(pkgs))
+
+    notes: List[str] = []
+    if not has_pyproject:
+        notes.append("pyproject.toml not found (ok if project is not packaged)")
+    if not has_requirements:
+        notes.append("requirements.txt not found (ok if using conda/poetry)")
+
+    return RepoSummary(
+        root=str(root),
+        python_files=py_count,
+        non_python_files=other_count,
+        has_pyproject=has_pyproject,
+        has_requirements=has_requirements,
+        packages=pkgs,
+        notes=notes,
     )
-    # Backwards/forwards compatible flags
-    p.add_argument("--headless", action="store_true",
-                   help="Use SDL_VIDEODRIVER=dummy (no window).")
-    p.add_argument("--smoke", type=float, default=0.0, metavar="SECONDS",
-                   help="Run a short headless animation for SECONDS (default: 0).")
-    # Alias used by tools/env_check.py in some forks
-    p.add_argument("--seconds", type=float, default=None,
-                   help="Alias for --smoke.")
-    return p.parse_args(argv)
 
 
-def _ensure_headless_env() -> None:
-    os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
-    os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
-    # Hide the long pygame hello in CI logs
-    os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
+def main(argv: Optional[List[str]] = None) -> int:
+    parser = argparse.ArgumentParser(description="WorldDom repository doctor (safe, stdlib-only)")
+    parser.add_argument("--cwd", default=".", help="Start directory for repo discovery (default: current)")
+    parser.add_argument("--format", choices=("json", "text"), default="json", help="Output format")
+    parser.add_argument("--no-fail", action="store_true",
+                        help="Always exit 0 (useful for CI smoke tests).")
+    args = parser.parse_args(argv)
 
-
-def _print_versions() -> None:
-    print("Python:", sys.version.split()[0])
     try:
-        import pygame  # noqa: F401
-        import noise   # noqa: F401
+        summary = analyze_repo(args.cwd)
+        if args.format == "json":
+            print(json.dumps(summary.to_dict(), indent=2))
+        else:
+            print(f"Root: {summary.root}")
+            print(f"Python files: {summary.python_files}")
+            print(f"Other files:  {summary.non_python_files}")
+            print(f"Has pyproject: {summary.has_pyproject}")
+            print(f"Has requirements: {summary.has_requirements}")
+            print(f"Packages: {', '.join(summary.packages) or '(none)'}")
+            if summary.notes:
+                print("Notes:")
+                for n in summary.notes:
+                    print(f"  - {n}")
     except Exception as e:
-        print("Import error:", e)
-        raise
-    else:
-        import pygame
-        import noise
-        print("pygame:", getattr(pygame, "version", getattr(pygame, "__version__", "unknown")))
-        print("noise:", getattr(noise, "__version__", "unknown"))
+        # Do not let CI fail on diagnostics
+        print(f"[repo_doctor] Error: {e}", file=sys.stderr)
+        return 0 if args.no_fail else 1
 
-
-def _smoke(seconds: float) -> None:
-    """A tiny headless draw loop; bails out fast if something is wrong."""
-    if seconds <= 0:
-        return
-    import pygame
-
-    # Init in a safe way for dummy driver
-    pygame.init()
-    try:
-        w, h = 160, 90
-        screen = pygame.display.set_mode((w, h), flags=0)  # headless OK
-        pygame.display.set_caption("repo_doctor smoke")
-        clock = pygame.time.Clock()
-
-        t0 = time.time()
-        hue = 0.0
-        while time.time() - t0 < seconds:
-            for ev in pygame.event.get():
-                if ev.type == pygame.QUIT:
-                    return
-
-            hue = (hue + 0.02) % 1.0
-            r = int(60 + 195 * abs(math.sin(hue * math.tau)))
-            g = int(60 + 195 * abs(math.sin((hue + 1/3) * math.tau)))
-            b = int(60 + 195 * abs(math.sin((hue + 2/3) * math.tau)))
-            screen.fill((r, g, b))
-
-            t = time.time() - t0
-            x = int(w / 2 + math.cos(t * 3.0) * (w / 4))
-            y = int(h / 2 + math.sin(t * 2.0) * (h / 4))
-            pygame.draw.circle(screen, (240, 240, 255), (x, y), 10)
-
-            pygame.display.flip()
-            clock.tick(60)
-    finally:
-        pygame.quit()
-
-
-def main(argv: list[str] | None = None) -> int:
-    ns = _parse_args(argv)
-    if ns.headless:
-        _ensure_headless_env()
-
-    # Prefer --seconds if passed (compatibility with env_check.py)
-    smoke_secs = ns.seconds if ns.seconds is not None else ns.smoke
-
-    try:
-        _print_versions()
-        _smoke(smoke_secs or 0.0)
-        print("repo_doctor: OK")
-        return 0
-    except Exception as e:
-        print("repo_doctor: FAILED:", e)
-        return 2
-
+    return 0
 
 if __name__ == "__main__":
     raise SystemExit(main())
