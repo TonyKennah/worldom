@@ -1,64 +1,39 @@
-import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
+# src/rendering/globe_frames.py
+from __future__ import annotations
+
 import os
+from typing import List
 
-def create_globe_animation_frames():
+
+__all__ = ["generate_globe_frames"]
+
+
+def generate_globe_frames(
+    map_data: List[List[str]],
+    out_dir: str = os.path.join("image", "globe_frames"),
+    *,
+    seed: int = 0,
+    frames: int = 60,
+    size_px: int = 512,
+) -> None:
     """
-    Generates a series of PNG images showing a rotating globe.
-    These frames can then be used to create an animation in pygame.
+    Convenience wrapper that delegates to the top-level globe_renderer module.
+    Heavy dependencies are imported lazily only when this function is called.
     """
-    # --- Configuration ---
-    output_dir = "globe_frames"
-    num_frames = 120  # The number of frames in the animation (e.g., 120 for a smooth rotation)
-    image_size_pixels = 300 # The width and height of the output images
+    try:
+        from globe_renderer import render_map_as_globe, warm_up_rendering_libraries
+    except Exception as e:
+        raise RuntimeError(
+            "generate_globe_frames requires optional deps (numpy, matplotlib, cartopy)"
+        ) from e
 
-    # --- Setup ---
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-
-    print(f"Generating {num_frames} frames in '{output_dir}/'...")
-
-    # --- Frame Generation Loop ---
-    for i in range(num_frames):
-        # Calculate the longitude for the center of the globe for this frame
-        # We go from -180 to 180 to get a full 360-degree rotation
-        longitude = -180 + (360 * i / num_frames)
-        
-        # Create the plot
-        # The projection is what makes it look like a globe
-        projection = ccrs.Orthographic(central_longitude=longitude, central_latitude=20)
-        
-        # dpi calculation to get the desired pixel size
-        dpi = image_size_pixels / 5 
-        fig = plt.figure(figsize=(5, 5), dpi=dpi)
-        ax = fig.add_subplot(1, 1, 1, projection=projection)
-        
-        # Set the extent to be global so the globe fills the image
-        ax.set_global()
-
-        # --- Add features to the globe ---
-        ax.stock_img() # A basic background image
-        ax.coastlines()
-        # You could also add land, ocean, borders, etc.
-        # ax.add_feature(cartopy.feature.LAND, zorder=0, edgecolor='black')
-        # ax.add_feature(cartopy.feature.OCEAN, zorder=0)
-        
-        # --- Save the frame ---
-        # Use zfill to pad the filename with zeros (e.g., frame_001.png)
-        # This makes it easy to load them in order later
-        filename = os.path.join(output_dir, f"frame_{str(i).zfill(3)}.png")
-        plt.savefig(filename, dpi=dpi, transparent=True, bbox_inches='tight', pad_inches=0)
-        
-        # Close the plot to free up memory
-        plt.close(fig)
-        
-        print(f"  - Saved {filename}")
-
-    print("\nDone! All frames have been generated.")
-
-
-if __name__ == '__main__':
-    # Before running, make sure you have the required libraries:
-    # pip install matplotlib cartopy
-    create_globe_animation_frames()
-
+    warm_up_rendering_libraries()
+    for _ in render_map_as_globe(
+        map_data,
+        map_seed=seed,
+        out_dir=out_dir,
+        num_frames=frames,
+        image_size_px=size_px,
+    ):
+        # progress generator; ignore for now
+        pass
