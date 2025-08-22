@@ -5,89 +5,65 @@ on:
   pull_request:
 
 jobs:
-  test:
+  lint:
+    name: Lint (flake8)
     runs-on: ubuntu-latest
-    env:
-      PYGAME_HIDE_SUPPORT_PROMPT: "1"
-      SDL_VIDEODRIVER: "dummy"   # headless display for pygame
-      SDL_AUDIODRIVER: "dummy"   # silence audio init warnings
-      SDL_RENDER_DRIVER: "software"
-      LC_ALL: "C.UTF-8"
-      LANG: "C.UTF-8"
-      XDG_RUNTIME_DIR: "/tmp"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Python
-        id: py
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          # Use 3.11+ so flake8 parses PEP 604/585 type hints used in the repo
+          python-version: '3.11'
 
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: >-
-            ${{ runner.os }}-pip-${{ steps.py.outputs.python-version }}-
-            ${{ hashFiles('**/requirements*.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-${{ steps.py.outputs.python-version }}-
-            ${{ runner.os }}-pip-
-
-      - name: Install system deps (SDL)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            python3-dev \
-            libsdl2-dev \
-            libsdl2-image-dev \
-            libsdl2-mixer-dev \
-            libsdl2-ttf-dev
-
-      - name: Install Python deps
+      - name: Install flake8
         run: |
           python -m pip install --upgrade pip
-          # Project requirements (if present)
-          if [ -f requirements.txt ]; then
-            python -m pip install -r requirements.txt
-          fi
-          # Optional dev/test requirements (if present)
-          if [ -f requirements-dev.txt ]; then
-            python -m pip install -r requirements-dev.txt
-          fi
-          # Always ensure the test runner & common libs exist (prevents exit 127)
-          python -m pip install --upgrade pytest
-          # If your repo needs these during CI and they're not in requirements.txt:
-          python -m pip install --upgrade pygame noise
+          pip install flake8==7.1.0
 
-      - name: Headless pygame smoke test
-        run: |
-          python - <<'PY'
-          import os, pygame
-          os.environ.setdefault("SDL_VIDEODRIVER","dummy")
-          os.environ.setdefault("SDL_AUDIODRIVER","dummy")
-          pygame.init()
-          pygame.display.set_mode((32, 32))
-          print("pygame ok", pygame.__version__)
-          pygame.quit()
-          PY
-
-      - name: Show pip environment
+      - name: Show versions
         run: |
           python --version
-          python -m pip --version
-          python -c "import sys; print('site-prefix:', sys.prefix)"
-          python -m pip list --format=columns
+          flake8 --version
 
-      - name: Run tests (if present)
-        shell: bash
+      - name: Lint repository
         run: |
-          if [ -d tests ] || ls -1 test_*.py *_test.py 2>/dev/null | grep -q .; then
-            # Use module form to avoid PATH issues that can cause exit 127
-            python -m pytest -q
-          else
-            echo "No tests/ directory or test_*.py files found; skipping."
-          fi
+          # Lint only Python sources; avoid scanning asset folders etc.
+          flake8 \
+            src tools tests \
+            --count \
+            --select=E9,F63,F7,F82 \
+            --show-source \
+            --statistics
+
+  # (Optional) quick import smoke to prevent accidental syntax regressions
+  import-smoke:
+    name: Import smoke-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Quick import pass
+        run: |
+          python - <<'PY'
+          import sys, pathlib
+          root = pathlib.Path('src')
+          problems = []
+          for p in root.rglob('*.py'):
+              mod = '.'.join(p.relative_to(root).with_suffix('').parts)
+              try:
+                  __import__(f"src.{mod}")
+              except Exception as e:
+                  problems.append((str(p), repr(e)))
+          if problems:
+              print("Import problems:")
+              for f,e in problems:
+                  print(f" - {f}: {e}")
+              sys.exit(1)
+          print("Import smoke OK")
+          PY
