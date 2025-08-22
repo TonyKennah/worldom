@@ -1,98 +1,19 @@
-# assets.py
-# Lightweight, robust helpers to locate and load assets in common project layouts.
-# Improved with: better search roots, optional caching, placeholders, headless safety
-# hooks, post-display reconversion, and extra utilities — while preserving the
-# original public API and behavior.
+# src/ui/assets.py
+# Lightweight helpers to locate and load assets in common project layouts.
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-from typing import Any
-
-# Compute the repository root:
-#   this file:       <repo>/src/ui/assets.py
-#   repo root guess: parent of parent of parent
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-
-# Ensure the repo root is on sys.path so `import assets` will succeed
-# even when Python is invoked from a different working directory (as in CI).
-repo_root_str = str(_REPO_ROOT)
-if repo_root_str not in sys.path:
-    sys.path.append(repo_root_str)
-
-try:
-    # Import the authoritative implementation
-    from assets import *  # type: ignore  # re-export public API
-    # Optionally expose __all__ if the root module defines it
-    try:
-        from assets import __all__  # type: ignore
-    except Exception:
-        # Build a simple __all__ from globals if not provided
-        __all__ = [n for n, v in globals().items() if not n.startswith("_") and callable(v) or isinstance(v, (int, float, str, list, dict, tuple))]
-except Exception as _err:
-    # Fallback minimal stubs so that imports still succeed with clear guidance.
-    # These raise informative runtime errors if used without the root assets module.
-    __all__ = ["resolve_path", "load_image", "load_images", "load_images_dict",
-               "load_frames_from_dir", "load_spritesheet", "load_sound", "load_font"]
-
-    def _missing(*_a: Any, **_kw: Any) -> Any:  # pragma: no cover
-        raise RuntimeError(
-            "src.ui.assets could not import the root-level 'assets' module. "
-            "Ensure the project root is on PYTHONPATH or that 'assets.py' exists at repo root."
-        )
-
-    resolve_path = _missing
-    load_image = _missing
-    load_images = _missing
-    load_images_dict = _missing
-    load_frames_from_dir = _missing
-    load_spritesheet = _missing
-    load_sound = _missing
-    load_font = _missing
-    )
-except Exception as _e:  # Last-resort fallback: provide minimal stubs
-    import pygame
-
-    def _missing(*_args, **_kwargs):
-        raise RuntimeError(
-            "assets shim couldn't import the top-level 'assets.py'. "
-            "Ensure it exists or adjust your import path."
-        )
-
-    add_search_root = _missing
-    set_search_roots = _missing
-    resolve_path = _missing
-    find_all_paths = _missing
-    load_image = _missing
-    load_images = _missing
-    load_images_dict = _missing
-    load_frames_from_dir = _missing
-    load_spritesheet = _missing
-    load_sound = _missing
-    load_font = _missing
-
-__all__ = [
-    "add_search_root", "set_search_roots", "resolve_path", "find_all_paths",
-    "load_image", "load_images", "load_images_dict", "load_frames_from_dir",
-    "load_spritesheet", "load_sound", "load_font",
-]
-
-from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Iterable, List, Optional, Sequence, Tuple, Dict, Any
+from typing import Iterable, List, Optional, Sequence, Tuple, Dict
 import os
 import re
-import fnmatch
-import threading
 
 import pygame
 
-
-# ======================================================================================
+# --------------------------------------------------------------------------------------
 # Configuration / search strategy
-# ======================================================================================
+# --------------------------------------------------------------------------------------
 
 # Allow the game to push extra search roots at runtime (e.g., mod folders)
 _EXTRA_ROOTS: List[Path] = []
@@ -105,16 +26,10 @@ _DEFAULT_IMAGE_SUBDIRS: Tuple[str, ...] = ("assets", "image", "images", "img", "
 _DEFAULT_AUDIO_SUBDIRS: Tuple[str, ...] = ("assets/audio", "assets/sound", "audio", "sound", "sfx")
 _DEFAULT_FONT_SUBDIRS: Tuple[str, ...] = ("assets/fonts", "assets/font", "fonts")
 
-# Logging verbosity (set WORLDDOM_ASSETS_VERBOSE=1 to enable)
-_ASSETS_VERBOSE = os.environ.get("WORLDDOM_ASSETS_VERBOSE", "0") not in ("", "0", "false", "False")
 
-# Thread-safety for caches
-_LOCK = threading.RLock()
-
-
-# ======================================================================================
-# Public API: search roots control (unchanged and extended)
-# ======================================================================================
+# --------------------------------------------------------------------------------------
+# Public API: search roots control
+# --------------------------------------------------------------------------------------
 
 def add_search_root(path: str | os.PathLike) -> None:
     """Register an additional root directory to scan for assets."""
@@ -130,41 +45,9 @@ def set_search_roots(paths: Iterable[str | os.PathLike]) -> None:
         add_search_root(p)
 
 
-def get_search_roots() -> List[str]:
-    """Return the current list of candidate roots (for diagnostics/UI)."""
-    return [str(p) for p in _candidate_roots()]
-
-
-class temporary_search_root:
-    """
-    Context manager to temporarily add a root (e.g., for a mod or test).
-    Example:
-        with temporary_search_root("mods/awesome_pack"):
-            surf = load_image("ui/icon.png")
-    """
-    def __init__(self, path: str | os.PathLike) -> None:
-        self._p = Path(path).expanduser().resolve()
-        self._added = False
-
-    def __enter__(self):
-        if self._p.exists() and self._p.is_dir() and self._p not in _EXTRA_ROOTS:
-            _EXTRA_ROOTS.append(self._p)
-            self._added = True
-        return self
-
-    def __exit__(self, *exc):
-        if self._added and self._p in _EXTRA_ROOTS:
-            _EXTRA_ROOTS.remove(self._p)
-
-
-# ======================================================================================
+# --------------------------------------------------------------------------------------
 # Internal helpers
-# ======================================================================================
-
-def _log(msg: str) -> None:
-    if _ASSETS_VERBOSE:
-        print(f"[assets] {msg}")
-
+# --------------------------------------------------------------------------------------
 
 def _natural_key(s: str):
     """Natural sort key: frame_2 before frame_10."""
@@ -225,7 +108,8 @@ def _case_insensitive_match(dirpath: Path, target: str) -> Optional[Path]:
     if not dirpath.exists() or not dirpath.is_dir():
         return None
     lower = target.lower()
-    for entry in dirpath.iterdir():
+    parent = dirpath
+    for entry in parent.iterdir():
         if entry.name.lower() == lower:
             return entry
     return None
@@ -234,14 +118,14 @@ def _case_insensitive_match(dirpath: Path, target: str) -> Optional[Path]:
 def _can_convert_alpha() -> bool:
     """Only call convert/convert_alpha if a display surface exists."""
     try:
-        return pygame.display.get_init() and pygame.display.get_surface() is not None
+        return pygame.get_init() and pygame.display.get_surface() is not None
     except Exception:
         return False
 
 
-# ======================================================================================
-# Path resolution (unchanged public signatures)
-# ======================================================================================
+# --------------------------------------------------------------------------------------
+# Path resolution
+# --------------------------------------------------------------------------------------
 
 @lru_cache(maxsize=4096)
 def resolve_path(
@@ -286,8 +170,7 @@ def resolve_path(
 
             # case-insensitive fallback
             if allow_case_insensitive:
-                alt_parent = candidate_dir / target.parent if target.parent != Path(".") else candidate_dir
-                alt = _case_insensitive_match(alt_parent, target.name)
+                alt = _case_insensitive_match(candidate_dir / target.parent, target.name)
                 if alt and alt.exists():
                     return str(alt.resolve())
 
@@ -323,8 +206,7 @@ def find_all_paths(
                 continue
 
             if allow_case_insensitive:
-                alt_parent = candidate_dir / target.parent if target.parent != Path(".") else candidate_dir
-                alt = _case_insensitive_match(alt_parent, target.name)
+                alt = _case_insensitive_match(candidate_dir / target.parent, target.name)
                 if alt and alt.exists():
                     found.append(str(alt.resolve()))
                     continue
@@ -345,73 +227,9 @@ def find_all_paths(
     return out
 
 
-# ======================================================================================
-# Caching / stats (NEW but transparent to existing users)
-# ======================================================================================
-
-@dataclass
-class CacheStats:
-    images: int = 0
-    sounds: int = 0
-    fonts: int = 0
-
-
-# Keyed by (resolved_path, scale, colorkey)
-_IMAGE_CACHE: Dict[Tuple[str, Optional[Tuple[int, int]], Optional[Tuple[int, int, int]]], pygame.Surface] = {}
-# Simple caches keyed by resolved path or tuple(path, size, bold, italic)
-_SOUND_CACHE: Dict[str, pygame.mixer.Sound] = {}
-_FONT_CACHE: Dict[Tuple[Optional[str], int, bool, bool], pygame.font.Font] = {}
-_CACHE_STATS = CacheStats()
-
-
-def clear_caches() -> None:
-    """Clear all in-memory asset caches."""
-    with _LOCK:
-        _IMAGE_CACHE.clear()
-        _SOUND_CACHE.clear()
-        _FONT_CACHE.clear()
-        _CACHE_STATS.images = _CACHE_STATS.sounds = _CACHE_STATS.fonts = 0
-
-
-def reconvert_cached_surfaces() -> int:
-    """
-    After you create a real display surface, call this once to convert any
-    already-cached images to the display format for faster blitting.
-    Returns the count of surfaces reconverted.
-    """
-    if not _can_convert_alpha():
-        return 0
-    count = 0
-    with _LOCK:
-        for key, surf in list(_IMAGE_CACHE.items()):
-            # Recreate via load path to ensure correct convert_alpha
-            path, scale, colorkey = key
-            try:
-                original = pygame.image.load(path)
-                if _can_convert_alpha():
-                    original = original.convert_alpha()
-                if colorkey is not None:
-                    original.set_colorkey(colorkey)
-                if scale:
-                    original = pygame.transform.smoothscale(original, scale)
-                _IMAGE_CACHE[key] = original
-                count += 1
-            except Exception:
-                pass
-    return count
-
-
-# ======================================================================================
-# Image loading (unchanged public signatures, improved internals)
-# ======================================================================================
-
-def _ensure_font_module() -> None:
-    try:
-        if not pygame.font.get_init():
-            pygame.font.init()
-    except Exception:
-        pass
-
+# --------------------------------------------------------------------------------------
+# Image loading
+# --------------------------------------------------------------------------------------
 
 def _placeholder_surface(size: Tuple[int, int] = (64, 64), text: str = "?") -> pygame.Surface:
     """Generate a simple magenta placeholder for missing images."""
@@ -420,7 +238,6 @@ def _placeholder_surface(size: Tuple[int, int] = (64, 64), text: str = "?") -> p
     pygame.draw.line(surf, (0, 0, 0), (0, 0), (size[0], size[1]), 3)
     pygame.draw.line(surf, (0, 0, 0), (0, size[1]), (size[0], 0), 3)
     try:
-        _ensure_font_module()
         fnt = pygame.font.SysFont("Arial", max(10, size[0] // 4))
         txt = fnt.render(text, True, (255, 255, 255))
         rect = txt.get_rect(center=(size[0] // 2, size[1] // 2))
@@ -448,29 +265,20 @@ def load_image(
     """
     p = resolve_path(name, subdirs, extensions=(".png", ".jpg", ".jpeg", ".bmp", ".gif"))
     if not p:
-        _log(f"Info: image '{name}' not found in {subdirs}.")
+        print(f"[assets] Info: image '{name}' not found in {subdirs}.")
         if fallback is None:
             return _placeholder_surface()
         return fallback
-
-    cache_key = (p, scale, colorkey)
-    with _LOCK:
-        cached = _IMAGE_CACHE.get(cache_key)
-    if cached is not None:
-        return cached
 
     try:
         surf = pygame.image.load(p)
         # Apply convert/convert_alpha only if the display is set up
         if _can_convert_alpha():
-            surf = surf.convert_alpha() if surf.get_alpha() is not None else surf.convert()
+            surf = surf.convert_alpha()
         if colorkey is not None:
             surf.set_colorkey(colorkey)
         if scale:
             surf = pygame.transform.smoothscale(surf, scale)
-        with _LOCK:
-            _IMAGE_CACHE[cache_key] = surf
-            _CACHE_STATS.images = len(_IMAGE_CACHE)
         return surf
     except pygame.error as e:
         print(f"[assets] Error loading '{p}': {e}")
@@ -479,7 +287,7 @@ def load_image(
 
 def load_images(
     names: Iterable[str],
-    subdirs: Tuple[str, ...] = _DEFAULT_IMAGE_SUBDIRS
+    subdirs: Tuple[str, ...] = _DEFAULT_IMAGE_SUBDIRS,
 ) -> List[pygame.Surface]:
     """Load a list of images; skip missing gracefully, returning placeholders."""
     out: List[pygame.Surface] = []
@@ -492,7 +300,7 @@ def load_images(
 
 def load_images_dict(
     names: Iterable[str],
-    subdirs: Tuple[str, ...] = _DEFAULT_IMAGE_SUBDIRS
+    subdirs: Tuple[str, ...] = _DEFAULT_IMAGE_SUBDIRS,
 ) -> Dict[str, pygame.Surface]:
     """Load a mapping of name->Surface (useful for atlases)."""
     return {name: (load_image(name, subdirs=subdirs) or _placeholder_surface()) for name in names}
@@ -503,56 +311,31 @@ def load_frames_from_dir(
     pattern_suffix: str = ".png",
     *,
     sort_natural: bool = True,
-    recursive: bool = False,
-    glob: Optional[str] = None,
 ) -> List[pygame.Surface]:
     """
     Load all frames in a folder inside common image subdirs.
-
-    Args:
-        directory: Directory to scan (looked up via resolve_path with image subdirs).
-        pattern_suffix: Only files with this suffix are loaded if `glob` is None.
-        sort_natural: Use natural sorting ("frame_2" before "frame_10").
-        recursive: Recurse into subdirectories.
-        glob: Optional fnmatch pattern (e.g. "frame_*.png"). Overrides suffix filter.
-
-    Example:
-        load_frames_from_dir("globe_frames") -> [frame_000.png, ...]
+    Example: load_frames_from_dir("globe_frames") -> [frame_000.png, ...]
     """
     # Try resolving a directory (with typical subdirs)
     dir_path = resolve_path(directory, subdirs=_DEFAULT_IMAGE_SUBDIRS)
     if not dir_path:
-        _log(f"Info: directory '{directory}' not found in {_DEFAULT_IMAGE_SUBDIRS}.")
+        print(f"[assets] Info: directory '{directory}' not found in {_DEFAULT_IMAGE_SUBDIRS}.")
         return []
 
-    root = Path(dir_path)
-    if not root.is_dir():
+    path = Path(dir_path)
+    if not path.is_dir():
         # Perhaps a nested path? Try parent dir
-        root = Path(dir_path).parent
+        path = Path(dir_path).parent
 
-    def matches(p: Path) -> bool:
-        if glob:
-            return fnmatch.fnmatch(p.name, glob)
-        return p.suffix.lower() == pattern_suffix.lower()
-
-    files: List[Path] = []
-    if recursive:
-        for p in root.rglob("*"):
-            if p.is_file() and matches(p):
-                files.append(p)
-    else:
-        for p in root.iterdir():
-            if p.is_file() and matches(p):
-                files.append(p)
-
-    files.sort(key=(lambda p: _natural_key(p.name)) if sort_natural else None)
+    files = [p for p in path.iterdir() if p.is_file() and p.suffix.lower() == pattern_suffix.lower()]
+    files.sort(key=_natural_key if sort_natural else None)
 
     frames: List[pygame.Surface] = []
     for f in files:
         try:
             img = pygame.image.load(str(f))
             if _can_convert_alpha():
-                img = img.convert_alpha() if img.get_alpha() is not None else img.convert()
+                img = img.convert_alpha()
             frames.append(img)
         except pygame.error as e:
             print(f"[assets] Error loading frame '{f}': {e}")
@@ -563,7 +346,7 @@ def load_spritesheet(
     name: str,
     frame_w: int,
     frame_h: int,
-    subdirs: Tuple[str, ...] = _DEFAULT_IMAGE_SUBDIRS
+    subdirs: Tuple[str, ...] = _DEFAULT_IMAGE_SUBDIRS,
 ) -> List[pygame.Surface]:
     """
     Load a spritesheet and slice into frames of (frame_w, frame_h).
@@ -582,37 +365,27 @@ def load_spritesheet(
     return frames
 
 
-# ======================================================================================
-# Sound & font loading (optional conveniences, unchanged signatures, cached)
-# ======================================================================================
+# --------------------------------------------------------------------------------------
+# Sound & font loading (optional conveniences)
+# --------------------------------------------------------------------------------------
 
 def load_sound(
     name: str,
-    subdirs: Tuple[str, ...] = _DEFAULT_AUDIO_SUBDIRS
+    subdirs: Tuple[str, ...] = _DEFAULT_AUDIO_SUBDIRS,
 ) -> Optional[pygame.mixer.Sound]:
     """
     Load a sound if mixer is initialized; otherwise return None and log info.
     """
     if not pygame.mixer.get_init():
-        _log("Info: mixer not initialized; skipping sound load.")
+        print("[assets] Info: mixer not initialized; skipping sound load.")
         return None
 
     p = resolve_path(name, subdirs=subdirs, extensions=(".ogg", ".wav", ".mp3"))
     if not p:
-        _log(f"Info: sound '{name}' not found in {subdirs}.")
+        print(f"[assets] Info: sound '{name}' not found in {subdirs}.")
         return None
-
-    with _LOCK:
-        snd = _SOUND_CACHE.get(p)
-    if snd is not None:
-        return snd
-
     try:
-        snd = pygame.mixer.Sound(p)
-        with _LOCK:
-            _SOUND_CACHE[p] = snd
-            _CACHE_STATS.sounds = len(_SOUND_CACHE)
-        return snd
+        return pygame.mixer.Sound(p)
     except pygame.error as e:
         print(f"[assets] Error loading sound '{p}': {e}")
         return None
@@ -624,96 +397,17 @@ def load_font(
     subdirs: Tuple[str, ...] = _DEFAULT_FONT_SUBDIRS,
     *,
     bold: bool = False,
-    italic: bool = False
+    italic: bool = False,
 ) -> pygame.font.Font:
     """
     Load a TTF/OTF font from assets if available; otherwise use SysFont.
-    Fonts are cached by (resolved_path or None, size, bold, italic) to avoid
-    recreating handles repeatedly.
     """
-    _ensure_font_module()
+    p = resolve_path(name_or_sysfont, subdirs=subdirs, extensions=(".ttf", ".otf"))
+    if p:
+        try:
+            return pygame.font.Font(p, size)
+        except Exception as e:
+            print(f"[assets] Error loading font '{p}': {e}")
 
-    resolved = resolve_path(name_or_sysfont, subdirs=subdirs, extensions=(".ttf", ".otf"))
-    cache_key = (resolved if resolved else None, size, bold, italic)
-
-    with _LOCK:
-        cached = _FONT_CACHE.get(cache_key)
-    if cached is not None:
-        return cached
-
-    try:
-        if resolved:
-            font = pygame.font.Font(resolved, size)
-        else:
-            # Fallback: system font
-            font = pygame.font.SysFont(name_or_sysfont, size, bold=bold, italic=italic)
-    except Exception as e:
-        print(f"[assets] Error loading font '{resolved or name_or_sysfont}': {e}")
-        # Last-ditch fallback
-        font = pygame.font.SysFont("Arial", size, bold=bold, italic=italic)
-
-    with _LOCK:
-        _FONT_CACHE[cache_key] = font
-        _CACHE_STATS.fonts = len(_FONT_CACHE)
-    return font
-
-
-# ======================================================================================
-# Small general-purpose helpers (NEW, non-breaking)
-# ======================================================================================
-
-def warmup_headless_for_assets() -> None:
-    """
-    Useful in CI/tests: if no display is active, set SDL_VIDEODRIVER=dummy and
-    create a tiny surface so convert_alpha() is safe during imports.
-    """
-    try:
-        if not pygame.display.get_init():
-            os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
-            os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
-            pygame.display.init()
-        if pygame.display.get_surface() is None:
-            pygame.display.set_mode((2, 2))
-    except Exception:
-        pass
-
-
-def list_assets_in_subdir(
-    subdir: str,
-    *,
-    glob: str = "*",
-    include_dirs: bool = False
-) -> List[str]:
-    """
-    Enumerate assets that exist under the first matching root/subdir.
-    This is handy for debug UIs or editor pickers.
-    """
-    path = resolve_path(subdir, subdirs=("",))  # interpret subdir as path-like
-    if not path:
-        # Try common roots + subdir directly
-        for root in _candidate_roots():
-            p = (root / subdir).resolve()
-            if p.exists() and p.is_dir():
-                path = str(p)
-                break
-    if not path:
-        return []
-
-    base = Path(path)
-    items: List[str] = []
-    for entry in base.iterdir():
-        if not include_dirs and entry.is_dir():
-            continue
-        if fnmatch.fnmatch(entry.name, glob):
-            items.append(str(entry.resolve()))
-    return items
-
-
-def cache_stats() -> CacheStats:
-    """Shallow copy of current cache counters."""
-    return CacheStats(images=_CACHE_STATS.images, sounds=_CACHE_STATS.sounds, fonts=_CACHE_STATS.fonts)
-
-
-# ======================================================================================
-# End of module
-# ======================================================================================
+    # Fallback: system font
+    return pygame.font.SysFont(name_or_sysfont, size, bold=bold, italic=italic)
