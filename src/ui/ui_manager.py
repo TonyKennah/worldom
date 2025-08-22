@@ -85,7 +85,8 @@ def toggle_help_overlay(self) -> None:
     # DRAW
     # -------------------------------------------------------------------------
     def draw_ui(self) -> None:
-    """Draws all UI elements, called once per frame."""
+        """Draws all UI elements, called once per frame."""
+    
     # --- Selection box ---
     sb = self.game.world_state.selection_box
     if sb:
