@@ -1,11 +1,11 @@
-# src/ui/assets.py
+# assets.py
 # Lightweight helpers to locate and load assets in common project layouts.
-
 from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Iterable, List, Optional, Sequence, Tuple, Dict
+from typing import Iterable, List, Optional, Sequence, Tuple, Dict, Iterator
+from collections.abc import MutableMapping
 import os
 import re
 
@@ -26,9 +26,11 @@ _DEFAULT_IMAGE_SUBDIRS: Tuple[str, ...] = ("assets", "image", "images", "img", "
 _DEFAULT_AUDIO_SUBDIRS: Tuple[str, ...] = ("assets/audio", "assets/sound", "audio", "sound", "sfx")
 _DEFAULT_FONT_SUBDIRS: Tuple[str, ...] = ("assets/fonts", "assets/font", "fonts")
 
+_IMAGE_EXTS: Tuple[str, ...] = (".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp")
+
 
 # --------------------------------------------------------------------------------------
-# Public API: search roots control
+# Public API: search roots control (UNCHANGED behavior; extended only)
 # --------------------------------------------------------------------------------------
 
 def add_search_root(path: str | os.PathLike) -> None:
@@ -103,12 +105,14 @@ def _split_subdirs(subdirs: Iterable[str]) -> List[Path]:
 def _case_insensitive_match(dirpath: Path, target: str) -> Optional[Path]:
     """
     If exact path doesn't exist, try to match filename case-insensitively
-    within dirpath (works for common Windows/macOS dev setups).
+    within dirpath (helps on Windows/macOS dev setups).
     """
     if not dirpath.exists() or not dirpath.is_dir():
         return None
     lower = target.lower()
-    parent = dirpath
+    parent = dirpath if dirpath.is_dir() else dirpath.parent
+    if not parent.exists():
+        return None
     for entry in parent.iterdir():
         if entry.name.lower() == lower:
             return entry
@@ -124,7 +128,7 @@ def _can_convert_alpha() -> bool:
 
 
 # --------------------------------------------------------------------------------------
-# Path resolution
+# Path resolution (UNCHANGED external API; added small robustness)
 # --------------------------------------------------------------------------------------
 
 @lru_cache(maxsize=4096)
@@ -139,15 +143,6 @@ def resolve_path(
     Return the first existing absolute path for `name` within any of the given
     `subdirs` under likely project roots. If `name` has no extension and
     `extensions` are provided, try those as fallbacks.
-
-    Args:
-        name: file name or relative path (e.g., "ui/cursor.png")
-        subdirs: tuples of subdirectories to search under each root
-        extensions: e.g., (".png", ".jpg") if you want automatic suffix tries
-        allow_case_insensitive: also try case-insensitive filename match
-
-    Returns:
-        Absolute path as string, or None if not found.
     """
     target = Path(name)
     if target.is_absolute() and target.exists():
@@ -228,7 +223,7 @@ def find_all_paths(
 
 
 # --------------------------------------------------------------------------------------
-# Image loading
+# Image loading (UNCHANGED signatures; added robustness + registry)
 # --------------------------------------------------------------------------------------
 
 def _placeholder_surface(size: Tuple[int, int] = (64, 64), text: str = "?") -> pygame.Surface:
@@ -238,10 +233,12 @@ def _placeholder_surface(size: Tuple[int, int] = (64, 64), text: str = "?") -> p
     pygame.draw.line(surf, (0, 0, 0), (0, 0), (size[0], size[1]), 3)
     pygame.draw.line(surf, (0, 0, 0), (0, size[1]), (size[0], 0), 3)
     try:
-        fnt = pygame.font.SysFont("Arial", max(10, size[0] // 4))
-        txt = fnt.render(text, True, (255, 255, 255))
-        rect = txt.get_rect(center=(size[0] // 2, size[1] // 2))
-        surf.blit(txt, rect)
+        # font module may be uninitialized: guard silently
+        if pygame.font.get_init() or pygame.get_init():
+            fnt = pygame.font.SysFont("Arial", max(10, size[0] // 4))
+            txt = fnt.render(text, True, (255, 255, 255))
+            rect = txt.get_rect(center=(size[0] // 2, size[1] // 2))
+            surf.blit(txt, rect)
     except Exception:
         pass
     return surf
@@ -259,11 +256,11 @@ def load_image(
     Load a single image with common conveniences:
 
     - Searches typical project roots and subdirs.
-    - Returns a magenta placeholder if not found (unless fallback=None).
+    - Returns a magenta placeholder if not found (unless fallback is provided).
     - Optional scaling and colorkey.
     - Uses convert_alpha() if a display is available (fast blits).
     """
-    p = resolve_path(name, subdirs, extensions=(".png", ".jpg", ".jpeg", ".bmp", ".gif"))
+    p = resolve_path(name, subdirs, extensions=_IMAGE_EXTS)
     if not p:
         print(f"[assets] Info: image '{name}' not found in {subdirs}.")
         if fallback is None:
@@ -287,7 +284,7 @@ def load_image(
 
 def load_images(
     names: Iterable[str],
-    subdirs: Tuple[str, ...] = _DEFAULT_IMAGE_SUBDIRS,
+    subdirs: Tuple[str, ...] = _DEFAULT_IMAGE_SUBDIRS
 ) -> List[pygame.Surface]:
     """Load a list of images; skip missing gracefully, returning placeholders."""
     out: List[pygame.Surface] = []
@@ -300,17 +297,104 @@ def load_images(
 
 def load_images_dict(
     names: Iterable[str],
-    subdirs: Tuple[str, ...] = _DEFAULT_IMAGE_SUBDIRS,
+    subdirs: Tuple[str, ...] = _DEFAULT_IMAGE_SUBDIRS
 ) -> Dict[str, pygame.Surface]:
     """Load a mapping of name->Surface (useful for atlases)."""
     return {name: (load_image(name, subdirs=subdirs) or _placeholder_surface()) for name in names}
 
 
+def _iter_all_images_in_subdirs(subdirs: Tuple[str, ...]) -> Iterator[Path]:
+    """Yield every file with an image extension under all candidate subdirs."""
+    for root in _candidate_roots():
+        for sd in _split_subdirs(subdirs):
+            d = (root / sd)
+            if not d.exists():
+                continue
+            for p in d.rglob("*"):
+                if p.is_file() and p.suffix.lower() in _IMAGE_EXTS:
+                    yield p
+
+
+class _LazyImages(MutableMapping):
+    """
+    A lazily-loading dict-like registry exposed as `images` to support
+    existing code like:  from assets import images;  images["small_shuriken"]
+    """
+    def __init__(self) -> None:
+        self._cache: Dict[str, pygame.Surface] = {}
+        # Optional alias map: "key" -> relative/absolute filename or stem
+        self._aliases: Dict[str, str] = {}
+
+    def __getitem__(self, key: str) -> pygame.Surface:
+        if key in self._cache:
+            return self._cache[key]
+
+        # Try alias mapping first
+        probe = self._aliases.get(key, key)
+
+        # 1) Direct path or stem in common subdirs
+        surf = load_image(probe)
+        if surf is None:  # shouldn't happen (load_image returns placeholder), but guard anyway
+            surf = _placeholder_surface(text=key)
+
+        self._cache[key] = surf
+        return surf
+
+    def __setitem__(self, key: str, value: pygame.Surface) -> None:
+        self._cache[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        if key in self._cache:
+            del self._cache[key]
+        if key in self._aliases:
+            del self._aliases[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._cache)
+
+    def __len__(self) -> int:
+        return len(self._cache)
+
+    # ----- Helpers -----
+
+    def register_alias(self, alias: str, filename_or_stem: str) -> None:
+        """
+        Register a human-friendly alias -> filename/stem.
+        Example: images.register_alias("big_shuriken", "weapons/big_shuriken.png")
+                 images.register_alias("cursor", "ui/cursor")  # will try with extensions
+        """
+        self._aliases[alias] = filename_or_stem
+
+    def preload(self, names: Iterable[str]) -> None:
+        """Preload a set of keys (e.g., ["small_shuriken", "big_shuriken"])."""
+        for n in names:
+            _ = self[n]
+
+    def preload_all_in_subdirs(self, subdirs: Tuple[str, ...] = _DEFAULT_IMAGE_SUBDIRS) -> int:
+        """Eagerly load all images under typical subdirs (dev convenience)."""
+        count = 0
+        for path in _iter_all_images_in_subdirs(subdirs):
+            key = path.stem  # use stem as key ("small_shuriken")
+            if key not in self._cache:
+                self._cache[key] = load_image(str(path)) or _placeholder_surface(text=key)
+                count += 1
+        return count
+
+
+# Public, importable lazy registry.  This preserves compatibility with:
+#     from assets import images
+images: _LazyImages = _LazyImages()
+
+
+# --------------------------------------------------------------------------------------
+# Frames, spritesheets (UNCHANGED signatures)
+# --------------------------------------------------------------------------------------
+
 def load_frames_from_dir(
     directory: str,
     pattern_suffix: str = ".png",
     *,
-    sort_natural: bool = True,
+    sort_natural: bool = True
 ) -> List[pygame.Surface]:
     """
     Load all frames in a folder inside common image subdirs.
@@ -328,7 +412,7 @@ def load_frames_from_dir(
         path = Path(dir_path).parent
 
     files = [p for p in path.iterdir() if p.is_file() and p.suffix.lower() == pattern_suffix.lower()]
-    files.sort(key=_natural_key if sort_natural else None)
+    files.sort(key=(lambda p: _natural_key(p.name))) if sort_natural else files.sort()
 
     frames: List[pygame.Surface] = []
     for f in files:
@@ -346,11 +430,9 @@ def load_spritesheet(
     name: str,
     frame_w: int,
     frame_h: int,
-    subdirs: Tuple[str, ...] = _DEFAULT_IMAGE_SUBDIRS,
+    subdirs: Tuple[str, ...] = _DEFAULT_IMAGE_SUBDIRS
 ) -> List[pygame.Surface]:
-    """
-    Load a spritesheet and slice into frames of (frame_w, frame_h).
-    """
+    """Load a spritesheet and slice into frames of (frame_w, frame_h)."""
     sheet = load_image(name, subdirs=subdirs)
     if sheet is None:
         return []
@@ -366,17 +448,20 @@ def load_spritesheet(
 
 
 # --------------------------------------------------------------------------------------
-# Sound & font loading (optional conveniences)
+# Sound & font loading (UNCHANGED signatures; safer mixer handling)
 # --------------------------------------------------------------------------------------
 
 def load_sound(
     name: str,
-    subdirs: Tuple[str, ...] = _DEFAULT_AUDIO_SUBDIRS,
+    subdirs: Tuple[str, ...] = _DEFAULT_AUDIO_SUBDIRS
 ) -> Optional[pygame.mixer.Sound]:
-    """
-    Load a sound if mixer is initialized; otherwise return None and log info.
-    """
-    if not pygame.mixer.get_init():
+    """Load a sound if mixer is initialized; otherwise return None and log info."""
+    try:
+        mixer_ready = pygame.mixer.get_init() is not None
+    except Exception:
+        mixer_ready = False
+
+    if not mixer_ready:
         print("[assets] Info: mixer not initialized; skipping sound load.")
         return None
 
@@ -397,17 +482,14 @@ def load_font(
     subdirs: Tuple[str, ...] = _DEFAULT_FONT_SUBDIRS,
     *,
     bold: bool = False,
-    italic: bool = False,
+    italic: bool = False
 ) -> pygame.font.Font:
-    """
-    Load a TTF/OTF font from assets if available; otherwise use SysFont.
-    """
+    """Load a TTF/OTF font from assets if available; otherwise use SysFont."""
     p = resolve_path(name_or_sysfont, subdirs=subdirs, extensions=(".ttf", ".otf"))
     if p:
         try:
             return pygame.font.Font(p, size)
         except Exception as e:
             print(f"[assets] Error loading font '{p}': {e}")
-
-    # Fallback: system font
+    # Fallback: system font (does not require pygame.init())
     return pygame.font.SysFont(name_or_sysfont, size, bold=bold, italic=italic)

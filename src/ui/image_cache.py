@@ -1,44 +1,35 @@
-# image_cache.py
-# Tiny LRU cache for scaled (thumbnail) versions of pygame surfaces.
+# c:/prj/WorldDom/src/ui/image_cache.py
 from __future__ import annotations
-from collections import OrderedDict
-from typing import Tuple
 import pygame
+from typing import Dict, Tuple
 
 
 class ScaledImageCache:
     """
-    Cache scaled versions of pygame surfaces to avoid repeated transform cost.
-    Keyed by (id(surface), size, smooth_flag).
+    Cache scaled versions of a pygame.Surface keyed by (id(surface), size, smooth).
+    Saves a lot of CPU when repeatedly scaling weapon or galaxy sprites.
     """
+    def __init__(self) -> None:
+        self._cache: Dict[Tuple[int, int, bool], pygame.Surface] = {}
 
-    def __init__(self, capacity: int = 256) -> None:
-        self.capacity = int(max(16, capacity))
-        self._store: "OrderedDict[Tuple[int, int, bool], pygame.Surface]" = OrderedDict()
+    def get(self, surface: pygame.Surface, size: int, smooth: bool = True) -> pygame.Surface:
+        """
+        Returns a square scaled version of `surface` with edge length `size`.
+        """
+        key = (id(surface), int(size), bool(smooth))
+        hit = self._cache.get(key)
+        if hit:
+            return hit
 
-    def _make_key(self, surf: pygame.Surface, size: int, smooth: bool) -> Tuple[int, int, bool]:
-        return (id(surf), size, bool(smooth))
+        # Create scaled sprite
+        target_size = (int(size), int(size))
+        if smooth:
+            scaled = pygame.transform.smoothscale(surface, target_size)
+        else:
+            scaled = pygame.transform.scale(surface, target_size)
 
-    def get(self, surf: pygame.Surface, size: int, *, smooth: bool = True) -> pygame.Surface:
-        size = max(1, int(size))
-        key = self._make_key(surf, size, smooth)
-
-        if key in self._store:
-            s = self._store.pop(key)
-            self._store[key] = s  # move to end (MRU)
-            return s
-
-        # create
-        w, h = surf.get_width(), surf.get_height()
-        scale = size / max(w, h)
-        new_size = (max(1, int(w * scale)), max(1, int(h * scale)))
-        scaled = pygame.transform.smoothscale(surf, new_size) if smooth else pygame.transform.scale(surf, new_size)
-
-        # evict if needed
-        if len(self._store) >= self.capacity:
-            self._store.popitem(last=False)
-        self._store[key] = scaled
+        self._cache[key] = scaled
         return scaled
 
     def clear(self) -> None:
-        self._store.clear()
+        self._cache.clear()

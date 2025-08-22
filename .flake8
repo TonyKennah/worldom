@@ -1,0 +1,18 @@
+[flake8]
+# Keep line length sensible for Pygame projects that do a lot of tuple math.
+max-line-length = 100
+# Match Black/PEP8 interoperability (W503/E203 are known false-positives with Black spacing).
+extend-ignore = E203, W503
+# Don’t lint generated or build artifacts
+exclude =
+    .git,
+    __pycache__,
+    build,
+    dist
+
+# In practice, some modules use optional imports for runtime checks,
+# and some packages declare symbols at __init__.py that look unused to flake8.
+per-file-ignores =
+    src/__init__.py:F401
+    # Allow optional imports and platform guards here if needed later:
+    tools/env_check.py:E402

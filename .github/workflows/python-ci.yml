@@ -1,0 +1,66 @@
+name: Python CI
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    branches:
+      - "**"
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip wheel
+          # If requirements/lockfiles exist, use them; otherwise continue.
+          (pip install -r requirements.txt || true)
+          (pip install -r requirements-dev.txt || true)
+          # Ensure these are present for linting and headless environments
+          pip install flake8 pytest
+          # Pygame + noise are used by this repo; install wheels that work on CI
+          pip install "pygame==2.6.*" "noise==1.2.*"
+
+      - name: Lint (flake8)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Adjust or add ignores/config with a .flake8 file if needed
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Run the full ruleset but don't fail the build on style-only issues
+          flake8 . || true
+
+      - name: Run tests (if present)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Run pytest; treat "no tests collected" (exit 5) as success so CI doesn't fail
+          pytest -q || {
+            code=$?
+            if [ "$code" -eq 5 ]; then
+              echo "No tests collected — skipping."
+              exit 0
+            fi
+            exit "$code"
+          }

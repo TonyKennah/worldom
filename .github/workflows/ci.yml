@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    name: Lint (flake8)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          # Use 3.11+ so flake8 parses PEP 604/585 type hints used in the repo
+          python-version: '3.11'
+
+      - name: Install flake8
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8==7.1.0
+
+      - name: Show versions
+        run: |
+          python --version
+          flake8 --version
+
+      - name: Lint repository
+        run: |
+          # Lint only Python sources; avoid scanning asset folders etc.
+          flake8 \
+            src tools tests \
+            --count \
+            --select=E9,F63,F7,F82 \
+            --show-source \
+            --statistics
+
+  import-smoke:
+    name: Import smoke-test
+    runs-on: ubuntu-latest
+    env:
+      SDL_VIDEODRIVER: dummy  # allow pygame import in headless CI
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install runtime deps used by imports
+        run: |
+          python -m pip install --upgrade pip
+          # Light deps commonly imported across the repo
+          pip install "pygame==2.6.*" "noise==1.2.*" pillow
+
+      - name: Quick import pass
+        run: |
+          python - <<'PY'
+          import sys, pathlib
+
+          root = pathlib.Path('src')
+          problems = []
+          for p in root.rglob('*.py'):
+              # Build import path like src.entities.unit
+              mod = '.'.join(p.relative_to(root).with_suffix('').parts)
+              try:
+                  __import__(f"src.{mod}")
+              except Exception as e:
+                  problems.append((str(p), repr(e)))
+
+          if problems:
+              print("Import problems:")
+              for f, e in problems:
+                  print(f" - {f}: {e}")
+              sys.exit(1)
+          print("Import smoke OK")
+          PY
