@@ -1,3 +1,3 @@
 # tools/__init__.py
-"""Utility/maintenance tools for the repository."""
-__all__ = []
+"""Helper tools package (CI-safe)."""
+__all__ = ["repo_doctor"]
