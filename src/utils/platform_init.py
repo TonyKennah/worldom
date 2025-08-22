@@ -74,4 +74,3 @@ def clamp_dt(dt: float, *, min_dt: float = 1/400, max_dt: float = 1/30) -> float
     """
     return max(min_dt, min(max_dt, dt))
 
-def some_function(..., flags: int = 0) -> Tuple[pygame.Surface, pygame.time.Clock]:
