@@ -5,32 +5,51 @@
 # original public API and behavior.
 
 from __future__ import annotations
-"""
-Compatibility shim for projects that import assets helpers from `src.ui.assets`
-while the real implementation lives at top-level `assets.py`.
 
-This re-exports the public API so both import styles work:
-    from assets import load_image
-    from src.ui.assets import load_image
-"""
+import sys
+from pathlib import Path
+from typing import Any
 
-from typing import Iterable, List, Optional, Sequence, Tuple, Dict
+# Compute the repository root:
+#   this file:       <repo>/src/ui/assets.py
+#   repo root guess: parent of parent of parent
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# Import the real implementation
+# Ensure the repo root is on sys.path so `import assets` will succeed
+# even when Python is invoked from a different working directory (as in CI).
+repo_root_str = str(_REPO_ROOT)
+if repo_root_str not in sys.path:
+    sys.path.append(repo_root_str)
+
 try:
-    # Prefer the top-level file you've already got in the repo.
-    from assets import (                     # type: ignore
-        add_search_root,
-        set_search_roots,
-        resolve_path,
-        find_all_paths,
-        load_image,
-        load_images,
-        load_images_dict,
-        load_frames_from_dir,
-        load_spritesheet,
-        load_sound,
-        load_font,
+    # Import the authoritative implementation
+    from assets import *  # type: ignore  # re-export public API
+    # Optionally expose __all__ if the root module defines it
+    try:
+        from assets import __all__  # type: ignore
+    except Exception:
+        # Build a simple __all__ from globals if not provided
+        __all__ = [n for n, v in globals().items() if not n.startswith("_") and callable(v) or isinstance(v, (int, float, str, list, dict, tuple))]
+except Exception as _err:
+    # Fallback minimal stubs so that imports still succeed with clear guidance.
+    # These raise informative runtime errors if used without the root assets module.
+    __all__ = ["resolve_path", "load_image", "load_images", "load_images_dict",
+               "load_frames_from_dir", "load_spritesheet", "load_sound", "load_font"]
+
+    def _missing(*_a: Any, **_kw: Any) -> Any:  # pragma: no cover
+        raise RuntimeError(
+            "src.ui.assets could not import the root-level 'assets' module. "
+            "Ensure the project root is on PYTHONPATH or that 'assets.py' exists at repo root."
+        )
+
+    resolve_path = _missing
+    load_image = _missing
+    load_images = _missing
+    load_images_dict = _missing
+    load_frames_from_dir = _missing
+    load_spritesheet = _missing
+    load_sound = _missing
+    load_font = _missing
     )
 except Exception as _e:  # Last-resort fallback: provide minimal stubs
     import pygame
