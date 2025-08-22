@@ -1,7 +1,7 @@
+# src/__init__.py
 """
-WorldDom src package marker.
+WorldDom source package.
 
-Having this file ensures `src` is treated as a package by Python,
-so imports like `import src.ui.starfield` work consistently in CI and locally.
+This file ensures `src` is treated as a proper package in environments where
+namespace packages (PEP 420) are not relied upon.
 """
-__all__: list[str] = []
