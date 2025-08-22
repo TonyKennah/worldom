@@ -5,6 +5,59 @@
 # original public API and behavior.
 
 from __future__ import annotations
+"""
+Compatibility shim for projects that import assets helpers from `src.ui.assets`
+while the real implementation lives at top-level `assets.py`.
+
+This re-exports the public API so both import styles work:
+    from assets import load_image
+    from src.ui.assets import load_image
+"""
+
+from typing import Iterable, List, Optional, Sequence, Tuple, Dict
+
+# Import the real implementation
+try:
+    # Prefer the top-level file you've already got in the repo.
+    from assets import (                     # type: ignore
+        add_search_root,
+        set_search_roots,
+        resolve_path,
+        find_all_paths,
+        load_image,
+        load_images,
+        load_images_dict,
+        load_frames_from_dir,
+        load_spritesheet,
+        load_sound,
+        load_font,
+    )
+except Exception as _e:  # Last-resort fallback: provide minimal stubs
+    import pygame
+
+    def _missing(*_args, **_kwargs):
+        raise RuntimeError(
+            "assets shim couldn't import the top-level 'assets.py'. "
+            "Ensure it exists or adjust your import path."
+        )
+
+    add_search_root = _missing
+    set_search_roots = _missing
+    resolve_path = _missing
+    find_all_paths = _missing
+    load_image = _missing
+    load_images = _missing
+    load_images_dict = _missing
+    load_frames_from_dir = _missing
+    load_spritesheet = _missing
+    load_sound = _missing
+    load_font = _missing
+
+__all__ = [
+    "add_search_root", "set_search_roots", "resolve_path", "find_all_paths",
+    "load_image", "load_images", "load_images_dict", "load_frames_from_dir",
+    "load_spritesheet", "load_sound", "load_font",
+]
 
 from dataclasses import dataclass
 from functools import lru_cache
