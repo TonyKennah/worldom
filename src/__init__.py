@@ -1,9 +1,7 @@
-# --- FILE: src/__init__.py
 """
-Top-level package marker for WorldDom.
+WorldDom src package marker.
 
-Having an __init__ here ensures imports like
-`from src.utils.settings import ...` work consistently on all environments,
-including tools and test runners that don't inject the project root to sys.path.
+Having this file ensures `src` is treated as a package by Python,
+so imports like `import src.ui.starfield` work consistently in CI and locally.
 """
-__all__ = ["core", "ui", "entities", "world", "utils", "rendering"]
+__all__: list[str] = []
