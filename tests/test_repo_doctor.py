@@ -3,10 +3,17 @@
 Smoke-run the tiny repo_doctor in headless mode to mirror the CI step.
 Runs very quickly (< 0.3s) and never opens a real window.
 """
-import os
-import sys
+import json
 import subprocess
+import sys
 from pathlib import Path
+
+def test_repo_doctor_cli_json_ok():
+    root = Path(__file__).resolve().parents[1]
+    cmd = [sys.executable, "-m", "tools.repo_doctor", "--cwd", str(root), "--format", "json", "--no-fail"]
+    out = subprocess.check_output(cmd, text=True)
+    data = json.loads(out)
+    assert "python_files" in data and "non_python_files" in data and "root" in data
 
 def test_repo_doctor_headless_smoke_runs():
     os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
