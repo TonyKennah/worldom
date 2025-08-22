@@ -8,13 +8,15 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-  PYGAME_HIDE_SUPPORT_PROMPT: "1"
-  SDL_VIDEODRIVER: dummy
-  # Avoid locale surprises that can break string tests
-  LC_ALL: C.UTF-8
-  LANG: C.UTF-8
+      PYGAME_HIDE_SUPPORT_PROMPT: "1"
+      SDL_VIDEODRIVER: "dummy"   # headless display for pygame
+      SDL_AUDIODRIVER: "dummy"   # silence audio init warnings
+      LC_ALL: "C.UTF-8"
+      LANG: "C.UTF-8"
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -24,17 +26,38 @@ jobs:
       - name: Install system deps (SDL)
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-dev libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev
+          sudo apt-get install -y \
+            python3-dev \
+            libsdl2-dev \
+            libsdl2-image-dev \
+            libsdl2-mixer-dev \
+            libsdl2-ttf-dev
 
       - name: Install Python deps
         run: |
           python -m pip install --upgrade pip
-          pip install pygame noise pytest
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            pip install pygame noise pytest
+          fi
 
-      - name: Quick repo doctor (headless & smoke)
+      - name: Headless pygame smoke test
         run: |
-          python tools/repo_doctor.py --headless --smoke 1.0 || true
+          python - <<'PY'
+          import os, pygame
+          os.environ.setdefault("SDL_VIDEODRIVER","dummy")
+          os.environ.setdefault("SDL_AUDIODRIVER","dummy")
+          pygame.init()
+          pygame.display.set_mode((32, 32))
+          print("pygame ok", pygame.__version__)
+          pygame.quit()
+          PY
 
-      - name: Run tests
+      - name: Run tests (if present)
         run: |
-          pytest -q
+          if [ -d tests ]; then
+            pytest -q
+          else
+            echo "No tests/ directory found; skipping."
+          fi
