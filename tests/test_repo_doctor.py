@@ -3,6 +3,10 @@
 Smoke-run the tiny repo_doctor in headless mode to mirror the CI step.
 Runs very quickly (< 0.3s) and never opens a real window.
 """
+import os  # needed for os.environ.setdefault in this test module
+os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 import json
 import subprocess
 import sys
@@ -15,10 +19,7 @@ def test_repo_doctor_cli_json_ok():
     data = json.loads(out)
     assert "python_files" in data and "non_python_files" in data and "root" in data
 
-def test_repo_doctor_headless_smoke_runs():
-    os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
-    os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
-    os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
+
 
     script = Path("tools") / "repo_doctor.py"
     assert script.exists(), "tools/repo_doctor.py must exist for CI workflow"
