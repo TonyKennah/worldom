@@ -1,8 +1,15 @@
 # camera_types.py
 from __future__ import annotations
-from typing import Protocol, Tuple
-import pygame
+from bisect import bisect_left
+from typing import Sequence
 
+DEFAULT_ZOOM_STEPS: Sequence[float] = (0.25, 0.33, 0.5, 0.66, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 4.0)
+
+def snap_zoom(z: float, steps: Sequence[float] = DEFAULT_ZOOM_STEPS) -> float:
+    i = bisect_left(steps, z)
+    if i == 0:   return steps[0]
+    if i == len(steps): return steps[-1]
+    return steps[i] if abs(steps[i]-z) < abs(z-steps[i-1]) else steps[i-1]
 
 class CameraLike(Protocol):
     """
