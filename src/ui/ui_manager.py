@@ -48,7 +48,7 @@ class UIManager:
         self._minimap_tile_px: int = 1
         self._minimap_margin: int = 12
 def toggle_help_overlay(self) -> None:
-    self.help_overlay.toggle()
+    self.help_overlay = getattr(self, "help_overlay", None)
     
     # -------------------------------------------------------------------------
     # UPDATE
