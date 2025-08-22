@@ -4,7 +4,8 @@ from __future__ import annotations
 import os
 import sys
 import platform
-from typing import Tuple, Optional
+import pygame
+from typing import Tuple 
 
 def apply_platform_tweaks(*, headless: bool = False) -> None:
     """
@@ -72,3 +73,5 @@ def clamp_dt(dt: float, *, min_dt: float = 1/400, max_dt: float = 1/30) -> float
     Defaults are conservative and engine-agnostic.
     """
     return max(min_dt, min(max_dt, dt))
+
+def some_function(..., flags: int = 0) -> Tuple[pygame.Surface, pygame.time.Clock]:
