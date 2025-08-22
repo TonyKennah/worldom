@@ -734,11 +734,11 @@ if __name__ == "__main__":
         print(f"Saved screenshot: {p.as_posix()}")
         return p.as_posix()
 
-# --- Late binding of accidentally outdented methods -------------------------
-# If __init__ (or other Game methods) were defined at top-level by mistake,
-# attach them back to the class so the code continues to work without re-indent.
-try:
-    Game.__init__ = __init__  # type: ignore[name-defined]
-except NameError:
-    # __init__ is already properly inside the class, nothing to do.
-    pass
+    # --- Late binding of accidentally outdented methods -------------------------
+    # If __init__ (or other Game methods) were defined at top-level by mistake,
+    # attach them back to the class so the code continues to work without re-indent.
+    try:
+        Game.__init__ = __init__  # type: ignore[name-defined]
+    except NameError:
+        # __init__ is already properly inside the class, nothing to do.
+        pass
