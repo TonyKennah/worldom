@@ -1,3 +1,11 @@
+"""
+A standalone script to generate frames for a rotating globe animation.
+
+This script uses matplotlib and cartopy to render a series of PNG images,
+each showing the Earth from a slightly different angle. These frames can then
+be loaded and displayed in sequence by a game engine like Pygame to create
+a smooth animation.
+"""
 import os
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
@@ -23,16 +31,16 @@ def create_globe_animation_frames():
         # Calculate the longitude for the center of the globe for this frame
         # We go from -180 to 180 to get a full 360-degree rotation
         longitude = -180 + (360 * i / num_frames)
-        
+
         # Create the plot
         # The projection is what makes it look like a globe
         projection = ccrs.Orthographic(central_longitude=longitude, central_latitude=20)
-        
+
         # dpi calculation to get the desired pixel size
-        dpi = image_size_pixels / 5 
+        dpi = image_size_pixels / 5
         fig = plt.figure(figsize=(5, 5), dpi=dpi)
         ax = fig.add_subplot(1, 1, 1, projection=projection)
-        
+
         # Set the extent to be global so the globe fills the image
         ax.set_global()
 
@@ -42,16 +50,16 @@ def create_globe_animation_frames():
         # You could also add land, ocean, borders, etc.
         # ax.add_feature(cartopy.feature.LAND, zorder=0, edgecolor='black')
         # ax.add_feature(cartopy.feature.OCEAN, zorder=0)
-        
+
         # --- Save the frame ---
         # Use zfill to pad the filename with zeros (e.g., frame_001.png)
         # This makes it easy to load them in order later
         filename = os.path.join(output_dir, f"frame_{str(i).zfill(3)}.png")
         plt.savefig(filename, dpi=dpi, transparent=True, bbox_inches='tight', pad_inches=0)
-        
+
         # Close the plot to free up memory
         plt.close(fig)
-        
+
         print(f"  - Saved {filename}")
 
     print("\nDone! All frames have been generated.")
