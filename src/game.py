@@ -565,7 +565,8 @@ class Game:
         self.globe_state.animation_timer += dt
         if self.globe_state.animation_timer >= settings.GLOBE_FRAME_DURATION:
             self.globe_state.animation_timer = 0
-            self.globe_state.frame_index = (self.globe_state.frame_index + 1) % len(self.globe_state.frames)
+            self.globe_state.frame_index = ((self.globe_state.frame_index + 1) 
+                                            % len(self.globe_state.frames))
 
     def _update_hovered_tile(self) -> None:
         """Calculates which map tile is currently under the mouse cursor."""
