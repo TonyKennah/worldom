@@ -529,10 +529,9 @@ class Game:
         # Convert screen rect to world rect to check for collisions with units
         world_topleft = self.camera.screen_to_world(selection_rect_screen.topleft)
         world_bottomright = self.camera.screen_to_world(selection_rect_screen.bottomright)
-        selection_rect_world = pygame.Rect(
-            world_topleft,
-            (world_bottomright.x - world_topleft.x, world_bottomright.y - world_topleft.y)
-        )
+        rect_width = world_bottomright.x - world_topleft.x
+        rect_height = world_bottomright.y - world_topleft.y
+        selection_rect_world = pygame.Rect(world_topleft, (rect_width, rect_height))
         selection_rect_world.normalize()
 
         for unit in self.world_state.units:
