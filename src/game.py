@@ -91,7 +91,9 @@ class DebugPanel:
             tile_info = f"({tile_x}, {tile_y}) ({terrain.capitalize()})"
             info_string += f" | Tile: {tile_info}"
 
-        text_surface = self.font.render(info_string, True, settings.DEBUG_PANEL_FONT_COLOR)
+        text_surface = self.font.render(
+            info_string, True, settings.DEBUG_PANEL_FONT_COLOR
+        )
         text_y = (settings.DEBUG_PANEL_HEIGHT - text_surface.get_height()) // 2
         game.screen.blit(text_surface, (10, text_y))
 
@@ -202,7 +204,8 @@ class Game:
         font = pygame.font.SysFont("Arial", 48)
         text = "Generating globe..." if progress is not None else "A new map is being created..."
         text_surface = font.render(text, True, settings.DEBUG_PANEL_FONT_COLOR)
-        text_rect = text_surface.get_rect(center=(settings.SCREEN_WIDTH / 2, settings.SCREEN_HEIGHT / 2))
+        center_pos = (settings.SCREEN_WIDTH / 2, settings.SCREEN_HEIGHT / 2)
+        text_rect = text_surface.get_rect(center=center_pos)
         self.screen.blit(text_surface, text_rect)
 
         if progress is not None:
