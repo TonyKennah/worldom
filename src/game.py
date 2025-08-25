@@ -128,7 +128,6 @@ class DebugPanel:
         """Draws the clickable 'Show Globe' link."""
         globe_text_surface = self.font.render("Show Globe", True, settings.DEBUG_PANEL_FONT_COLOR)
         # Position it to the left of the 'New' link, which must be drawn first.
-        new_width = self.new_link_rect.width if self.new_link_rect else 0
         spacing = 15
         globe_text_x = self.new_link_rect.left - globe_text_surface.get_width() - spacing
         globe_text_y = (settings.DEBUG_PANEL_HEIGHT - globe_text_surface.get_height()) // 2
@@ -378,7 +377,7 @@ class Game:
             if self.globe_state.is_showing:
                 self.globe_state.is_showing = False # Close popup on any click
                 return
-            elif self.world_state.context_menu.active:
+            if self.world_state.context_menu.active:
                 self._handle_context_menu_click(event.pos)
             else:
                 self.world_state.left_mouse_down_pos = event.pos
