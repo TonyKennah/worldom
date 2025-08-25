@@ -1,6 +1,6 @@
+import os
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
-import os
 
 def create_globe_animation_frames():
     """
@@ -61,4 +61,3 @@ if __name__ == '__main__':
     # Before running, make sure you have the required libraries:
     # pip install matplotlib cartopy
     create_globe_animation_frames()
-
