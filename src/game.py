@@ -53,6 +53,15 @@ class WorldState:
         self.selection_box: Optional[pygame.Rect] = None
         self.context_menu = ContextMenuState()
 
+class GlobeState:
+    """Encapsulates the state of the globe animation popup."""
+    # pylint: disable=too-few-public-methods
+    def __init__(self) -> None:
+        self.is_showing: bool = False
+        self.frames: List[pygame.Surface] = []
+        self.frame_index: int = 0
+        self.animation_timer: float = 0.0
+
 class DebugPanel:
     """Handles rendering and interaction for the top debug panel."""
     def __init__(self) -> None:
@@ -123,7 +132,9 @@ class DebugPanel:
         spacing = 15
         globe_text_x = self.new_link_rect.left - globe_text_surface.get_width() - spacing
         globe_text_y = (settings.DEBUG_PANEL_HEIGHT - globe_text_surface.get_height()) // 2
-        self.show_globe_link_rect = game.screen.blit(globe_text_surface, (globe_text_x, globe_text_y))
+        self.show_globe_link_rect = game.screen.blit(
+            globe_text_surface, (globe_text_x, globe_text_y)
+        )
 
     def draw(self, game: Game) -> None:
         """Renders the complete debug panel by calling its helper methods."""
@@ -137,7 +148,10 @@ class DebugPanel:
         self._draw_show_globe_link(game)
 
 # --- Game Class ---
+# The Game class is a central orchestrator, so having a few more attributes
+# than the default limit is acceptable here after refactoring.
 class Game:
+    # pylint: disable=too-many-instance-attributes
     """The main game class, orchestrating all game components."""
     def __init__(self) -> None:
         pygame.init()
@@ -183,10 +197,7 @@ class Game:
             self.camera.position = initial_unit.world_pos.copy()
 
         # --- Globe Animation State ---
-        self.show_globe_popup: bool = False
-        self.globe_frames: List[pygame.Surface] = []
-        self.globe_frame_index: int = 0
-        self.globe_animation_timer: float = 0.0
+        self.globe_state = GlobeState()
 
         # Generate and load the globe frames for the initial map
         # This loop will update the splash screen with a progress bar.
@@ -238,7 +249,7 @@ class Game:
 
     def _load_globe_frames(self, map_seed: int) -> None:
         """Loads the pre-rendered globe animation frames from disk."""
-        self.globe_frames.clear() # Clear frames from any previous map
+        self.globe_state.frames.clear() # Clear frames from any previous map
         frame_dir = f"globe_frames_{map_seed}"
         if not os.path.isdir(frame_dir):
             print(f"Warning: Globe animation directory not found at '{frame_dir}'")
@@ -247,8 +258,12 @@ class Game:
         try:
             # Get all .png files and sort them alphabetically to ensure correct order
             filenames = sorted([f for f in os.listdir(frame_dir) if f.endswith(".png")])
-            self.globe_frames = [pygame.image.load(os.path.join(frame_dir, f)).convert_alpha() for f in filenames]
-            print(f"Successfully loaded {len(self.globe_frames)} globe frames.")
+            self.globe_state.frames = []
+            for f in filenames:
+                full_path = os.path.join(frame_dir, f)
+                image = pygame.image.load(full_path).convert_alpha()
+                self.globe_state.frames.append(image)
+            print(f"Successfully loaded {len(self.globe_state.frames)} globe frames.")
         except pygame.error as e:
             print(f"Error loading globe frames: {e}")
 
@@ -306,8 +321,8 @@ class Game:
                 if event.key == pygame.K_ESCAPE:
                     # If the globe popup is open, Escape should close it.
                     # Otherwise, it should exit the game.
-                    if self.show_globe_popup:
-                        self.show_globe_popup = False
+                    if self.globe_state.is_showing:
+                        self.globe_state.is_showing = False
                     else:
                         self.running = False
             elif event.type == pygame.VIDEORESIZE:
@@ -330,7 +345,7 @@ class Game:
                 self._regenerate_map()
                 continue
             if action == "show_globe":
-                self.show_globe_popup = True
+                self.globe_state.is_showing = True
                 continue
 
             self._handle_mouse_events(event)
@@ -360,8 +375,8 @@ class Game:
             return
 
         if event.button == 1:
-            if self.show_globe_popup:
-                self.show_globe_popup = False # Close popup on any click
+            if self.globe_state.is_showing:
+                self.globe_state.is_showing = False # Close popup on any click
                 return
             elif self.world_state.context_menu.active:
                 self._handle_context_menu_click(event.pos)
@@ -542,17 +557,17 @@ class Game:
         else:
             self._update_hovered_tile()
 
-        if self.show_globe_popup:
+        if self.globe_state.is_showing:
             self._update_globe_animation(dt)
 
     def _update_globe_animation(self, dt: float) -> None:
         """Cycles through the globe animation frames based on a timer."""
-        if not self.globe_frames:
+        if not self.globe_state.frames:
             return
-        self.globe_animation_timer += dt
-        if self.globe_animation_timer >= settings.GLOBE_FRAME_DURATION:
-            self.globe_animation_timer = 0
-            self.globe_frame_index = (self.globe_frame_index + 1) % len(self.globe_frames)
+        self.globe_state.animation_timer += dt
+        if self.globe_state.animation_timer >= settings.GLOBE_FRAME_DURATION:
+            self.globe_state.animation_timer = 0
+            self.globe_state.frame_index = (self.globe_state.frame_index + 1) % len(self.globe_state.frames)
 
     def _update_hovered_tile(self) -> None:
         """Calculates which map tile is currently under the mouse cursor."""
@@ -588,7 +603,7 @@ class Game:
                              self.world_state.selection_box, settings.SELECTION_BOX_BORDER_WIDTH)
 
         # Draw globe popup if active
-        if self.show_globe_popup:
+        if self.globe_state.is_showing:
             self._draw_globe_popup()
 
         # Draw context menu if active
@@ -602,7 +617,7 @@ class Game:
 
     def _draw_globe_popup(self) -> None:
         """Draws the globe animation popup in the center of the screen."""
-        if not self.globe_frames:
+        if not self.globe_state.frames:
             # Optionally, draw a "no frames found" message
             return
 
@@ -612,7 +627,7 @@ class Game:
         self.screen.blit(overlay, (0, 0))
 
         # 2. Get the current frame and its size
-        current_frame = self.globe_frames[self.globe_frame_index]
+        current_frame = self.globe_state.frames[self.globe_state.frame_index]
         frame_rect = current_frame.get_rect()
 
         # 3. Define the popup box size (with padding)
