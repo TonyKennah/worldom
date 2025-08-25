@@ -3,14 +3,68 @@
 Handles the generation of globe animation frames based on map data.
 """
 import os
-from typing import Generator, List
+from typing import Generator, List, Tuple
 
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import ListedColormap
+from numpy.typing import NDArray
 
 import settings
+
+
+def _prepare_globe_data(map_data: List[List[str]]) -> Tuple[NDArray, NDArray, NDArray]:
+    """Converts map data to numerical grid and creates lat/lon coordinates."""
+    terrain_map = {'water': 0, 'sand': 1, 'grass': 2, 'rock': 3}
+    numerical_data = np.array(
+        [[terrain_map.get(cell, 0) for cell in row] for row in map_data]
+    )
+
+    map_height, map_width = numerical_data.shape
+    lons = np.linspace(-180, 180, map_width)
+    lats = np.linspace(90, -90, map_height)
+    lons, lats = np.meshgrid(lons, lats)
+    return numerical_data, lons, lats
+
+
+def _render_globe_frame(
+    frame_index: int,
+    frame_dir: str,
+    lons: NDArray,
+    lats: NDArray,
+    numerical_data: NDArray,
+    color_map: ListedColormap
+) -> None:
+    """Renders and saves a single frame of the globe animation."""
+    longitude = -180 + (360 * frame_index / settings.GLOBE_NUM_FRAMES)
+    projection = ccrs.Orthographic(central_longitude=longitude, central_latitude=20)
+    dpi = settings.GLOBE_IMAGE_SIZE_PIXELS / 5
+    fig = plt.figure(figsize=(5, 5), dpi=dpi)
+    ax = fig.add_subplot(1, 1, 1, projection=projection)
+    ax.set_global()
+
+    # Paint the map data onto the globe
+    ax.pcolormesh(
+        lons, lats, numerical_data,
+        transform=ccrs.PlateCarree(),
+        cmap=color_map,
+        shading='auto'
+    )
+    ax.coastlines(linewidth=0.5, color='white', alpha=0.5)
+
+    # Save the frame
+    filename = os.path.join(frame_dir, f"frame_{str(frame_index).zfill(3)}.png")
+    try:
+        plt.savefig(
+            filename, dpi=dpi, transparent=True,
+            bbox_inches='tight', pad_inches=0
+        )
+    except IOError as e:
+        print(f"Error saving frame {filename}: {e}")
+    finally:
+        # Close the plot to free up memory
+        plt.close(fig)
 
 
 def render_map_as_globe(map_data: List[List[str]], map_seed: int) -> Generator[float, None, None]:
@@ -32,56 +86,11 @@ def render_map_as_globe(map_data: List[List[str]], map_seed: int) -> Generator[f
     os.makedirs(frame_dir)
     print(f"Generating globe frames for map seed {map_seed} in '{frame_dir}/'...")
 
-    # --- Convert map data to a numerical grid for plotting ---
-    terrain_map = {'water': 0, 'sand': 1, 'grass': 2, 'rock': 3}
+    numerical_data, lons, lats = _prepare_globe_data(map_data)
     color_map = ListedColormap(settings.GLOBE_TERRAIN_COLORS)
-    numerical_data = np.array(
-        [[terrain_map.get(cell, 0) for cell in row] for row in map_data]
-    )
 
-    # --- Create longitude and latitude grids that span the globe ---
-    map_height, map_width = numerical_data.shape
-    lons = np.linspace(-180, 180, map_width)
-    lats = np.linspace(90, -90, map_height)
-    lons, lats = np.meshgrid(lons, lats)
-
-    # --- Frame Generation Loop ---
     for i in range(settings.GLOBE_NUM_FRAMES):
-        longitude = -180 + (360 * i / settings.GLOBE_NUM_FRAMES)
-
-        projection = ccrs.Orthographic(central_longitude=longitude, central_latitude=20)
-
-        dpi = settings.GLOBE_IMAGE_SIZE_PIXELS / 5
-        fig = plt.figure(figsize=(5, 5), dpi=dpi)
-        ax = fig.add_subplot(1, 1, 1, projection=projection)
-        ax.set_global()
-
-        # --- Paint the map data onto the globe ---
-        # We use pcolormesh which is efficient for grid data.
-        # The transform tells cartopy that our grid is a standard lat/lon map.
-        ax.pcolormesh(
-            lons, lats, numerical_data,
-            transform=ccrs.PlateCarree(),
-            cmap=color_map,
-            shading='auto'
-        )
-
-        # Optionally add coastlines for reference
-        ax.coastlines(linewidth=0.5, color='white', alpha=0.5)
-
-        # --- Save the frame ---
-        filename = os.path.join(frame_dir, f"frame_{str(i).zfill(3)}.png")
-        try:
-            plt.savefig(
-                filename, dpi=dpi, transparent=True,
-                bbox_inches='tight', pad_inches=0
-            )
-        except Exception as e:
-            print(f"Error saving frame {filename}: {e}")
-        finally:
-            # Close the plot to free up memory
-            plt.close(fig)
-
+        _render_globe_frame(i, frame_dir, lons, lats, numerical_data, color_map)
         # Yield the progress after each frame is saved
         yield (i + 1) / settings.GLOBE_NUM_FRAMES
 
