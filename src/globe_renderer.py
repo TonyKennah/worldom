@@ -3,7 +3,8 @@
 Handles the generation of globe animation frames based on map data.
 """
 import os
-from typing import Generator, List, Tuple
+from dataclasses import dataclass
+from typing import Generator, List
 
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
@@ -14,8 +15,17 @@ from numpy.typing import NDArray
 import settings
 
 
-def _prepare_globe_data(map_data: List[List[str]]) -> Tuple[NDArray, NDArray, NDArray]:
-    """Converts map data to numerical grid and creates lat/lon coordinates."""
+@dataclass
+class GlobeRenderData:
+    """Holds the data required to render the globe's surface."""
+    lons: NDArray
+    lats: NDArray
+    numerical_data: NDArray
+    color_map: ListedColormap
+
+
+def _prepare_globe_data(map_data: List[List[str]]) -> GlobeRenderData:
+    """Converts map data to numerical grid, creates lat/lon coordinates and colormap."""
     terrain_map = {'water': 0, 'sand': 1, 'grass': 2, 'rock': 3}
     numerical_data = np.array(
         [[terrain_map.get(cell, 0) for cell in row] for row in map_data]
@@ -25,16 +35,17 @@ def _prepare_globe_data(map_data: List[List[str]]) -> Tuple[NDArray, NDArray, ND
     lons = np.linspace(-180, 180, map_width)
     lats = np.linspace(90, -90, map_height)
     lons, lats = np.meshgrid(lons, lats)
-    return numerical_data, lons, lats
+    color_map = ListedColormap(settings.GLOBE_TERRAIN_COLORS)
+
+    return GlobeRenderData(
+        lons=lons, lats=lats, numerical_data=numerical_data, color_map=color_map
+    )
 
 
 def _render_globe_frame(
     frame_index: int,
     frame_dir: str,
-    lons: NDArray,
-    lats: NDArray,
-    numerical_data: NDArray,
-    color_map: ListedColormap
+    render_data: GlobeRenderData
 ) -> None:
     """Renders and saves a single frame of the globe animation."""
     longitude = -180 + (360 * frame_index / settings.GLOBE_NUM_FRAMES)
@@ -46,9 +57,9 @@ def _render_globe_frame(
 
     # Paint the map data onto the globe
     ax.pcolormesh(
-        lons, lats, numerical_data,
+        render_data.lons, render_data.lats, render_data.numerical_data,
         transform=ccrs.PlateCarree(),
-        cmap=color_map,
+        cmap=render_data.color_map,
         shading='auto'
     )
     ax.coastlines(linewidth=0.5, color='white', alpha=0.5)
@@ -86,11 +97,10 @@ def render_map_as_globe(map_data: List[List[str]], map_seed: int) -> Generator[f
     os.makedirs(frame_dir)
     print(f"Generating globe frames for map seed {map_seed} in '{frame_dir}/'...")
 
-    numerical_data, lons, lats = _prepare_globe_data(map_data)
-    color_map = ListedColormap(settings.GLOBE_TERRAIN_COLORS)
+    render_data = _prepare_globe_data(map_data)
 
     for i in range(settings.GLOBE_NUM_FRAMES):
-        _render_globe_frame(i, frame_dir, lons, lats, numerical_data, color_map)
+        _render_globe_frame(i, frame_dir, render_data)
         # Yield the progress after each frame is saved
         yield (i + 1) / settings.GLOBE_NUM_FRAMES
 
